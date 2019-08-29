@@ -208,19 +208,3 @@
     portions of this Software are embedded into the binary product as a result,
     you may redistribute such product without providing attribution as would
     otherwise be required by Sections 4(a), 4(b) and 4(d) of the License.
-
-
-## Copyrights and Licenses for Third Party Software Distributed with llbuild: ##
-
-The llbuild software contains code written by third parties.  Such software will
-have its own individual LICENSE.TXT file as part of its source or in the
-directory in which it appears.  This file will describe the copyrights, license,
-and restrictions which apply to that code.
-
-The following pieces of software have additional or alternate copyrights,
-licenses, and/or restrictions:
-
-Program             Directory
--------             ---------
-Google Test         llbuild/utils/unittest/googletest
-LLVM                llbuild/lib/llvm, llbuild/include/llvm

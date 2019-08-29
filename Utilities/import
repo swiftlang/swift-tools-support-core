@@ -1,0 +1,98 @@
+#!/bin/sh
+
+# This source file is part of the Swift.org open source project
+#
+# Copyright (c) 2019 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+#
+# -------------------------------------------------------------------------
+# This script is used to bootstrap the tools-support-core package from its
+# sources in the Swift Package Manager repository.
+#
+# It does so by copying the sources of its targets from the directory that gets
+# specified as the directory that contains the Swift package manager.
+#
+# See below for a list of all directories that get copied.
+
+EXEC_PATH=$0
+EXEC_DIR_NAME=`dirname $EXEC_PATH`
+TSC_PACKAGE_DIR=$EXEC_DIR_NAME/..
+
+TSC_TARGETS=(
+	TSCclibc
+	TSCBasic
+	TSCLibc
+	TSCTestSupport
+	TSCTestSupportExecutable
+	TSCUtility
+)
+
+TSC_TEST_TARGETS=(
+	TSCBasicPerformanceTests
+	TSCBasicTests
+	TSCTestSupportTests
+	TSCUtilityTests
+)
+
+function copySources {
+	local DIR=$1
+	shift
+	local SUB_DIR=$1
+	shift
+	local TARGETS=("$@")
+
+	# create the sub directory - don't mind if it exists already
+	mkdir $SUB_DIR &> /dev/null
+
+	ALL_EXIST=1
+	for TARGET in "${TARGETS[@]}"
+	do
+		SRC_DIR_PATH=$DIR/$SUB_DIR/$TARGET
+		if [ ! -d $SRC_DIR_PATH ]; then
+			echo "$SRC_DIR_PATH does not exist"
+			ALL_EXIST=0
+		fi
+	done
+
+	if [ $ALL_EXIST -ne 1 ]; then
+		echo "Aborting."
+		exit -1
+	fi
+
+	ALL_COPIED=1
+	for TARGET in "${TARGETS[@]}"
+	do
+		SRC_DIR_PATH=$DIR/$SUB_DIR/$TARGET
+		DST_DIR_PATH=$TSC_PACKAGE_DIR/$SUB_DIR/$TARGET
+		rm -rf $DST_DIR_PATH
+		cp -r $SRC_DIR_PATH $DST_DIR_PATH
+		if [ $? -ne 0 ]; then
+			echo "Couldn't copy $SRC_DIR_PATH to $DST_DIR_PATH."
+			ALL_COPIED=0
+		fi
+	done
+
+	if [ $ALL_COPIED -ne 1 ]; then
+		echo "Aborting."
+		exit -1
+	fi	
+}
+
+SWIFTPM_DIR="${1:-../swiftpm}"
+
+echo "Copying ${TSC_TARGETS[@]} from $SWIFTPM_DIR to $TSC_PACKAGE_DIR"
+copySources $SWIFTPM_DIR "Sources" "${TSC_TARGETS[@]}"
+echo "Done!"
+echo "Copying ${TSC_TEST_TARGETS[@]} from $SWIFTPM_DIR to $TSC_PACKAGE_DIR"
+copySources $SWIFTPM_DIR "Tests" "${TSC_TEST_TARGETS[@]}"
+echo "Done!"
+
+if [ -x "$(command -v swift)" ]; then
+	echo "Found 'swift' at `which swift`. Generating Linux main for unit tests."
+	swift test --generate-linuxmain
+else
+	echo "Didn't find 'swift' and will skip generating linux main for unit tests."
+fi
