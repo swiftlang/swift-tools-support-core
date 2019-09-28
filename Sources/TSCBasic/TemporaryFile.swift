@@ -45,14 +45,23 @@ private extension TempFileError {
 ///
 /// - Returns: Path to directory in which temporary file should be created.
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
-    // FIXME: Add other platform specific locations.
-    let tmpDir = dir ?? AbsolutePath(NSTemporaryDirectory())
+    let tmpDir = dir ?? cachedTempDirectory
     guard localFileSystem.isDirectory(tmpDir) else {
         throw TempFileError.couldNotFindTmpDir
     }
     return tmpDir
 }
 
+/// Returns temporary directory location by searching relevant env variables.
+///
+/// Evaluates once per execution.
+private var cachedTempDirectory: AbsolutePath = {
+    let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+    if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
+        return path
+    }
+    return AbsolutePath(NSTemporaryDirectory())
+}()
 
 /// The closure argument of the `body` closue of `withTemporaryFile`.
 public struct TemporaryFile {
@@ -86,7 +95,7 @@ public struct TemporaryFile {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = Array(path.pathString.utf8CString)
 
         fd = TSCLibc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.

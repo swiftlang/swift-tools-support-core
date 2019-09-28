@@ -9,7 +9,7 @@
  */
 
 import TSCBasic
-import clibc
+import TSCclibc
 
 public final class IndexStore {
 
