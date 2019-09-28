@@ -1,5 +1,5 @@
-module clibc {
-    header "clibc.h"
+module TSCclibc {
+    header "TSCclibc.h"
     header "indexstore_functions.h"
     export *
 }

@@ -17,4 +17,4 @@
 @_exported import Darwin.C
 #endif
 
-@_exported import clibc
+@_exported import TSCclibc
