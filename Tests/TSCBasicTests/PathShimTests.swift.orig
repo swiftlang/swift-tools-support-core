@@ -81,8 +81,8 @@ class WalkTests : XCTestCase {
     func testRecursive() {
         let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
-            root.appending(component: "TSCBasic"),
-            root.appending(component: "TSCUtility")
+            root.appending(component: "Build"),
+            root.appending(component: "Commands")
         ]
         for x in try! walk(root) {
             if let i = expected.firstIndex(of: x) {
