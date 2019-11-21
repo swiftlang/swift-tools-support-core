@@ -312,7 +312,7 @@ public final class Process: ObjectIdentifierProtocol {
         try _process?.run()
       #else
         // Initialize the spawn attributes.
-      #if canImport(Darwin)
+      #if canImport(Darwin) || os(Android)
         var attributes: posix_spawnattr_t? = nil
       #else
         var attributes = posix_spawnattr_t()
@@ -357,7 +357,7 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if canImport(Darwin)
+      #if canImport(Darwin) || os(Android)
         var fileActions: posix_spawn_file_actions_t? = nil
       #else
         var fileActions = posix_spawn_file_actions_t()
@@ -366,7 +366,10 @@ public final class Process: ObjectIdentifierProtocol {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
-        let devNull = strdup("/dev/null")
+        // Change allowing for newer version of glibc
+        guard let devNull = strdup("/dev/null") else {
+            throw SystemError.posix_spawn(0, arguments)
+        }
         defer { free(devNull) }
         // Open /dev/null as stdin.
         posix_spawn_file_actions_addopen(&fileActions, 0, devNull, O_RDONLY, 0)
@@ -392,7 +395,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         let argv = CStringArray(arguments)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = posix_spawnp(&processID, argv.cArray[0], &fileActions, &attributes, argv.cArray, env.cArray)
+        let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, arguments)
