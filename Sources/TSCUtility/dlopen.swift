@@ -55,12 +55,14 @@ public struct DLOpenFlags: RawRepresentable, OptionSet {
     public static let global: DLOpenFlags = DLOpenFlags(rawValue: RTLD_GLOBAL)
 
     // Platform-specific flags.
-  #if os(macOS)
+  #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
     public static let first: DLOpenFlags = DLOpenFlags(rawValue: RTLD_FIRST)
     public static let deepBind: DLOpenFlags = DLOpenFlags(rawValue: 0)
   #else
     public static let first: DLOpenFlags = DLOpenFlags(rawValue: 0)
+  #if !os(Android)
     public static let deepBind: DLOpenFlags = DLOpenFlags(rawValue: RTLD_DEEPBIND)
+  #endif
   #endif
   #endif
 
