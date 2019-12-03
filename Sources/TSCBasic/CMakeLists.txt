@@ -6,6 +6,12 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+if(CMAKE_VERSION VERSION_LESS 3.16)
+  if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+    link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+  endif()
+endif()
+
 add_library(TSCBasic
   Await.swift
   ByteString.swift
