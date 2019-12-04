@@ -6,6 +6,11 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+if(CMAKE_VERSION VERSION_LESS 3.16 AND CMAKE_SYSTEM_NAME STREQUAL Windows)
+  set(CMAKE_LINK_LIBRARY_FLAG "-l")
+  set(CMAKE_LINK_LIBRARY_SUFFIX "")
+endif()
+
 add_library(TSCUtility
   ArgumentParser.swift
   ArgumentParserShellCompletion.swift
