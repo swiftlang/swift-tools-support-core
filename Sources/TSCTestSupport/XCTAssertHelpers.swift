@@ -47,7 +47,7 @@ public func XCTAssertThrows<T: Swift.Error>(
     } catch let error as T {
         XCTAssertEqual(error, expectedError, file: file, line: line)
     } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
+        XCTFail("unexpected error thrown: \(error)", file: file, line: line)
     }
 }
 
@@ -61,9 +61,9 @@ public func XCTAssertThrows<T: Swift.Error, Ignore>(
         let result = try expression()
         XCTFail("body completed successfully: \(result)", file: file, line: line)
     } catch let error as T {
-        XCTAssertTrue(errorHandler(error), "Error handler returned false")
+        XCTAssertTrue(errorHandler(error), "Error handler returned false", file: file, line: line)
     } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
+        XCTFail("unexpected error thrown: \(error)", file: file, line: line)
     }
 }
 
@@ -80,6 +80,76 @@ public func XCTNonNil<T>(
         try body(optional)
     } catch {
         XCTFail("Unexpected error \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultSuccess<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    switch result {
+    case .success:
+        return
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultSuccess<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ body: (Success) throws -> Void
+) rethrows {
+    switch result {
+    case .success(let value):
+        try body(value)
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure:
+        return
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error, ExpectedFailure: Error>(
+    _ result: Result<Success, Failure>,
+    equals expectedError: ExpectedFailure,
+    file: StaticString = #file,
+    line: UInt = #line
+) where ExpectedFailure: Equatable {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure(let error as ExpectedFailure):
+        XCTAssertEqual(error, expectedError, file: file, line: line)
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ body: (Failure) throws -> Void
+) rethrows {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure(let error):
+        try body(error)
     }
 }
 
