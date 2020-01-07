@@ -687,8 +687,9 @@ public class InMemoryFileSystem: FileSystem {
     public func removeFileTree(_ path: AbsolutePath) throws {
         // Ignore root and get the parent node's content if its a directory.
         guard !path.isRoot,
-              let parent = try? getNode(path.parentDirectory),
-            case .directory(let contents) = parent.contents else {
+              let parentOpt = try? getNode(path.parentDirectory),
+              let parent = parentOpt,
+              case .directory(let contents) = parent.contents else {
             return
         }
         // Set it to nil to release the contents.
