@@ -59,6 +59,7 @@ extension CollectionExtensionsTests {
     // to regenerate.
     static let __allTests__CollectionExtensionsTests = [
         ("testOnly", testOnly),
+        ("testUniqueElements", testUniqueElements),
     ]
 }
 
