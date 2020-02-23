@@ -180,12 +180,9 @@ extension Int: ArgumentKind {
 
 extension Bool: ArgumentKind {
     public init(argument: String) throws {
-        switch argument {
-        case "true":
-            self = true
-        case "false":
-            self = false
-        default:
+        if let bool = Bool(argument) {
+            self = bool
+        } else {
             throw ArgumentConversionError.unknown(value: argument)
         }
     }
