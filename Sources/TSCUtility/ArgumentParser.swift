@@ -126,7 +126,7 @@ public enum Shell: String, StringEnumArgument {
     ])
 }
 
-/// Various shell completion modes supplied by ArgumentKind.
+/// Various shell completions modes supplied by ArgumentKind.
 public enum ShellCompletion {
     /// Offers no completions at all.
     ///
