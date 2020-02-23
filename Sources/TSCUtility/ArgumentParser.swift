@@ -188,11 +188,11 @@ extension Int: ArgumentKind {
 
 extension Bool: ArgumentKind {
     public init(argument: String) throws {
-        if let bool = Bool(argument) {
-            self = bool
-        } else {
+        guard let bool = Bool(argument) else {
             throw ArgumentConversionError.unknown(value: argument)
         }
+
+        self = bool
     }
 
     public static var completion: ShellCompletion = .unspecified
