@@ -6,6 +6,8 @@ set(SWIFT_VERSION 5)
 set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
 if(CMAKE_VERSION VERSION_LESS 3.16)
     add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
+    # Workaround for CMake 3.15 which doesn't link libraries properly on Windows
+    set(CMAKE_LINK_LIBRARY_FLAG "-l")
 endif()
 
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
