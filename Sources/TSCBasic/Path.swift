@@ -397,8 +397,15 @@ private struct PathImpl: Hashable {
     /// the case if and only if there is no path separator).
     fileprivate var dirname: String {
 #if os(Windows)
-        let dir = string.deletingLastPathComponent
-        return dir == "" ? "." : dir
+        let fsr: UnsafePointer<Int8> = string.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let path: String = String(cString: fsr)
+        return path.withCString(encodedAs: UTF16.self) {
+          let data = UnsafeMutablePointer(mutating: $0)
+          PathCchRemoveFileSpec(data, path.count)
+          return String(decodingCString: data, as: UTF16.self)
+        }
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
