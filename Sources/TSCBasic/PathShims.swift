@@ -22,24 +22,11 @@ import Foundation
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
-    let pathStr = path.pathString
-
-    // FIXME: We can't use FileManager's destinationOfSymbolicLink because
-    // that implements readlink and not realpath.
-    if let resultPtr = TSCLibc.realpath(pathStr, nil) {
-        let result = String(cString: resultPtr)
-        // If `resolved_path` is specified as NULL, then `realpath` uses
-        // malloc(3) to allocate a buffer [...].  The caller should deallocate
-        // this buffer using free(3).
-        //
-        // String.init(cString:) creates a new string by copying the
-        // null-terminated UTF-8 data referenced by the given pointer.
-        resultPtr.deallocate()
-        // FIXME: We should measure if it's really more efficient to compare the strings first.
-        return result == pathStr ? path : AbsolutePath(result)
+    do {
+      return try AbsolutePath(FileManager.default.destinationOfSymbolicLink(atPath: path.pathString).standardizingPath)
+    } catch {
+      return AbsolutePath(path.pathString.standardizingPath)
     }
-
-    return path
 }
 
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
