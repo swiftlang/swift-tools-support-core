@@ -164,9 +164,21 @@ public struct AbsolutePath: Hashable {
         return isRoot ? self : AbsolutePath(_impl.dirname)
     }
 
+#if os(Windows)
+    internal var isDriveName: Bool {
+        return _impl.string.count == 2 &&
+            _impl.string.first!.isLetter && _impl.string.last! == ":"
+    }
+#endif
+
     /// True if the path is the root directory.
     public var isRoot: Bool {
+#if os(Windows)
+        return isDriveName ||
+            _impl.string.withCString(encodedAs: UTF16.self, PathCchIsRoot)
+#else
         return _impl.string.spm_only == "/"
+#endif
     }
 
     /// Returns the absolute path with the relative path applied.
