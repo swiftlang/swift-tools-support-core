@@ -64,7 +64,19 @@ public struct AbsolutePath: Hashable {
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
-        if str.hasPrefix("/") {
+        #if os(Windows)
+        var isRootPath = str.hasPrefix("/")
+        if !isRootPath {
+            let fsr: UnsafePointer<Int8> = str.fileSystemRepresentation
+            defer { fsr.deallocate() }
+
+            let realpath = String(cString: fsr)
+            isRootPath = !realpath.withCString(encodedAs: UTF16.self, PathIsRelativeW)
+        }
+        #else
+        let isRootPath = str.hasPrefix("/")
+        #endif
+        if isRootPath {
             self.init(str)
         } else {
             self.init(basePath, RelativePath(str))
@@ -225,7 +237,17 @@ public struct AbsolutePath: Hashable {
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var pathString: String {
+#if os(Windows)
+        // If it's a standard drive-letter path, just drop the leading slash.
+        if _impl.string.dropFirst(2).prefix(1) == ":" {
+            return replaceCharacter("/", in: _impl.string.dropFirst(), with: "\\")
+        } else {
+            // Form a UNC path.
+            return "\\\\?" + replaceCharacter("/", in: _impl.string, with: "\\")
+        }
+#else
         return _impl.string
+#endif
     }
 
     /// Returns an array of strings that make up the path components of the
@@ -396,10 +418,6 @@ private struct PathImpl: Hashable {
     /// string consisting of just `.` if there is no directory part (which is
     /// the case if and only if there is no path separator).
     fileprivate var dirname: String {
-#if os(Windows)
-        let dir = string.deletingLastPathComponent
-        return dir == "" ? "." : dir
-#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator.
@@ -415,7 +433,6 @@ private struct PathImpl: Hashable {
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
         return String(string.prefix(upTo: idx))
-#endif
     }
 
     fileprivate var basename: String {
@@ -593,8 +610,36 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
   #if os(Windows)
-    return string.standardizingPath
-  #else
+    precondition(!string.isEmpty)
+
+    var string = string
+    if string.first != "/" {
+        var normalizedString = "/"
+        normalizedString.reserveCapacity(string.utf8.count)
+        
+        // Paths fall into one of a few categories: (https://docs.microsoft.com/en-us/dotnet/standard/io/file-path-formats). 
+        // We only attempt to handle device paths (\\? or \\.), UNC paths (\\), and fully qualified DOS paths (C:\ or C:/).
+        // We also have our own path format starting with a slash, representing a UNIX-style TSC path.
+
+        let isDevicePath = string.prefix(3) == "\\\\?" || string.prefix(3) == "\\\\."
+        let isUNCPath = string.prefix(2) == "\\\\"
+        let isDOSPath = string.dropFirst().prefix(2) == ":\\" || string.dropFirst().prefix(2) == ":/"
+
+        if isDevicePath {
+            normalizedString.append(replaceCharacter("\\", in: string.dropFirst(3), with: "/"))
+        } else if isUNCPath {
+            normalizedString.append(replaceCharacter("\\", in: string.dropFirst(2), with: "/"))
+        } else if isDOSPath {
+            normalizedString.append(string.first!)
+            normalizedString.append(":/")
+            normalizedString.append(replaceCharacter("\\", in: string.dropFirst(3), with: "/"))
+        } else {
+            preconditionFailure()
+        }
+        
+        string = normalizedString
+    }
+#endif
     precondition(string.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
 
     // At this point we expect to have a path separator as first character.
@@ -654,7 +699,10 @@ private func normalize(absolute string: String) -> String {
 
     // Use the result as our stored string.
     return result
-  #endif
+}
+
+private func replaceCharacter<S : StringProtocol>(_ character: Character, in string: S, with newCharacter: Character) -> String {
+    return String(string.lazy.map { $0 == character ? newCharacter : $0 })
 }
 
 /// Private function that normalizes and returns a relative string.  Asserts
@@ -663,8 +711,8 @@ private func normalize(absolute string: String) -> String {
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
   #if os(Windows)
-    return string.standardizingPath
-  #else
+    let string = replaceCharacter("\\", in: string, with: "/")
+#endif
     precondition(string.first != "/")
 
     // FIXME: Here we should also keep track of whether anything actually has
@@ -725,5 +773,4 @@ private func normalize(relative string: String) -> String {
 
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result
-  #endif
 }
