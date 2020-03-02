@@ -290,7 +290,7 @@ public final class Process: ObjectIdentifierProtocol {
 
     #if os(Windows)
         _process = Foundation.Process()
-        _process?.arguments = arguments
+        _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
         _process?.executableURL = URL(fileURLWithPath: arguments[0])
 
         if outputRedirection.redirectsOutput {
