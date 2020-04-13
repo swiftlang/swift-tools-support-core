@@ -42,15 +42,21 @@ public struct PolymorphicCodable<T: PolymorphicCodableProtocol>: Codable {
     }
 }
 
-@propertyWrapper
-public struct PolymorphicCodableArray<T: PolymorphicCodableProtocol>: Codable {
-    public let value: [PolymorphicCodable<T>]
-
-    public init(wrappedValue value: [T]) {
-        self.value = value.map{ PolymorphicCodable(wrappedValue: $0) }
+extension Array: PolymorphicCodableProtocol where Element: PolymorphicCodableProtocol {
+    public static var implementations: [PolymorphicCodableProtocol.Type] {
+        return [Array<Element>.self]
     }
 
-    public var wrappedValue: [T] {
-        return value.map{ $0.value }
+    public func encode(to encoder: Encoder) throws {
+        try self.map{ PolymorphicCodable(wrappedValue: $0) }.encode(to: encoder)
+    }
+
+    public init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var items: [PolymorphicCodable<Element>] = []
+        while !container.isAtEnd {
+            items.append(try container.decode(PolymorphicCodable<Element>.self))
+        }
+        self = items.map{ $0.value }
     }
 }

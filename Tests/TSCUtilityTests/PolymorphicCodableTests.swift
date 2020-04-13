@@ -34,7 +34,7 @@ struct Animals: Codable {
     @PolymorphicCodable
     var animal2: Animal
 
-    @PolymorphicCodableArray
+    @PolymorphicCodable
     var animals: [Animal]
 }
 
