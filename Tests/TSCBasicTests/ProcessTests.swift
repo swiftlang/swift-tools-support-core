@@ -211,32 +211,40 @@ class ProcessTests: XCTestCase {
         }
     }
 
-  #if os(macOS)
     func testWorkingDirectory() throws {
-        if #available(macOS 10.15, *) {
-            try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-                let parentPath = tempDirPath.appending(component: "file")
-                let childPath = tempDirPath.appending(component: "subdir").appending(component: "file")
+        guard #available(macOS 10.15, *) else {
+            // Skip this test since it's not supported in this OS.
+            return
+        }
 
-                try localFileSystem.writeFileContents(parentPath, bytes: ByteString("parent"))
-                try localFileSystem.createDirectory(childPath.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
+      #if os(Linux)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            // Skip this test since it's not supported in this OS.
+            return
+        }
+      #endif
 
-                do {
-                    let process = Process(arguments: ["cat", "file"], workingDirectory: tempDirPath)
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    XCTAssertEqual(try result.utf8Output(), "parent")
-                }
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            let parentPath = tempDirPath.appending(component: "file")
+            let childPath = tempDirPath.appending(component: "subdir").appending(component: "file")
 
-                do {
-                    let process = Process(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    XCTAssertEqual(try result.utf8Output(), "child")
-                }
+            try localFileSystem.writeFileContents(parentPath, bytes: ByteString("parent"))
+            try localFileSystem.createDirectory(childPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
+
+            do {
+                let process = Process(arguments: ["cat", "file"], workingDirectory: tempDirPath)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                XCTAssertEqual(try result.utf8Output(), "parent")
+            }
+
+            do {
+                let process = Process(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                XCTAssertEqual(try result.utf8Output(), "child")
             }
         }
     }
-  #endif
 }

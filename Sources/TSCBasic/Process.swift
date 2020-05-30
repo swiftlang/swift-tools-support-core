@@ -121,6 +121,9 @@ public final class Process: ObjectIdentifierProtocol {
     public enum Error: Swift.Error {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
+
+        /// The current OS does not support the workingDirectory API.
+        case workingDirectoryNotSupported
     }
 
     public enum OutputRedirection {
@@ -226,7 +229,6 @@ public final class Process: ObjectIdentifierProtocol {
     /// Value: Path to the executable, if found.
     static private var validatedExecutablesMap = [String: AbsolutePath?]()
 
-  #if os(macOS)
     /// Create a new process instance.
     ///
     /// - Parameters:
@@ -254,7 +256,6 @@ public final class Process: ObjectIdentifierProtocol {
         self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
     }
-  #endif
 
     /// Create a new process instance.
     ///
@@ -404,16 +405,24 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
-      #if os(macOS)
         if let workingDirectory = workingDirectory?.pathString {
+          #if os(macOS)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
             // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
             // exists here to make the compiler happy.
             if #available(macOS 10.15, *) {
                 posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             }
+          #elseif os(Linux)
+            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                throw Process.Error.workingDirectoryNotSupported
+            }
+
+            SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+          #else
+            throw Process.Error.workingDirectoryNotSupported
+          #endif
         }
-      #endif
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
         // Change allowing for newer version of glibc
@@ -691,6 +700,8 @@ extension Process.Error: CustomStringConvertible {
         switch self {
         case .missingExecutableProgram(let program):
             return "could not find executable for '\(program)'"
+        case .workingDirectoryNotSupported:
+            return "workingDirectory is not supported in this platform"
         }
     }
 }
