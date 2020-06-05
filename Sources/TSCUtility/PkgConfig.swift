@@ -80,7 +80,13 @@ public struct PCFileFinder {
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
         for path in OrderedSet(customSearchPaths + PCFileFinder.pkgConfigPaths! + PCFileFinder.searchPaths) {
-            let pcFile = path.appending(component: name + ".pc")
+            let pcFile: AbsolutePath
+            // If a name has ".pc" suffix, it is interpreted as an absolute path to the package file
+            if name.hasSuffix(".pc") {
+                pcFile = AbsolutePath(name)
+            } else {
+                pcFile = path.appending(component: name + ".pc")
+            }
             if fileSystem.isFile(pcFile) {
                 return pcFile
             }
