@@ -11,87 +11,74 @@
 import TSCLibc
 import Foundation
 
-public struct FileSystemError: Swift.Error, Equatable {
-    public enum Kind: Equatable {
-        /// Access to the path is denied.
-        ///
-        /// This is used when an operation cannot be completed because a component of
-        /// the path cannot be accessed.
-        ///
-        /// Used in situations that correspond to the POSIX EACCES error code.
-        case invalidAccess
+public enum FileSystemError: Swift.Error {
+    /// Access to the path is denied.
+    ///
+    /// This is used when an operation cannot be completed because a component of
+    /// the path cannot be accessed.
+    ///
+    /// Used in situations that correspond to the POSIX EACCES error code.
+    case invalidAccess
 
-        /// IO Error encoding
-        ///
-        /// This is used when an operation cannot be completed due to an otherwise
-        /// unspecified IO error.
-        case ioError(code: Int32)
+    /// IO Error encoding
+    ///
+    /// This is used when an operation cannot be completed due to an otherwise
+    /// unspecified IO error.
+    case ioError
 
-        /// Is a directory
-        ///
-        /// This is used when an operation cannot be completed because a component
-        /// of the path which was expected to be a file was not.
-        ///
-        /// Used in situations that correspond to the POSIX EISDIR error code.
-        case isDirectory
+    /// Is a directory
+    ///
+    /// This is used when an operation cannot be completed because a component
+    /// of the path which was expected to be a file was not.
+    ///
+    /// Used in situations that correspond to the POSIX EISDIR error code.
+    case isDirectory
 
-        /// No such path exists.
-        ///
-        /// This is used when a path specified does not exist, but it was expected
-        /// to.
-        ///
-        /// Used in situations that correspond to the POSIX ENOENT error code.
-        case noEntry
+    /// No such path exists.
+    ///
+    /// This is used when a path specified does not exist, but it was expected
+    /// to.
+    ///
+    /// Used in situations that correspond to the POSIX ENOENT error code.
+    case noEntry
 
-        /// Not a directory
-        ///
-        /// This is used when an operation cannot be completed because a component
-        /// of the path which was expected to be a directory was not.
-        ///
-        /// Used in situations that correspond to the POSIX ENOTDIR error code.
-        case notDirectory
+    /// Not a directory
+    ///
+    /// This is used when an operation cannot be completed because a component
+    /// of the path which was expected to be a directory was not.
+    ///
+    /// Used in situations that correspond to the POSIX ENOTDIR error code.
+    case notDirectory
 
-        /// Unsupported operation
-        ///
-        /// This is used when an operation is not supported by the concrete file
-        /// system implementation.
-        case unsupported
+    /// Unsupported operation
+    ///
+    /// This is used when an operation is not supported by the concrete file
+    /// system implementation.
+    case unsupported
 
-        /// An unspecific operating system error at a given path.
-        case unknownOSError
+    /// An unspecific operating system error.
+    case unknownOSError
 
-        /// File or folder already exists at destination.
-        ///
-        /// This is thrown when copying or moving a file or directory but the destination
-        /// path already contains a file or folder.
-        case alreadyExistsAtDestination
-    }
-
-    /// The kind of the error being raised.
-    public let kind: Kind
-
-    /// The absolute path to the file associated with the error, if available.
-    public let path: AbsolutePath?
-
-    public init(_ kind: Kind, _ path: AbsolutePath? = nil) {
-        self.kind = kind
-        self.path = path
-    }
+    /// File or folder already exists at destination.
+    ///
+    /// This is thrown when copying or moving a file or directory but the destination
+    /// path already contains a file or folder.
+    case alreadyExistsAtDestination
 }
 
 extension FileSystemError {
-    init(errno: Int32, _ path: AbsolutePath) {
+    init(errno: Int32) {
         switch errno {
         case TSCLibc.EACCES:
-            self.init(.invalidAccess, path)
+            self = .invalidAccess
         case TSCLibc.EISDIR:
-            self.init(.isDirectory, path)
+            self = .isDirectory
         case TSCLibc.ENOENT:
-            self.init(.noEntry, path)
+            self = .noEntry
         case TSCLibc.ENOTDIR:
-            self.init(.notDirectory, path)
+            self = .notDirectory
         default:
-            self.init(.unknownOSError, path)
+            self = .unknownOSError
         }
     }
 }
@@ -237,7 +224,7 @@ public extension FileSystem {
     // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         guard !atomically else {
-            throw FileSystemError(.unsupported, path)
+            throw FileSystemError.unsupported
         }
         try writeFileContents(path, bytes: bytes)
     }
@@ -251,7 +238,7 @@ public extension FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        throw FileSystemError(.unsupported, path)
+        throw FileSystemError.unsupported
     }
 }
 
@@ -299,11 +286,11 @@ private class LocalFileSystem: FileSystem {
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
         guard isDirectory(path) else {
-            throw FileSystemError(.notDirectory, path)
+            throw FileSystemError.notDirectory
         }
 
         guard FileManager.default.changeCurrentDirectoryPath(path.pathString) else {
-            throw FileSystemError(.unknownOSError, path)
+            throw FileSystemError.unknownOSError
         }
     }
 
@@ -340,7 +327,7 @@ private class LocalFileSystem: FileSystem {
         // Open the file.
         let fp = fopen(path.pathString, "rb")
         if fp == nil {
-            throw FileSystemError(errno: errno, path)
+            throw FileSystemError(errno: errno)
         }
         defer { fclose(fp) }
 
@@ -351,12 +338,11 @@ private class LocalFileSystem: FileSystem {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
             if n < 0 {
                 if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
+                throw FileSystemError.ioError
             }
             if n == 0 {
-                let errno = ferror(fp)
-                if errno != 0 {
-                    throw FileSystemError(.ioError(code: errno), path)
+                if ferror(fp) != 0 {
+                    throw FileSystemError.ioError
                 }
                 break
             }
@@ -370,7 +356,7 @@ private class LocalFileSystem: FileSystem {
         // Open the file.
         let fp = fopen(path.pathString, "wb")
         if fp == nil {
-            throw FileSystemError(errno: errno, path)
+            throw FileSystemError(errno: errno)
         }
         defer { fclose(fp) }
 
@@ -380,10 +366,10 @@ private class LocalFileSystem: FileSystem {
             let n = fwrite(&contents, 1, contents.count, fp)
             if n < 0 {
                 if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
+                throw FileSystemError.ioError
             }
             if n != contents.count {
-                throw FileSystemError(.unknownOSError, path)
+                throw FileSystemError.ioError
             }
             break
         }
@@ -429,7 +415,7 @@ private class LocalFileSystem: FileSystem {
         guard let traverse = FileManager.default.enumerator(
                 at: URL(fileURLWithPath: path.pathString),
                 includingPropertiesForKeys: nil) else {
-            throw FileSystemError(.noEntry, path)
+            throw FileSystemError.noEntry
         }
 
         if !options.contains(.recursive) {
@@ -442,16 +428,14 @@ private class LocalFileSystem: FileSystem {
     }
 
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
-        guard !exists(destinationPath)
-        else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
+        guard exists(sourcePath) else { throw FileSystemError.noEntry }
+        guard !exists(destinationPath) else { throw FileSystemError.alreadyExistsAtDestination }
         try FileManager.default.copyItem(at: sourcePath.asURL, to: destinationPath.asURL)
     }
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
-        guard !exists(destinationPath)
-        else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
+        guard exists(sourcePath) else { throw FileSystemError.noEntry }
+        guard !exists(destinationPath) else { throw FileSystemError.alreadyExistsAtDestination }
         try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
     }
 }
@@ -533,7 +517,7 @@ public class InMemoryFileSystem: FileSystem {
 
             // If we didn't find a directory, this is an error.
             guard case .directory(let contents) = parent.contents else {
-                throw FileSystemError(.notDirectory, path.parentDirectory)
+                throw FileSystemError.notDirectory
             }
 
             // Return the directory entry.
@@ -594,7 +578,7 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        throw FileSystemError(.unsupported, path)
+        throw FileSystemError.unsupported
     }
 
     public var homeDirectory: AbsolutePath {
@@ -604,10 +588,10 @@ public class InMemoryFileSystem: FileSystem {
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
-            throw FileSystemError(.noEntry, path)
+            throw FileSystemError.noEntry
         }
         guard case .directory(let contents) = node.contents else {
-            throw FileSystemError(.notDirectory, path)
+            throw FileSystemError.notDirectory
         }
 
         // FIXME: Perhaps we should change the protocol to allow lazy behavior.
@@ -632,14 +616,14 @@ public class InMemoryFileSystem: FileSystem {
                 return try createDirectory(path, recursive: false)
             } else {
                 // Otherwise, we failed.
-                throw FileSystemError(.noEntry, parentPath)
+                throw FileSystemError.noEntry
             }
         }
 
         // Check that the parent is a directory.
         guard case .directory(let contents) = parent.contents else {
             // The parent isn't a directory, this is an error.
-            throw FileSystemError(.notDirectory, parentPath)
+            throw FileSystemError.notDirectory
         }
 
         // Check if the node already exists.
@@ -647,7 +631,7 @@ public class InMemoryFileSystem: FileSystem {
             // Verify it is a directory.
             guard case .directory = node.contents else {
                 // The path itself isn't a directory, this is an error.
-                throw FileSystemError(.notDirectory, path)
+                throw FileSystemError.notDirectory
             }
 
             // We are done.
@@ -661,13 +645,13 @@ public class InMemoryFileSystem: FileSystem {
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Get the node.
         guard let node = try getNode(path) else {
-            throw FileSystemError(.noEntry, path)
+            throw FileSystemError.noEntry
         }
 
         // Check that the node is a file.
         guard case .file(let contents) = node.contents else {
             // The path is a directory, this is an error.
-            throw FileSystemError(.isDirectory, path)
+            throw FileSystemError.isDirectory
         }
 
         // Return the file contents.
@@ -678,18 +662,18 @@ public class InMemoryFileSystem: FileSystem {
         // It is an error if this is the root node.
         let parentPath = path.parentDirectory
         guard path != parentPath else {
-            throw FileSystemError(.isDirectory, path)
+            throw FileSystemError.isDirectory
         }
 
         // Get the parent node.
         guard let parent = try getNode(parentPath) else {
-            throw FileSystemError(.noEntry, parentPath)
+            throw FileSystemError.noEntry
         }
 
         // Check that the parent is a directory.
         guard case .directory(let contents) = parent.contents else {
             // The parent isn't a directory, this is an error.
-            throw FileSystemError(.notDirectory, parentPath)
+            throw FileSystemError.notDirectory
         }
 
         // Check if the node exists.
@@ -697,7 +681,7 @@ public class InMemoryFileSystem: FileSystem {
             // Verify it is a file.
             guard case .file = node.contents else {
                 // The path is a directory, this is an error.
-                throw FileSystemError(.isDirectory, path)
+                throw FileSystemError.isDirectory
             }
         }
 
@@ -729,21 +713,21 @@ public class InMemoryFileSystem: FileSystem {
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         // Get the source node.
         guard let source = try getNode(sourcePath) else {
-            throw FileSystemError(.noEntry, sourcePath)
+            throw FileSystemError.noEntry
         }
 
         // Create directory to destination parent.
         guard let destinationParent = try getNode(destinationPath.parentDirectory) else {
-            throw FileSystemError(.noEntry, destinationPath.parentDirectory)
+            throw FileSystemError.noEntry
         }
 
         // Check that the parent is a directory.
         guard case .directory(let contents) = destinationParent.contents else {
-            throw FileSystemError(.notDirectory, destinationPath.parentDirectory)
+            throw FileSystemError.notDirectory
         }
 
         guard contents.entries[destinationPath.basename] == nil else {
-            throw FileSystemError(.alreadyExistsAtDestination, destinationPath)
+            throw FileSystemError.alreadyExistsAtDestination
         }
 
         contents.entries[destinationPath.basename] = source
@@ -752,12 +736,12 @@ public class InMemoryFileSystem: FileSystem {
     public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         // Get the source parent node.
         guard let sourceParent = try getNode(sourcePath.parentDirectory) else {
-            throw FileSystemError(.noEntry, sourcePath)
+            throw FileSystemError.noEntry
         }
 
         // Check that the parent is a directory.
         guard case .directory(let contents) = sourceParent.contents else {
-            throw FileSystemError(.notDirectory, sourcePath.parentDirectory)
+            throw FileSystemError.notDirectory
         }
 
         try copy(from: sourcePath, to: destinationPath)
@@ -828,7 +812,7 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        throw FileSystemError(.unsupported, path)
+        throw FileSystemError.unsupported
     }
 
     public var homeDirectory: AbsolutePath {
