@@ -27,7 +27,7 @@ extension Context {
         guard let value = self[ObjectIdentifier(T.self)] else {
             return nil
         }
-        return value as! T
+        return value as? T
     }
 
     /// Set a context value for a type.
