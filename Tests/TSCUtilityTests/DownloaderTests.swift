@@ -18,6 +18,7 @@ import FoundationNetworking
 #endif
 
 class DownloaderTests: XCTestCase {
+
     func testSuccess() {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.
       #if os(macOS)
