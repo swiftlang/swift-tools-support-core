@@ -1,14 +1,15 @@
 import Foundation
 
-public struct NetrcMachine {
-    public let name: String
-    public let login: String
-    public let password: String
-}
 
 public struct Netrc {
+    
+    public struct Machine {
+        public let name: String
+        public let login: String
+        public let password: String
+    }
 	
-    public enum NetrcError: Error {
+    public enum Error: Swift.Error {
         case fileNotFound(Foundation.URL)
         case unreadableFile(Foundation.URL)
 		case machineNotFound
@@ -16,9 +17,9 @@ public struct Netrc {
 		case missingValueForToken(String)
 	}
 	
-	public let machines: [NetrcMachine]
+	public let machines: [Machine]
 	
-	init(machines: [NetrcMachine]) {
+	init(machines: [Machine]) {
 		self.machines = machines
 	}
 	
@@ -30,35 +31,35 @@ public struct Netrc {
 		return "Basic \(authData.base64EncodedString())"
 	}
 	
-    public static func load(from fileURL: Foundation.URL = Foundation.URL(fileURLWithPath: "\(NSHomeDirectory())/.netrc")) -> Result<Netrc, NetrcError> {
-		guard FileManager.default.fileExists(atPath: fileURL.path) else { return .failure(NetrcError.fileNotFound(fileURL)) }
+    public static func load(from fileURL: Foundation.URL = Foundation.URL(fileURLWithPath: "\(NSHomeDirectory())/.netrc")) -> Result<Netrc, Netrc.Error> {
+		guard FileManager.default.fileExists(atPath: fileURL.path) else { return .failure(.fileNotFound(fileURL)) }
 		guard FileManager.default.isReadableFile(atPath: fileURL.path),
-            let fileContents = try? String(contentsOf: fileURL, encoding: .utf8) else { return .failure(NetrcError.unreadableFile(fileURL)) }
+            let fileContents = try? String(contentsOf: fileURL, encoding: .utf8) else { return .failure(.unreadableFile(fileURL)) }
 		
         return Netrc.from(fileContents)
 	}
 	
-    public static func from(_ content: String) -> Result<Netrc, NetrcError> {
+    public static func from(_ content: String) -> Result<Netrc, Netrc.Error> {
 		let trimmedCommentsContent = trimComments(from: content)
 		let tokens = trimmedCommentsContent
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 			.components(separatedBy: .whitespacesAndNewlines)
 			.filter({ $0 != "" })
 		
-		var machines: [NetrcMachine] = []
+		var machines: [Machine] = []
 		
 		let machineTokens = tokens.split { $0 == "machine" }
-		guard tokens.contains("machine"), machineTokens.count > 0 else { return .failure(NetrcError.machineNotFound) }
+		guard tokens.contains("machine"), machineTokens.count > 0 else { return .failure(.machineNotFound) }
 		
 		for machine in machineTokens {
 			let values = Array(machine)
 			guard let name = values.first else { continue }
-			guard let login = values["login"] else { return .failure(NetrcError.missingValueForToken("login")) }
-			guard let password = values["password"] else { return .failure(NetrcError.missingValueForToken("password")) }
-			machines.append(NetrcMachine(name: name, login: login, password: password))
+			guard let login = values["login"] else { return .failure(.missingValueForToken("login")) }
+			guard let password = values["password"] else { return .failure(.missingValueForToken("password")) }
+			machines.append(Machine(name: name, login: login, password: password))
 		}
 		
-		guard machines.count > 0 else { return .failure(NetrcError.machineNotFound) }
+		guard machines.count > 0 else { return .failure(Error.machineNotFound) }
 		return .success(Netrc(machines: machines))
 	}
 	
