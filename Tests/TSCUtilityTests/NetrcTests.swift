@@ -1,18 +1,28 @@
 import XCTest
 import TSCUtility
 
+@available(macOS 10.13, *)
 class NetrcTests: XCTestCase {
     func testLoadMachinesInline() {
         //			it("should load machines for a given inline format") {
         let content = "machine example.com login anonymous password qwerty"
         
-        let machines = try? Netrc.from(content).get().machines
-        XCTAssertEqual(machines?.count, 1)
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertEqual(netrc.machines.count, 1)
         
-        let machine = machines?.first
+        let machine = netrc.machines.first
         XCTAssertEqual(machine?.name, "example.com")
         XCTAssertEqual(machine?.login, "anonymous")
         XCTAssertEqual(machine?.password, "qwerty")
+        
+        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        XCTAssertNotNil(authorization)
+       
+        let authData = "anonymous:qwerty".data(using: .utf8)!
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
     func testLoadMachinesMultiLine() {
@@ -23,13 +33,146 @@ class NetrcTests: XCTestCase {
                     password qwerty
                     """
         
-        let machines = try? Netrc.from(content).get().machines
-        XCTAssertEqual(machines?.count, 1)
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertEqual(netrc.machines.count, 1)
         
-        let machine = machines?.first
+        let machine = netrc.machines.first
         XCTAssertEqual(machine?.name, "example.com")
         XCTAssertEqual(machine?.login, "anonymous")
         XCTAssertEqual(machine?.password, "qwerty")
+        
+        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+         XCTAssertNotNil(authorization)
+        
+         let authData = "anonymous:qwerty".data(using: .utf8)!
+         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+         
+         XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
+         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+    }
+    
+    func testLoadDefaultMachine() {
+        let content = """
+                    machine example.com
+                    login anonymous
+                    password qwerty
+
+                    default
+                    login id
+                    password secret
+                    """
+        
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertEqual(netrc.machines.count, 2)
+        
+        let machine = netrc.machines.first
+        XCTAssertEqual(machine?.name, "example.com")
+        XCTAssertEqual(machine?.login, "anonymous")
+        XCTAssertEqual(machine?.password, "qwerty")
+        
+        let machine2 = netrc.machines.last
+        XCTAssertEqual(machine2?.name, "default")
+        XCTAssertEqual(machine2?.login, "id")
+        XCTAssertEqual(machine2?.password, "secret")
+        
+        let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
+        XCTAssertNotNil(authorization)
+        
+         let authData = "id:secret".data(using: .utf8)!
+         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+    }
+    
+    func testRegexParsing() {
+        let content = """
+                    machine machine
+                    login login
+                    password password
+
+                    machine login
+                    password machine
+                    login password
+
+                    default machine
+                    login id
+                    password secret
+
+                    machinemachine machine
+                    loginlogin id
+                    passwordpassword secret
+
+                    default
+                    login id
+                    password secret
+                    """
+        
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertEqual(netrc.machines.count, 3)
+        
+        XCTAssertEqual(netrc.machines[0].name, "machine")
+        XCTAssertEqual(netrc.machines[0].login, "login")
+        XCTAssertEqual(netrc.machines[0].password, "password")
+        
+        XCTAssertEqual(netrc.machines[1].name, "login")
+        XCTAssertEqual(netrc.machines[1].login, "password")
+        XCTAssertEqual(netrc.machines[1].password, "machine")
+        
+        XCTAssertEqual(netrc.machines[2].name, "default")
+        XCTAssertEqual(netrc.machines[2].login, "id")
+        XCTAssertEqual(netrc.machines[2].password, "secret")
+        
+        let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
+        XCTAssertNotNil(authorization)
+        
+         let authData = "id:secret".data(using: .utf8)!
+         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+    }
+    
+    func testOutOfOrderDefault() {
+        let content = """
+                    machine machine
+                    login login
+                    password password
+
+                    machine login
+                    password machine
+                    login password
+
+                    default
+                    login id
+                    password secret
+
+                    machine machine
+                    login id
+                    password secret
+                    """
+        
+        guard case .failure(.invalidDefaultMachinePosition) = Netrc.from(content) else { return XCTFail() }
+    }
+    
+    func testErrorOnMultipleDefault() {
+        let content = """
+                    machine machine
+                    login login
+                    password password
+
+                    machine login
+                    password machine
+                    login password
+
+                    default
+                    login id
+                    password secret
+
+                    machine machine
+                    login id
+                    password secret
+
+                    default
+                    login di
+                    password terces
+                    """
+        
+        guard case .failure(.invalidDefaultMachinePosition) = Netrc.from(content) else { return XCTFail() }
     }
     
     func testLoadMachinesMultilineComments() {
@@ -72,18 +215,16 @@ class NetrcTests: XCTestCase {
         //			it("should load multiple machines for a given inline format") {
         let content = "machine example.com login anonymous password qwerty machine example2.com login anonymous2 password qwerty2"
         
-        let machines = try? Netrc.from(content).get().machines
-        XCTAssertEqual(machines?.count, 2)
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertEqual(netrc.machines.count, 2)
         
-        var machine = machines?[0]
-        XCTAssertEqual(machine?.name, "example.com")
-        XCTAssertEqual(machine?.login, "anonymous")
-        XCTAssertEqual(machine?.password, "qwerty")
+        XCTAssertEqual(netrc.machines[0].name, "example.com")
+        XCTAssertEqual(netrc.machines[0].login, "anonymous")
+        XCTAssertEqual(netrc.machines[0].password, "qwerty")
         
-        machine = machines?[1]
-        XCTAssertEqual(machine?.name, "example2.com")
-        XCTAssertEqual(machine?.login, "anonymous2")
-        XCTAssertEqual(machine?.password, "qwerty2")
+        XCTAssertEqual(netrc.machines[1].name, "example2.com")
+        XCTAssertEqual(netrc.machines[1].login, "anonymous2")
+        XCTAssertEqual(netrc.machines[1].password, "qwerty2")
     }
     
     func testLoadMultipleMachinesMultiline() {
@@ -128,60 +269,47 @@ class NetrcTests: XCTestCase {
         }
     }
     
-    func testErrorLoginParameterMissing() {
-        //			it("should throw error when login parameter is missing") {
-        let content = "machine example.com anonymous password qwerty"
-        
-        guard case .failure(.missingValueForToken(let token)) = Netrc.from(content) else {
-            return XCTFail("Expected missingValueForToken error")
-        }
-        
-        XCTAssertEqual(token, "login")
-    }
-    
-    func testErrorPasswordParameterMissing() {
-        //			it("should throw error when password parameter is missing") {
-        let content = "machine example.com login anonymous"
-        
-        guard case .failure(.missingValueForToken(let token)) = Netrc.from(content) else {
-            return XCTFail("Expected missingValueForToken error")
-        }
-        
-        XCTAssertEqual(token, "password")
-    }
-    
-    func testErrorLoginPasswordParameterMissing() {
-        //            it("should throw error when both login and password parameters are missing") {
-        let content = "machine example.com"
-        
-        guard case .failure(.missingValueForToken(let token)) = Netrc.from(content) else {
-            return XCTFail("Expected missingValueForToken error")
-        }
-        
-        XCTAssertEqual(token, "login")
+    func testEmptyMachineValueFollowedByDefaultNoError() {
+        //            it("should throw error for an empty machine values") {
+        let content = "machine default login id password secret"
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authData = "id:secret".data(using: .utf8)!
+         XCTAssertNotNil(authorization)
+         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
     func testReturnAuthorizationForMachineMatch() {
         //			it("should return authorization when config contains a given machine") {
         let content = "machine example.com login anonymous password qwerty"
-        
-        guard let netrc = try? Netrc.from(content).get(),
-              let result = netrc.authorization(for: URL(string: "https://example.com")!) else {
-            return XCTFail()
-        }
-        
-        let data = "anonymous:qwerty".data(using: .utf8)!.base64EncodedString()
-        XCTAssertEqual(result, "Basic \(data)")
+         
+         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+         
+         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authData = "anonymous:qwerty".data(using: .utf8)!
+         XCTAssertNotNil(authorization)
+         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+    }
+    
+    func testReturnNoAuthorizationForUnmatched() {
+        let content = "machine example.com login anonymous password qwerty"
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "ftp.example.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
     func testNoReturnAuthorizationForNoMachineMatch() {
         //			it("should not return authorization when config does not contain a given machine") {
         let content = "machine example.com login anonymous password qwerty"
-        
-        guard let netrc = try? Netrc.from(content).get() else {
-            return XCTFail()
-        }
+
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
         XCTAssertNil(netrc.authorization(for: URL(string: "https://example99.com")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "ftp.example.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
     func testIBMDocumentation() {
@@ -221,7 +349,7 @@ class NetrcTests: XCTestCase {
             return XCTFail()
         }
         
-        XCTAssertEqual(netrc.machines.count, 3)
+        XCTAssertEqual(netrc.machines.count, 4)
         
         XCTAssertEqual(netrc.machines[0].name, "api.heroku.com")
         XCTAssertEqual(netrc.machines[0].login, "my@email.com")
@@ -234,5 +362,47 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[2].name, "ftp.server")
         XCTAssertEqual(netrc.machines[2].login, "abc")
         XCTAssertEqual(netrc.machines[2].password, "def")
+        
+        XCTAssertEqual(netrc.machines[3].name, "default")
+        XCTAssertEqual(netrc.machines[3].login, "anonymous")
+        XCTAssertEqual(netrc.machines[3].password, "my@email.com")
+    }
+    
+    func testNoErrorMultipleMacdefAndComments() {
+        // test case: https://renenyffenegger.ch/notes/Linux/fhs/home/username/_netrc
+        
+        // should not fail on presence of `account`, `macdef`, `default`
+        let content = """
+            machine  ftp.foobar.baz
+            login    john
+            password 5ecr3t
+
+            macdef   getmyfile       # define a macro (here named 'getmyfile')
+            cd /abc/defghi/jklm      # The macro can be executed in ftp client
+            get myFile.txt           # by prepending macro name with $ sign
+            quit
+
+            macdef   init            # macro init is searched for when
+            binary                   # ftp connects to server.
+
+            machine  other.server.org
+            login    fred
+            password sunshine4ever
+            """
+        
+        guard let netrc = try? Netrc.from(content).get() else {
+            return XCTFail()
+        }
+        
+        XCTAssertEqual(netrc.machines.count, 2)
+        
+        XCTAssertEqual(netrc.machines[0].name, "ftp.foobar.baz")
+        XCTAssertEqual(netrc.machines[0].login, "john")
+        XCTAssertEqual(netrc.machines[0].password, "5ecr3t")
+        
+        XCTAssertEqual(netrc.machines[1].name, "other.server.org")
+        XCTAssertEqual(netrc.machines[1].login, "fred")
+        XCTAssertEqual(netrc.machines[1].password, "sunshine4ever")
+
     }
 }
