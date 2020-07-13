@@ -31,7 +31,6 @@ public struct Netrc {
         case fileNotFound(Foundation.URL)
         case unreadableFile(Foundation.URL)
         case machineNotFound
-        case missingToken(String)
         case invalidDefaultMachinePosition
     }
     
@@ -105,6 +104,11 @@ public struct Netrc {
 fileprivate enum RegexUtil {
     static let loginPassword: [String] = ["login", "password"]
     static let passwordLogin: [String] = ["password", "login"]
+    
+    
+    /// netrc parser logic
+    // 1. matches string `machine` or `default`, followed by `login <value> `password <value>` or `password <value> login value>`
+    
     static let pattern: String = #"(?:(?:(\#(namedTrailingCapture("machine"))|\#(namedMatch("default"))))(?:\#(namedTrailingCapture(loginPassword, prefix: "lp"))|\#(namedTrailingCapture(passwordLogin, prefix: "pl"))))"#
     static let commentsPattern: String = "\\#[\\s\\S]*?.*$"
     
