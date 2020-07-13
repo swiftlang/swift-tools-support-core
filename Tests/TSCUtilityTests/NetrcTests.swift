@@ -17,7 +17,7 @@ class NetrcTests: XCTestCase {
         
         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
         XCTAssertNotNil(authorization)
-       
+        
         let authData = "anonymous:qwerty".data(using: .utf8)!
         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
         
@@ -42,13 +42,13 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.password, "qwerty")
         
         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
-         XCTAssertNotNil(authorization)
+        XCTAssertNotNil(authorization)
         
-         let authData = "anonymous:qwerty".data(using: .utf8)!
-         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
-         
-         XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
-         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+        let authData = "anonymous:qwerty".data(using: .utf8)!
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
     func testLoadDefaultMachine() {
@@ -78,8 +78,8 @@ class NetrcTests: XCTestCase {
         let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
         XCTAssertNotNil(authorization)
         
-         let authData = "id:secret".data(using: .utf8)!
-         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        let authData = "id:secret".data(using: .utf8)!
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
     func testRegexParsing() {
@@ -123,8 +123,8 @@ class NetrcTests: XCTestCase {
         let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
         XCTAssertNotNil(authorization)
         
-         let authData = "id:secret".data(using: .utf8)!
-         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        let authData = "id:secret".data(using: .utf8)!
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
     func testOutOfOrderDefault() {
@@ -275,20 +275,20 @@ class NetrcTests: XCTestCase {
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
         let authData = "id:secret".data(using: .utf8)!
-         XCTAssertNotNil(authorization)
-         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        XCTAssertNotNil(authorization)
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
     func testReturnAuthorizationForMachineMatch() {
         //			it("should return authorization when config contains a given machine") {
         let content = "machine example.com login anonymous password qwerty"
-         
-         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
-         
-         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        
+        guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
+        
+        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
         let authData = "anonymous:qwerty".data(using: .utf8)!
-         XCTAssertNotNil(authorization)
-         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
+        XCTAssertNotNil(authorization)
+        XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
     func testReturnNoAuthorizationForUnmatched() {
@@ -303,7 +303,7 @@ class NetrcTests: XCTestCase {
     func testNoReturnAuthorizationForNoMachineMatch() {
         //			it("should not return authorization when config does not contain a given machine") {
         let content = "machine example.com login anonymous password qwerty"
-
+        
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
         XCTAssertNil(netrc.authorization(for: URL(string: "https://example99.com")!))
         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example.com/resource.zip")!))
@@ -403,6 +403,6 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[1].name, "other.server.org")
         XCTAssertEqual(netrc.machines[1].login, "fred")
         XCTAssertEqual(netrc.machines[1].password, "sunshine4ever")
-
+        
     }
 }
