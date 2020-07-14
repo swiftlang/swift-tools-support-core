@@ -1,58 +1,19 @@
 import Foundation
 
 @available (OSX 10.13, *)
+/// Container of parsed netrc connection settings
 public struct Netrc {
     
-    public struct Machine: Equatable {
-        public var isDefault: Bool {
-            return name == "default"
-        }
-        public let name: String
-        public let login: String
-        public let password: String
-        
-        init?(for match: NSTextCheckingResult, string: String, variant: String = "") {
-            guard let name = Token.machine.capture(in: match, string: string) ?? Token.default.capture(in: match, string: string),
-                let login = Token.login.capture(prefix: variant, in: match, string: string),
-                let password = Token.password.capture(prefix: variant, in: match, string: string) else {
-                    return nil
-            }
-            self = Machine(name: name, login: login, password: password)
-        }
-        
-        public init(name: String, login: String, password: String) {
-            self.name = name
-            self.login = login
-            self.password = password
-        }
-    }
-    
-    public enum Error: Swift.Error {
-        case fileNotFound(Foundation.URL)
-        case unreadableFile(Foundation.URL)
-        case machineNotFound
-        case invalidDefaultMachinePosition
-    }
-    
-    @frozen private enum Token: String, CaseIterable {
-        case machine
-        case login
-        case password
-        case macdef
-        case `default`
-        
-        func capture(prefix: String = "", in match: NSTextCheckingResult, string: String) -> String? {
-            guard let range = Range(match.range(withName: prefix + rawValue), in: string) else { return nil }
-            return String(string[range])
-        }
-    }
-    
+    /// Representation of `machine` connection settings & `default` connection settings.  If `default` connection settings present, they will be last element.
     public let machines: [Machine]
     
     init(machines: [Machine]) {
         self.machines = machines
     }
     
+    /// Basic authorization header string
+    /// - Parameter url: URI of network resource to be accessed
+    /// - Returns: (optional) Basic Authorization header string to be added to the request
     public func authorization(for url: Foundation.URL) -> String? {
         guard let index = machines.firstIndex(where: { $0.name == url.host }) ?? machines.firstIndex(where: { $0.isDefault }) else { return nil }
         let machine = machines[index]
@@ -61,6 +22,9 @@ public struct Netrc {
         return "Basic \(authData.base64EncodedString())"
     }
     
+    ///
+    /// - Parameter fileURL: Location of netrc file, defaults to `~/.netrc`
+    /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func load(from fileURL: Foundation.URL = Foundation.URL(fileURLWithPath: "\(NSHomeDirectory())/.netrc")) -> Result<Netrc, Netrc.Error> {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return .failure(.fileNotFound(fileURL)) }
         guard FileManager.default.isReadableFile(atPath: fileURL.path),
@@ -69,6 +33,10 @@ public struct Netrc {
         return Netrc.from(fileContents)
     }
     
+    
+    /// Regex matching logic for deriving `Netrc` container from string content
+    /// - Parameter content: String text of netrc file
+    /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func from(_ content: String) -> Result<Netrc, Netrc.Error> {
         
         let content = trimComments(from: content)
@@ -87,6 +55,10 @@ public struct Netrc {
         return .success(Netrc(machines: machines))
     }
     
+    
+    /// Utility method to trim comments from netrc content
+    /// - Parameter text: String text of netrc file
+    /// - Returns: String text of netrc file *sans* comments
     private static func trimComments(from text: String) -> String {
         let regex = try! NSRegularExpression(pattern: RegexUtil.comments, options: .anchorsMatchLines)
         let nsString = text as NSString
@@ -101,7 +73,57 @@ public struct Netrc {
     }
 }
 
+@available (OSX 10.13, *)
+public extension Netrc {
+    
+    enum Error: Swift.Error {
+        case fileNotFound(Foundation.URL)
+        case unreadableFile(Foundation.URL)
+        case machineNotFound
+        case invalidDefaultMachinePosition
+    }
+    
+    
+    /// Representation of connection settings
+    /// - important: Default connection settings are stored in machine named `default`
+    struct Machine: Equatable {
+        public let name: String
+        public let login: String
+        public let password: String
+        
+        public var isDefault: Bool {
+            return name == "default"
+        }
+        
+        public init(name: String, login: String, password: String) {
+            self.name = name
+            self.login = login
+            self.password = password
+        }
+        
+        init?(for match: NSTextCheckingResult, string: String, variant: String = "") {
+            guard let name = RegexUtil.Token.machine.capture(in: match, string: string) ?? RegexUtil.Token.default.capture(in: match, string: string),
+                let login = RegexUtil.Token.login.capture(prefix: variant, in: match, string: string),
+                let password = RegexUtil.Token.password.capture(prefix: variant, in: match, string: string) else {
+                    return nil
+            }
+            self = Machine(name: name, login: login, password: password)
+        }
+    }
+}
+
+@available (OSX 10.13, *)
 fileprivate enum RegexUtil {
+    
+    @frozen fileprivate enum Token: String, CaseIterable {
+        
+        case machine, login, password, account, macdef, `default`
+        
+        func capture(prefix: String = "", in match: NSTextCheckingResult, string: String) -> String? {
+            guard let range = Range(match.range(withName: prefix + rawValue), in: string) else { return nil }
+            return String(string[range])
+        }
+    }
 
     static let comments: String = "\\#[\\s\\S]*?.*$"
     
