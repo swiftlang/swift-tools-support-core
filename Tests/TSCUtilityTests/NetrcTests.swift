@@ -377,7 +377,7 @@ class NetrcTests: XCTestCase {
               login my@email.com
               password 01230123012301230123012301230123
 
-            machine api.github.com password something login somebody
+            machine api.github.com password something account ghi login somebody
 
             machine ftp.server login abc account ghi password def macdef somemacro
             cd somehwhere
