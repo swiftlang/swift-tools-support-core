@@ -72,7 +72,7 @@ public struct Netrc {
     public static func from(_ content: String) -> Result<Netrc, Netrc.Error> {
         
         let content = trimComments(from: content)
-        let regex = try! NSRegularExpression(pattern: RegexUtil.pattern, options: [])
+        let regex = try! NSRegularExpression(pattern: RegexUtil.netrcPattern, options: [])
         let matches = regex.matches(in: content, options: [], range: NSRange(content.startIndex..<content.endIndex, in: content))
         
         let machines: [Machine] = matches.compactMap {
@@ -88,7 +88,7 @@ public struct Netrc {
     }
     
     private static func trimComments(from text: String) -> String {
-        let regex = try! NSRegularExpression(pattern: RegexUtil.commentsPattern, options: .anchorsMatchLines)
+        let regex = try! NSRegularExpression(pattern: RegexUtil.comments, options: .anchorsMatchLines)
         let nsString = text as NSString
         let range = NSRange(location: 0, length: nsString.length)
         let matches = regex.matches(in: text, range: range)
@@ -102,25 +102,22 @@ public struct Netrc {
 }
 
 fileprivate enum RegexUtil {
-    static let loginPassword: [String] = ["login", "password"]
-    static let passwordLogin: [String] = ["password", "login"]
+
+    static let comments: String = "\\#[\\s\\S]*?.*$"
     
+    static let `default`: String = #"(?:\s*(?<default>default))"#
+    static let accountOptional: String = #"(?:\s*account\s+\S++)?"#
     
-    /// netrc parser logic
-    // 1. matches string `machine` or `default`, followed by `login <value> `password <value>` or `password <value> login value>`
+    static let loginPassword: String = #"\#(namedTrailingCapture("login", prefix: "lp"))\#(accountOptional)\#(namedTrailingCapture("password", prefix: "lp"))"#
+    static let passwordLogin: String = #"\#(namedTrailingCapture("password", prefix: "pl"))\#(accountOptional)\#(namedTrailingCapture("login", prefix: "pl"))"#
     
-    static let pattern: String = #"(?:(?:(\#(namedTrailingCapture("machine"))|\#(namedMatch("default"))))(?:\#(namedTrailingCapture(loginPassword, prefix: "lp"))|\#(namedTrailingCapture(passwordLogin, prefix: "pl"))))"#
-    static let commentsPattern: String = "\\#[\\s\\S]*?.*$"
-    
+    static let netrcPattern = #"(?:(?:(\#(namedTrailingCapture("machine"))|\#(namedMatch("default"))))(?:\#(loginPassword)|\#(passwordLogin)))"#
+        
     static func namedMatch(_ string: String) -> String {
         return #"(?:\s*(?<\#(string)>\#(string)))"#
     }
     
     static func namedTrailingCapture(_ string: String, prefix: String = "") -> String {
         return #"\s*\#(string)\s+(?<\#(prefix + string)>\S++)"#
-    }
-    
-    static func namedTrailingCapture(_ array: [String], prefix: String = "") -> String {
-        return array.map({ namedTrailingCapture($0, prefix: prefix) }).joined()
     }
 }

@@ -368,6 +368,47 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[3].password, "my@email.com")
     }
     
+    func testNoErrorMixedAccount() {
+        // test case: https://gist.github.com/tpope/4247721
+        
+        // should not fail on presence of `account`, `macdef`, `default`
+        let content = """
+            machine api.heroku.com
+              login my@email.com
+              password 01230123012301230123012301230123
+
+            machine api.github.com password something login somebody
+
+            machine ftp.server login abc account ghi password def macdef somemacro
+            cd somehwhere
+            continues until end of paragraph
+
+            default login anonymous password my@email.com
+            """
+        
+        guard let netrc = try? Netrc.from(content).get() else {
+            return XCTFail()
+        }
+        
+        XCTAssertEqual(netrc.machines.count, 4)
+        
+        XCTAssertEqual(netrc.machines[0].name, "api.heroku.com")
+        XCTAssertEqual(netrc.machines[0].login, "my@email.com")
+        XCTAssertEqual(netrc.machines[0].password, "01230123012301230123012301230123")
+        
+        XCTAssertEqual(netrc.machines[1].name, "api.github.com")
+        XCTAssertEqual(netrc.machines[1].login, "somebody")
+        XCTAssertEqual(netrc.machines[1].password, "something")
+        
+        XCTAssertEqual(netrc.machines[2].name, "ftp.server")
+        XCTAssertEqual(netrc.machines[2].login, "abc")
+        XCTAssertEqual(netrc.machines[2].password, "def")
+        
+        XCTAssertEqual(netrc.machines[3].name, "default")
+        XCTAssertEqual(netrc.machines[3].login, "anonymous")
+        XCTAssertEqual(netrc.machines[3].password, "my@email.com")
+    }
+    
     func testNoErrorMultipleMacdefAndComments() {
         // test case: https://renenyffenegger.ch/notes/Linux/fhs/home/username/_netrc
         
