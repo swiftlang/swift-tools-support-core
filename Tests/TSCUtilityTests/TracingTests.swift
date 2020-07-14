@@ -19,7 +19,8 @@ class TracingTests: XCTestCase {
         collection.events.append(event2)
         XCTAssertEqual(collection.events.count, 2)
         var ctx = Context()
-        ctx.set(collection)
-        XCTAssertEqual(ctx.get(Tracing.Collection.self).events.count, 2)
+        ctx.tracing = collection
+        XCTAssertEqual(ctx.tracing?.events.count, 2)
+
     }
 }

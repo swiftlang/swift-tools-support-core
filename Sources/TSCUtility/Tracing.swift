@@ -122,7 +122,7 @@ extension Context {
         return self
     }
 
-    var tracing: Tracing.Collection? {
+    public var tracing: Tracing.Collection? {
         get {
             guard let collection = self[ObjectIdentifier(Tracing.Collection.self)] as? Tracing.Collection else {
                 return nil
