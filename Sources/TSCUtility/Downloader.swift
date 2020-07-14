@@ -113,7 +113,23 @@ public final class FoundationDownloader: NSObject, Downloader {
         completion: @escaping Downloader.Completion
     ) {
         queue.addOperation {
-            let task = self.session.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            
+            if #available(OSX 10.13, *) {
+                switch Netrc.load() {
+                case let .success(netrc):
+                    if let authorization = netrc.authorization(for: url) {
+                        request.addValue(authorization, forHTTPHeaderField: "Authorization")
+                    }
+                case .failure(_):
+                    break // Failure cases unhandled
+                }
+            } else {
+                // Netrc loading is not supported for OSX < 10.13; continue with task-
+                // initialization without attempting to append netrc-based credentials.
+            }
+            
+            let task = self.session.downloadTask(with: request)
             let download = Download(
                 task: task,
                 destination: destination,

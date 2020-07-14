@@ -7,9 +7,13 @@ public struct Netrc {
     /// Representation of `machine` connection settings & `default` connection settings.  If `default` connection settings present, they will be last element.
     public let machines: [Machine]
     
-    init(machines: [Machine]) {
+    private init(machines: [Machine]) {
         self.machines = machines
     }
+    
+    /// Testing API.  Not for productive use.
+    /// See:  [Remove @testable from codebase](https://github.com/apple/swift-package-manager/commit/b6349d516d2f9b2f26ddae9de2c594ede24af7d6)
+    public static var _mock: Netrc? = nil
     
     /// Basic authorization header string
     /// - Parameter url: URI of network resource to be accessed
@@ -26,6 +30,9 @@ public struct Netrc {
     /// - Parameter fileURL: Location of netrc file, defaults to `~/.netrc`
     /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func load(from fileURL: Foundation.URL = Foundation.URL(fileURLWithPath: "\(NSHomeDirectory())/.netrc")) -> Result<Netrc, Netrc.Error> {
+        
+        guard _mock == nil else { return .success(_mock!) }
+        
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return .failure(.fileNotFound(fileURL)) }
         guard FileManager.default.isReadableFile(atPath: fileURL.path),
             let fileContents = try? String(contentsOf: fileURL, encoding: .utf8) else { return .failure(.unreadableFile(fileURL)) }
