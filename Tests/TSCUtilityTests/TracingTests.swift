@@ -12,15 +12,19 @@ import TSCUtility
 
 class TracingTests: XCTestCase {
     func testBasics() {
-        let event1 = Tracing.Event(cat: "cat", name: "name", id: "1", ph: .asyncBegin)
-        var collection = Tracing.Collection()
+        let event1 = TracingEvent(cat: "cat", name: "name", id: "1", ph: .asyncBegin)
+        var collection = TracingCollection()
         collection.events.append(event1)
-        let event2 = Tracing.Event(cat: "cat", name: "name", id: "1", ph: .asyncEnd)
+        let event2 = TracingEvent(cat: "cat", name: "name", id: "1", ph: .asyncEnd)
         collection.events.append(event2)
         XCTAssertEqual(collection.events.count, 2)
         var ctx = Context()
         ctx.tracing = collection
         XCTAssertEqual(ctx.tracing?.events.count, 2)
-
+        let collection2 = TracingCollection()
+        collection2.events.append(event2)
+        collection.append(collection2)
+        XCTAssertEqual(collection.events.count, 3)
+        XCTAssertEqual(ctx.tracing?.events.count, 3)
     }
 }
