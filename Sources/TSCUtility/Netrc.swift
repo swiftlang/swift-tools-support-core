@@ -1,8 +1,22 @@
 import Foundation
+import TSCBasic
+
+
+/// Supplies `Authorization` header, typically to be appended to `URLRequest`
+public protocol AuthorizationProviding {
+    /// Optional `Authorization` header, likely added to `URLRequest`
+    func authorization(for url: Foundation.URL) -> String?
+}
+
+extension AuthorizationProviding {
+    func authorization(for url: Foundation.URL) -> String? {
+        return nil
+    }
+}
 
 @available (OSX 10.13, *)
 /// Container of parsed netrc connection settings
-public struct Netrc {
+public struct Netrc: AuthorizationProviding {
     
     /// Representation of `machine` connection settings & `default` connection settings.  If `default` connection settings present, they will be last element.
     public let machines: [Machine]
@@ -11,10 +25,10 @@ public struct Netrc {
         self.machines = machines
     }
     
-    /// Testing API.  Not for productive use.
-    /// See:  [Remove @testable from codebase](https://github.com/apple/swift-package-manager/commit/b6349d516d2f9b2f26ddae9de2c594ede24af7d6)
-    public static var _mock: Netrc? = nil
-    
+//    /// Testing API.  Not for productive use.
+//    /// See:  [Remove @testable from codebase](https://github.com/apple/swift-package-manager/commit/b6349d516d2f9b2f26ddae9de2c594ede24af7d6)
+//    public static var _mock: Netrc? = nil
+        
     /// Basic authorization header string
     /// - Parameter url: URI of network resource to be accessed
     /// - Returns: (optional) Basic Authorization header string to be added to the request
@@ -29,13 +43,15 @@ public struct Netrc {
     ///
     /// - Parameter fileURL: Location of netrc file, defaults to `~/.netrc`
     /// - Returns: `Netrc` container with parsed connection settings, or error
-    public static func load(from fileURL: Foundation.URL = Foundation.URL(fileURLWithPath: "\(NSHomeDirectory())/.netrc")) -> Result<Netrc, Netrc.Error> {
+    public static func load(fromFileAtPath filePath: AbsolutePath? = nil) -> Result<Netrc, Netrc.Error> {
+                
+        guard let filePath = filePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc") else {
+            return .failure(.invalidFilePath)
+        }
         
-        guard _mock == nil else { return .success(_mock!) }
-        
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .failure(.fileNotFound(fileURL)) }
-        guard FileManager.default.isReadableFile(atPath: fileURL.path),
-            let fileContents = try? String(contentsOf: fileURL, encoding: .utf8) else { return .failure(.unreadableFile(fileURL)) }
+        guard FileManager.default.fileExists(atPath: filePath.pathString) else { return .failure(.fileNotFound(filePath)) }
+        guard FileManager.default.isReadableFile(atPath: filePath.pathString),
+              let fileContents = try? String(contentsOf: filePath.asURL, encoding: .utf8) else { return .failure(.unreadableFile(filePath)) }
         
         return Netrc.from(fileContents)
     }
@@ -84,12 +100,12 @@ public struct Netrc {
 public extension Netrc {
     
     enum Error: Swift.Error {
-        case fileNotFound(Foundation.URL)
-        case unreadableFile(Foundation.URL)
+        case invalidFilePath
+        case fileNotFound(AbsolutePath)
+        case unreadableFile(AbsolutePath)
         case machineNotFound
         case invalidDefaultMachinePosition
     }
-    
     
     /// Representation of connection settings
     /// - important: Default connection settings are stored in machine named `default`

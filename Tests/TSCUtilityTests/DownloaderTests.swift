@@ -18,12 +18,6 @@ import FoundationNetworking
 #endif
 
 class DownloaderTests: XCTestCase {
-    
-    override func tearDown() {
-        if #available(OSX 10.13, *) {
-            Netrc._mock = nil
-        }
-    }
 
     func testSuccess() {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.
@@ -89,7 +83,6 @@ class DownloaderTests: XCTestCase {
         }
         let authData = "anonymous:qwerty".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
-        Netrc._mock = netrc
         
       #if os(macOS)
         let configuration = URLSessionConfiguration.default
@@ -106,7 +99,7 @@ class DownloaderTests: XCTestCase {
             let successExpectation = XCTestExpectation(description: "success")
             MockAuthenticatingURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-            downloader.downloadFile(at: url, to: destination, progress: { bytesDownloaded, totalBytesToDownload in
+            downloader.downloadFile(at: url, to: destination, withAuthorizationProvider: netrc, progress: { bytesDownloaded, totalBytesToDownload in
                 
                 XCTAssertEqual(MockAuthenticatingURLProtocol.authenticationHeader(for: url), testAuthHeader)
 
@@ -156,7 +149,6 @@ class DownloaderTests: XCTestCase {
         }
         let authData = "default:default".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
-        Netrc._mock = netrc
         
       #if os(macOS)
         let configuration = URLSessionConfiguration.default
@@ -173,7 +165,7 @@ class DownloaderTests: XCTestCase {
             let successExpectation = XCTestExpectation(description: "success")
             MockAuthenticatingURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-            downloader.downloadFile(at: url, to: destination, progress: { bytesDownloaded, totalBytesToDownload in
+            downloader.downloadFile(at: url, to: destination, withAuthorizationProvider: netrc, progress: { bytesDownloaded, totalBytesToDownload in
                 
                 XCTAssertEqual(MockAuthenticatingURLProtocol.authenticationHeader(for: url), testAuthHeader)
 

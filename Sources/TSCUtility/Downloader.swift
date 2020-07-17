@@ -43,11 +43,13 @@ public protocol Downloader {
     /// - Parameters:
     ///   - url: The `URL` to the file to download.
     ///   - destination: The `AbsolutePath` to download the file to.
+    ///   - authorizationProvider: Optional provider supplying `Authorization` header to be added to `URLRequest`.
     ///   - progress: A closure to receive the download's progress as number of bytes.
     ///   - completion: A closure to be notifed of the completion of the download.
     func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
+        withAuthorizationProvider authorizationProvider: AuthorizationProviding?,
         progress: @escaping Progress,
         completion: @escaping Completion
     )
@@ -109,33 +111,24 @@ public final class FoundationDownloader: NSObject, Downloader {
     public func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
+        withAuthorizationProvider authorizationProvider: AuthorizationProviding? = nil,
         progress: @escaping Downloader.Progress,
         completion: @escaping Downloader.Completion
     ) {
-        queue.addOperation {
+        queue.addOperation { [self] in
             var request = URLRequest(url: url)
             
-            if #available(OSX 10.13, *) {
-                switch Netrc.load() {
-                case let .success(netrc):
-                    if let authorization = netrc.authorization(for: url) {
-                        request.addValue(authorization, forHTTPHeaderField: "Authorization")
-                    }
-                case .failure(_):
-                    break // Failure cases unhandled
-                }
-            } else {
-                // Netrc loading is not supported for OSX < 10.13; continue with task-
-                // initialization without attempting to append netrc-based credentials.
+            if let authorization = authorizationProvider?.authorization(for: url) {
+                request.addValue(authorization, forHTTPHeaderField: "Authorization")
             }
             
-            let task = self.session.downloadTask(with: request)
+            let task = session.downloadTask(with: request)
             let download = Download(
                 task: task,
                 destination: destination,
                 progress: progress,
                 completion: completion)
-            self.downloads[task.taskIdentifier] = download
+            downloads[task.taskIdentifier] = download
             task.resume()
         }
     }
