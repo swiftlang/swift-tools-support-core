@@ -326,6 +326,7 @@ public final class Process: ObjectIdentifierProtocol {
         _process = Foundation.Process()
         _process?.arguments = arguments
         _process?.executableURL = URL(fileURLWithPath: arguments[0])
+        _process?.environment = environment
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
