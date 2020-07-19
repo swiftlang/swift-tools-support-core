@@ -9,7 +9,7 @@ public protocol AuthorizationProviding {
 }
 
 extension AuthorizationProviding {
-    func authorization(for url: Foundation.URL) -> String? {
+    public func authorization(for url: Foundation.URL) -> String? {
         return nil
     }
 }
