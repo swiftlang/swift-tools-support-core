@@ -10,7 +10,7 @@
 
 import Foundation
 
-public enum TracingEventType {
+public enum TracingEventType: String, Codable {
     case asyncBegin
     case asyncEnd
 }
@@ -62,7 +62,7 @@ extension TracingCollectionProtocol {
     }
 }
 
-public struct TracingEvent: TracingEventProtocol {
+public struct TracingEvent: TracingEventProtocol, Codable {
     public let cat: String
     public let name: String
     public let id: String
