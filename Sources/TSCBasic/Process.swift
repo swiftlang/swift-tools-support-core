@@ -340,14 +340,15 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Look for executable.
-        guard Process.findExecutable(arguments[0]) != nil else {
-            throw Process.Error.missingExecutableProgram(program: arguments[0])
+        let executable = arguments[0]
+        guard let executablePath = Process.findExecutable(executable) else {
+            throw Process.Error.missingExecutableProgram(program: executable)
         }
 
     #if os(Windows)
         _process = Foundation.Process()
         _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
-        _process?.executableURL = URL(fileURLWithPath: arguments[0])
+        _process?.executableURL = executablePath.asURL
         _process?.environment = environment
 
         if outputRedirection.redirectsOutput {
