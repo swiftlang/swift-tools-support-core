@@ -11,6 +11,12 @@
 import TSCLibc
 import Foundation
 
+#if os(Windows)
+public let executableFileSuffix = ".exe"
+#else
+public let executableFileSuffix = ""
+#endif
+
 /// Replace the current process image with a new process image.
 ///
 /// - Parameters:
