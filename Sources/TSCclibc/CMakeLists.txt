@@ -11,6 +11,9 @@ add_library(TSCclibc STATIC
 target_include_directories(TSCclibc PUBLIC
   include)
 
+target_link_libraries(TSCclibc PUBLIC
+  SQLite::SQLite3)
+
 if(NOT BUILD_SHARED_LIBS)
   install(TARGETS TSCclibc
     ARCHIVE DESTINATION lib)
