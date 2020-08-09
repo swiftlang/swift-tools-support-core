@@ -177,6 +177,8 @@ public final class Process: ObjectIdentifierProtocol {
     /// Typealias for process id type.
   #if !os(Windows)
     public typealias ProcessID = pid_t
+  #else
+    public typealias ProcessID = Int32
   #endif
 
     /// Typealias for stdout/stderr output closure.
@@ -206,6 +208,9 @@ public final class Process: ObjectIdentifierProtocol {
     /// The process id of the spawned process, available after the process is launched.
   #if os(Windows)
     private var _process: Foundation.Process?
+    public var processID: ProcessID {
+        return _process?.processIdentifier ?? 0
+    }
   #else
     public private(set) var processID = ProcessID()
   #endif
