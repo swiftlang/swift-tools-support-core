@@ -25,6 +25,7 @@ option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
 
 find_package(dispatch QUIET)
 find_package(Foundation QUIET)
+find_package(SQLite3 REQUIRED)
 
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)
