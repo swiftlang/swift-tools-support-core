@@ -31,9 +31,10 @@ public struct ProcessResult: CustomStringConvertible {
     public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
-
+#if !os(Windows)
         /// The process was terminated due to a signal.
         case signalled(signal: Int32)
+#endif
     }
 
     /// The arguments with which the process was launched.
@@ -758,9 +759,10 @@ extension ProcessResult.Error: CustomStringConvertible {
             switch result.exitStatus {
             case .terminated(let code):
                 stream <<< "terminated(\(code)): "
-
+#if !os(Windows)
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
+#endif
             }
 
             // Strip sandbox information from arguments to keep things pretty.
