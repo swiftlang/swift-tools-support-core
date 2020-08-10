@@ -121,6 +121,14 @@ public final class TerminalController {
     ///
     /// - Returns: Current width of terminal if it was determinable.
     public static func terminalWidth() -> Int? {
+#if os(Windows)
+        var csbi: CONSOLE_SCREEN_BUFFER_INFO = CONSOLE_SCREEN_BUFFER_INFO()
+        if !GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi) {
+          // GetLastError()
+          return nil
+        }
+        return Int(csbi.srWindow.Right - csbi.srWindow.Left) + 1
+#else
         // Try to get from environment.
         if let columns = ProcessEnv.vars["COLUMNS"], let width = Int(columns) {
             return width
@@ -130,13 +138,14 @@ public final class TerminalController {
         // Following code does not compile on ppc64le well. TIOCGWINSZ is
         // defined in system ioctl.h file which needs to be used. This is
         // a temporary arrangement and needs to be fixed.
-#if !(arch(powerpc64le) || os(Windows))
+#if !arch(powerpc64le)
         var ws = winsize()
         if ioctl(1, UInt(TIOCGWINSZ), &ws) == 0 {
             return Int(ws.ws_col)
         }
 #endif
         return nil
+#endif
     }
 
     /// Flushes the stream.
