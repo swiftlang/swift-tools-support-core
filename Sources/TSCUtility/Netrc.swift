@@ -14,6 +14,13 @@ extension AuthorizationProviding {
         return nil
     }
 }
+#if os(Windows)
+// FIXME: - add support for Windows when regex function available
+#endif
+
+#if os(Linux)
+// FIXME: - add support for Linux when regex function available
+#endif
 
 #if os(macOS)
 /*
