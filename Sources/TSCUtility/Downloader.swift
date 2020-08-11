@@ -115,20 +115,20 @@ public final class FoundationDownloader: NSObject, Downloader {
         progress: @escaping Downloader.Progress,
         completion: @escaping Downloader.Completion
     ) {
-        queue.addOperation { [self] in
+        queue.addOperation {
             var request = URLRequest(url: url)
             
             if let authorization = authorizationProvider?.authorization(for: url) {
                 request.addValue(authorization, forHTTPHeaderField: "Authorization")
             }
             
-            let task = session.downloadTask(with: request)
+            let task = self.session.downloadTask(with: request)
             let download = Download(
                 task: task,
                 destination: destination,
                 progress: progress,
                 completion: completion)
-            downloads[task.taskIdentifier] = download
+            self.downloads[task.taskIdentifier] = download
             task.resume()
         }
     }
