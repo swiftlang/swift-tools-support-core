@@ -3,8 +3,9 @@ import TSCUtility
 
 @available(macOS 10.13, *)
 class NetrcTests: XCTestCase {
+    
+    /// should load machines for a given inline format
     func testLoadMachinesInline() {
-        //			it("should load machines for a given inline format") {
         let content = "machine example.com login anonymous password qwerty"
         
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
@@ -25,8 +26,8 @@ class NetrcTests: XCTestCase {
         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
+    /// should load machines for a given multi-line format
     func testLoadMachinesMultiLine() {
-        //			it("should load machines for a given multi-line format") {
         let content = """
                     machine example.com
                     login anonymous
@@ -51,6 +52,7 @@ class NetrcTests: XCTestCase {
         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
+    /// Should fall back to default machine when not matching host
     func testLoadDefaultMachine() {
         let content = """
                     machine example.com
@@ -175,9 +177,8 @@ class NetrcTests: XCTestCase {
         guard case .failure(.invalidDefaultMachinePosition) = Netrc.from(content) else { return XCTFail() }
     }
     
+    /// should load machines for a given multi-line format with comments
     func testLoadMachinesMultilineComments() {
-        
-        //			it("should load machines for a given multi-line format with comments") {
         let content = """
                     ## This is a comment
                     # This is another comment
@@ -195,8 +196,8 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.password, "qwerty")
     }
     
+    /// should load machines for a given multi-line + whitespaces format
     func testLoadMachinesMultilineWhitespaces() {
-        //			it("should load machines for a given multi-line + whitespaces format") {
         let content = """
                     machine  example.com login     anonymous
                     password                  qwerty
@@ -211,8 +212,8 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.password, "qwerty")
     }
     
+    /// should load multiple machines for a given inline format
     func testLoadMultipleMachinesInline() {
-        //			it("should load multiple machines for a given inline format") {
         let content = "machine example.com login anonymous password qwerty machine example2.com login anonymous2 password qwerty2"
         
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
@@ -227,8 +228,8 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[1].password, "qwerty2")
     }
     
+    /// should load multiple machines for a given multi-line format
     func testLoadMultipleMachinesMultiline() {
-        //			it("should load multiple machines for a given multi-line format") {
         let content = """
                     machine  example.com login     anonymous
                     password                  qwerty
@@ -251,8 +252,8 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.password, "qwerty2")
     }
     
+    /// should throw error when machine parameter is missing
     func testErrorMachineParameterMissing() {
-        //			it("should throw error when machine parameter is missing") {
         let content = "login anonymous password qwerty"
         
         guard case .failure(.machineNotFound) = Netrc.from(content) else {
@@ -260,8 +261,8 @@ class NetrcTests: XCTestCase {
         }
     }
     
+    /// should throw error for an empty machine values
     func testErrorEmptyMachineValue() {
-        //			it("should throw error for an empty machine values") {
         let content = "machine"
         
         guard case .failure(.machineNotFound) = Netrc.from(content) else {
@@ -269,8 +270,8 @@ class NetrcTests: XCTestCase {
         }
     }
     
+    /// should throw error for an empty machine values
     func testEmptyMachineValueFollowedByDefaultNoError() {
-        //            it("should throw error for an empty machine values") {
         let content = "machine default login id password secret"
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
         let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
@@ -279,8 +280,8 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(authorization, "Basic \(authData.base64EncodedString())")
     }
     
+    /// should return authorization when config contains a given machine
     func testReturnAuthorizationForMachineMatch() {
-        //			it("should return authorization when config contains a given machine") {
         let content = "machine example.com login anonymous password qwerty"
         
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
@@ -300,8 +301,8 @@ class NetrcTests: XCTestCase {
         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
+    /// should not return authorization when config does not contain a given machine
     func testNoReturnAuthorizationForNoMachineMatch() {
-        //			it("should not return authorization when config does not contain a given machine") {
         let content = "machine example.com login anonymous password qwerty"
         
         guard case .success(let netrc) = Netrc.from(content) else { return XCTFail() }
@@ -312,8 +313,8 @@ class NetrcTests: XCTestCase {
         XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
     }
     
+    /// Test case: https://www.ibm.com/support/knowledgecenter/en/ssw_aix_72/filesreference/netrc.html
     func testIBMDocumentation() {
-        // test case: https://www.ibm.com/support/knowledgecenter/en/ssw_aix_72/filesreference/netrc.html
         let content = "machine host1.austin.century.com login fred password bluebonnet"
         
         guard let netrc = try? Netrc.from(content).get() else {
@@ -324,13 +325,11 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.name, "host1.austin.century.com")
         XCTAssertEqual(machine?.login, "fred")
         XCTAssertEqual(machine?.password, "bluebonnet")
-        
     }
     
+    /// Should not fail on presence of `account`, `macdef`, `default`
+    /// test case: https://gist.github.com/tpope/4247721
     func testNoErrorTrailingAccountMacdefDefault() {
-        // test case: https://gist.github.com/tpope/4247721
-        
-        // should not fail on presence of `account`, `macdef`, `default`
         let content = """
             machine api.heroku.com
               login my@email.com
@@ -368,10 +367,9 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[3].password, "my@email.com")
     }
     
+    /// Should not fail on presence of `account`, `macdef`, `default`
+    /// test case: https://gist.github.com/tpope/4247721
     func testNoErrorMixedAccount() {
-        // test case: https://gist.github.com/tpope/4247721
-        
-        // should not fail on presence of `account`, `macdef`, `default`
         let content = """
             machine api.heroku.com
               login my@email.com
@@ -409,10 +407,9 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[3].password, "my@email.com")
     }
     
+    /// Should not fail on presence of `account`, `macdef`, `default`
+    /// test case: https://renenyffenegger.ch/notes/Linux/fhs/home/username/_netrc
     func testNoErrorMultipleMacdefAndComments() {
-        // test case: https://renenyffenegger.ch/notes/Linux/fhs/home/username/_netrc
-        
-        // should not fail on presence of `account`, `macdef`, `default`
         let content = """
             machine  ftp.foobar.baz
             login    john
@@ -444,6 +441,5 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[1].name, "other.server.org")
         XCTAssertEqual(netrc.machines[1].login, "fred")
         XCTAssertEqual(netrc.machines[1].password, "sunshine4ever")
-        
     }
 }

@@ -76,7 +76,6 @@ class DownloaderTests: XCTestCase {
     
     @available(OSX 10.13, *)
     func testAuthenticatedSuccess() {
-
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
             return XCTFail("Cannot load netrc content")
@@ -142,7 +141,6 @@ class DownloaderTests: XCTestCase {
     
     @available(OSX 10.13, *)
     func testDefaultAuthenticationSuccess() {
-
         let netrcContent = "default login default password default"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
             return XCTFail("Cannot load netrc content")

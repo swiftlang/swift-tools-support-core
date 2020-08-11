@@ -18,17 +18,14 @@ extension AuthorizationProviding {
 /// Container of parsed netrc connection settings
 public struct Netrc: AuthorizationProviding {
     
-    /// Representation of `machine` connection settings & `default` connection settings.  If `default` connection settings present, they will be last element.
+    /// Representation of `machine` connection settings & `default` connection settings.
+    /// If `default` connection settings present, they will be last element.
     public let machines: [Machine]
     
     private init(machines: [Machine]) {
         self.machines = machines
     }
     
-//    /// Testing API.  Not for productive use.
-//    /// See:  [Remove @testable from codebase](https://github.com/apple/swift-package-manager/commit/b6349d516d2f9b2f26ddae9de2c594ede24af7d6)
-//    public static var _mock: Netrc? = nil
-        
     /// Basic authorization header string
     /// - Parameter url: URI of network resource to be accessed
     /// - Returns: (optional) Basic Authorization header string to be added to the request
@@ -40,11 +37,10 @@ public struct Netrc: AuthorizationProviding {
         return "Basic \(authData.base64EncodedString())"
     }
     
-    ///
+    /// Reads file at path or default location, and returns parsed Netrc representation
     /// - Parameter fileURL: Location of netrc file, defaults to `~/.netrc`
     /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func load(fromFileAtPath filePath: AbsolutePath? = nil) -> Result<Netrc, Netrc.Error> {
-                
         let filePath = filePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
         
         guard FileManager.default.fileExists(atPath: filePath.pathString) else { return .failure(.fileNotFound(filePath)) }
@@ -59,7 +55,6 @@ public struct Netrc: AuthorizationProviding {
     /// - Parameter content: String text of netrc file
     /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func from(_ content: String) -> Result<Netrc, Netrc.Error> {
-        
         let content = trimComments(from: content)
         let regex = try! NSRegularExpression(pattern: RegexUtil.netrcPattern, options: [])
         let matches = regex.matches(in: content, options: [], range: NSRange(content.startIndex..<content.endIndex, in: content))
