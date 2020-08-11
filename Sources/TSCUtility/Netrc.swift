@@ -2,6 +2,7 @@ import Foundation
 import TSCBasic
 
 
+
 /// Supplies `Authorization` header, typically to be appended to `URLRequest`
 public protocol AuthorizationProviding {
     /// Optional `Authorization` header, likely added to `URLRequest`
@@ -13,6 +14,12 @@ extension AuthorizationProviding {
         return nil
     }
 }
+
+#if os(macOS)
+/*
+ Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+ which is only available in macOS 10.13+ at this time.
+ */
 
 @available (OSX 10.13, *)
 /// Container of parsed netrc connection settings
@@ -159,3 +166,4 @@ fileprivate enum RegexUtil {
         return #"\s*\#(string)\s+(?<\#(prefix + string)>\S++)"#
     }
 }
+#endif

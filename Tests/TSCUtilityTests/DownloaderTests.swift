@@ -74,7 +74,10 @@ class DownloaderTests: XCTestCase {
       #endif
     }
     
+    #if os(macOS)
     @available(OSX 10.13, *)
+    /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+    /// which is only available in macOS 10.13+ at this time.
     func testAuthenticatedSuccess() {
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -83,7 +86,6 @@ class DownloaderTests: XCTestCase {
         let authData = "anonymous:qwerty".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
         
-      #if os(macOS)
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
@@ -136,10 +138,13 @@ class DownloaderTests: XCTestCase {
             MockAuthenticatingURLProtocol.sendCompletion(for: url)
             wait(for: [successExpectation], timeout: 1.0)
         }
-      #endif
     }
+    #endif
     
+    #if os(macOS)
     @available(OSX 10.13, *)
+    /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+    /// which is only available in macOS 10.13+ at this time.
     func testDefaultAuthenticationSuccess() {
         let netrcContent = "default login default password default"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -148,7 +153,6 @@ class DownloaderTests: XCTestCase {
         let authData = "default:default".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
         
-      #if os(macOS)
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
@@ -201,8 +205,8 @@ class DownloaderTests: XCTestCase {
             MockAuthenticatingURLProtocol.sendCompletion(for: url)
             wait(for: [successExpectation], timeout: 1.0)
         }
-      #endif
     }
+    #endif
 
     func testClientError() {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.

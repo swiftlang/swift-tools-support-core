@@ -1,7 +1,10 @@
 import XCTest
 import TSCUtility
 
+#if os(macOS)
 @available(macOS 10.13, *)
+/// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+/// which is only available in macOS 10.13+ at this time.
 class NetrcTests: XCTestCase {
     
     /// should load machines for a given inline format
@@ -443,3 +446,4 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[1].password, "sunshine4ever")
     }
 }
+#endif
