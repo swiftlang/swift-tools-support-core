@@ -179,7 +179,7 @@ public final class Process: ObjectIdentifierProtocol {
   #if !os(Windows)
     public typealias ProcessID = pid_t
   #else
-    public typealias ProcessID = Int32
+    public typealias ProcessID = DWORD
   #endif
 
     /// Typealias for stdout/stderr output closure.
@@ -210,7 +210,7 @@ public final class Process: ObjectIdentifierProtocol {
   #if os(Windows)
     private var _process: Foundation.Process?
     public var processID: ProcessID {
-        return _process?.processIdentifier ?? 0
+        return DWORD(_process?.processIdentifier ?? 0)
     }
   #else
     public private(set) var processID = ProcessID()
