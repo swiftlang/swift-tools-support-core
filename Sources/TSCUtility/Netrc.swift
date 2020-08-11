@@ -45,9 +45,7 @@ public struct Netrc: AuthorizationProviding {
     /// - Returns: `Netrc` container with parsed connection settings, or error
     public static func load(fromFileAtPath filePath: AbsolutePath? = nil) -> Result<Netrc, Netrc.Error> {
                 
-        guard let filePath = filePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc") else {
-            return .failure(.invalidFilePath)
-        }
+        let filePath = filePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
         
         guard FileManager.default.fileExists(atPath: filePath.pathString) else { return .failure(.fileNotFound(filePath)) }
         guard FileManager.default.isReadableFile(atPath: filePath.pathString),
