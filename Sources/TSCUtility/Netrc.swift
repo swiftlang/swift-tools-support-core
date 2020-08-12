@@ -1,5 +1,6 @@
 import Foundation
 import TSCBasic
+
 /// Supplies `Authorization` header, typically to be appended to `URLRequest`
 public protocol AuthorizationProviding {
     /// Optional `Authorization` header, likely added to `URLRequest`
@@ -11,6 +12,7 @@ extension AuthorizationProviding {
         return nil
     }
 }
+
 #if os(Windows)
 // FIXME: - add support for Windows when regex function available
 #endif
@@ -24,11 +26,9 @@ extension AuthorizationProviding {
  Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
  which is only available in macOS 10.13+ at this time.
  */
-
 @available (OSX 10.13, *)
 /// Container of parsed netrc connection settings
 public struct Netrc: AuthorizationProviding {
-    
     /// Representation of `machine` connection settings & `default` connection settings.
     /// If `default` connection settings present, they will be last element.
     public let machines: [Machine]
@@ -60,7 +60,6 @@ public struct Netrc: AuthorizationProviding {
         
         return Netrc.from(fileContents)
     }
-    
     
     /// Regex matching logic for deriving `Netrc` container from string content
     /// - Parameter content: String text of netrc file
@@ -100,7 +99,6 @@ public struct Netrc: AuthorizationProviding {
 
 @available (OSX 10.13, *)
 public extension Netrc {
-    
     enum Error: Swift.Error {
         case invalidFilePath
         case fileNotFound(AbsolutePath)
@@ -139,9 +137,7 @@ public extension Netrc {
 
 @available (OSX 10.13, *)
 fileprivate enum RegexUtil {
-    
     @frozen fileprivate enum Token: String, CaseIterable {
-        
         case machine, login, password, account, macdef, `default`
         
         func capture(prefix: String = "", in match: NSTextCheckingResult, string: String) -> String? {
@@ -151,15 +147,12 @@ fileprivate enum RegexUtil {
     }
 
     static let comments: String = "\\#[\\s\\S]*?.*$"
-    
     static let `default`: String = #"(?:\s*(?<default>default))"#
     static let accountOptional: String = #"(?:\s*account\s+\S++)?"#
-    
     static let loginPassword: String = #"\#(namedTrailingCapture("login", prefix: "lp"))\#(accountOptional)\#(namedTrailingCapture("password", prefix: "lp"))"#
     static let passwordLogin: String = #"\#(namedTrailingCapture("password", prefix: "pl"))\#(accountOptional)\#(namedTrailingCapture("login", prefix: "pl"))"#
-    
     static let netrcPattern = #"(?:(?:(\#(namedTrailingCapture("machine"))|\#(namedMatch("default"))))(?:\#(loginPassword)|\#(passwordLogin)))"#
-        
+    
     static func namedMatch(_ string: String) -> String {
         return #"(?:\s*(?<\#(string)>\#(string)))"#
     }
