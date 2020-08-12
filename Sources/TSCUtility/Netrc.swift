@@ -84,8 +84,6 @@ public struct Netrc: AuthorizationProviding {
         guard machines.count > 0 else { return .failure(.machineNotFound) }
         return .success(Netrc(machines: machines))
     }
-    
-    
     /// Utility method to trim comments from netrc content
     /// - Parameter text: String text of netrc file
     /// - Returns: String text of netrc file *sans* comments
