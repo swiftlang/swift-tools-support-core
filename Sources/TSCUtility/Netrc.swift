@@ -1,8 +1,5 @@
 import Foundation
 import TSCBasic
-
-
-
 /// Supplies `Authorization` header, typically to be appended to `URLRequest`
 public protocol AuthorizationProviding {
     /// Optional `Authorization` header, likely added to `URLRequest`
