@@ -6,7 +6,6 @@ import TSCUtility
 /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
 /// which is only available in macOS 10.13+ at this time.
 class NetrcTests: XCTestCase {
-    
     /// should load machines for a given inline format
     func testLoadMachinesInline() {
         let content = "machine example.com login anonymous password qwerty"
