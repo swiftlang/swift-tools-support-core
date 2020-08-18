@@ -20,6 +20,8 @@ add_library(TSCUtility
   IndexStore.swift
   InterruptHandler.swift
   JSONMessageStreamingParser.swift
+  misc.swift
+  Netrc.swift
   OSLog.swift
   PersistenceCache.swift
   PkgConfig.swift
