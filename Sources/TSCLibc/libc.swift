@@ -20,14 +20,6 @@
 @_exported import TSCclibc
 
 #if os(Windows)
-// char *realpath(const char *path, char *resolved_path);
-public func realpath(
-    _ path: String,
-    _ resolvedPath: UnsafeMutablePointer<CChar>?
-) -> UnsafeMutablePointer<CChar>? {
-  fatalError("realpath is unimplemented")
-}
-
 private func __randname(_ buffer: UnsafeMutablePointer<CChar>) {
   let alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
   _ = (0 ..< 6).map { index in
