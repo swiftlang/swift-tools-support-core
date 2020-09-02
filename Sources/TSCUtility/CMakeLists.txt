@@ -10,6 +10,8 @@ add_library(TSCUtility
   Archiver.swift
   ArgumentParser.swift
   ArgumentParserShellCompletion.swift
+  Bits.swift
+  Bitstream.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
@@ -28,6 +30,7 @@ add_library(TSCUtility
   Platform.swift
   PolymorphicCodable.swift
   ProgressAnimation.swift
+  SerializedDiagnostics.swift
   SQLite.swift
   SimplePersistence.swift
   StringExtensions.swift
