@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -62,6 +62,7 @@ public struct Triple: Encodable, Equatable {
     public enum ABI: String, Encodable {
         case unknown
         case android
+        case msvc
     }
 
     public init(_ string: String) throws {
@@ -101,6 +102,9 @@ public struct Triple: Encodable, Equatable {
     fileprivate static func parseABI(_ string: String) -> ABI? {
         if string.hasPrefix(ABI.android.rawValue) {
             return ABI.android
+        }
+        if string == ABI.msvc.rawValue {
+            return ABI.msvc
         }
         return nil
     }
@@ -156,7 +160,7 @@ public struct Triple: Encodable, Equatable {
 }
 
 extension Triple {
-    /// The file prefix for dynamcic libraries
+    /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
         switch os {
         case .windows:
@@ -195,7 +199,12 @@ extension Triple {
     
     /// The file extension for static libraries.
     public var staticLibraryExtension: String {
-        return ".a"
+        switch abi {
+        case .msvc:
+            return ".lib"
+        default:
+            return ".a"
+        }
     }
 
     /// The file extension for Foundation-style bundle.
