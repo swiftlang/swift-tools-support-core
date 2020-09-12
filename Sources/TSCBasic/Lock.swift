@@ -24,10 +24,18 @@ public struct Lock {
     public init() {
     }
 
+    func lock() {
+        _lock.lock()
+    }
+
+    func unlock() {
+        _lock.unlock()
+    }
+
     /// Execute the given block while holding the lock.
     public func withLock<T> (_ body: () throws -> T) rethrows -> T {
-        _lock.lock()
-        defer { _lock.unlock() }
+        lock()
+        defer { unlock() }
         return try body()
     }
 }
