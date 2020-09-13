@@ -103,7 +103,7 @@ public struct Triple: Encodable, Equatable {
         if string.hasPrefix(ABI.android.rawValue) {
             return ABI.android
         }
-        if string == ABI.msvc.rawValue {
+        if string.hasPrefix(ABI.msvc.rawValue) {
             return ABI.msvc
         }
         return nil

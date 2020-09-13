@@ -28,11 +28,11 @@ public enum Platform: Equatable {
     public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
 
     public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
-        /// Recognize Darwin and Windows at compile time.
-      #if os(Darwin)
-        return .darwin
-      #elseif os(Windows)
+        /// Recognize Windows and Android at compile time.
+      #if os(Windows)
         return .windows
+      #elseif os(Android)
+        return .android
       #else
         /// Attempt to match `uname` with other recognized platforms.
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
