@@ -33,7 +33,7 @@ add_library(TSCBasic
   ObjectIdentifierProtocol.swift
   OrderedDictionary.swift
   OrderedSet.swift
-  OutputByteStream.swift
+  WritableByteStream.swift
   Path.swift
   PathShims.swift
   Process.swift
