@@ -41,15 +41,27 @@ public class ReadWriteLock {
         pthread_rwlock_init(&lock, nil)
     }
 
+    func readLock() {
+        pthread_rwlock_rdlock(&lock)
+    }
+
+    func writeLock() {
+        pthread_rwlock_wrlock(&lock)
+    }
+
+    func unlock() {
+        pthread_rwlock_unlock(&lock)
+    }
+
     /// Execute the given block while holding the lock.
     public func withLock<T>(type lockType: LockType = .exclusive, _ body: () throws -> T) rethrows -> T {
         switch lockType {
         case .shared:
-            pthread_rwlock_rdlock(&lock)
+            readLock()
         case .exclusive:
-            pthread_rwlock_wrlock(&lock)
+            writeLock()
         }
-        defer { pthread_rwlock_unlock(&lock) }
+        defer { unlock() }
         return try body()
     }
 

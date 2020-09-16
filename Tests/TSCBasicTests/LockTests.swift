@@ -48,4 +48,37 @@ class LockTests: XCTestCase {
             }
         }
     }
+
+    func testReadWriteLock() throws {
+        var a = 0
+        var b = 0
+
+        let lock = ReadWriteLock()
+
+        let writerThreads = (0..<100).map { _ in
+           return Thread {
+                lock.withLock(type: .exclusive) {
+                    a+=1
+                    sched_yield()
+                    b+=1
+                }
+            }
+        }
+
+        let readerThreads = (0..<20).map { _ in
+            return Thread {
+                lock.withLock(type: .shared) {
+                    XCTAssertEqual(a,b)
+                    sched_yield()
+                    XCTAssertEqual(a,b)
+                }
+            }
+        }
+
+        writerThreads.forEach { $0.start() }
+        readerThreads.forEach { $0.start() }
+        writerThreads.forEach { $0.join() }
+        readerThreads.forEach { $0.join() }
+    }
+
 }
