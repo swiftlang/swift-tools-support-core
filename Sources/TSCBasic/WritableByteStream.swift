@@ -55,6 +55,15 @@ public protocol WritableByteStream: class, TextOutputStream {
 
     /// Flush the stream's buffer.
     func flush()
+
+    /// Signal that the byte stream will not be used further and should be closed.
+    func close() throws
+}
+
+// Default noop implementation of close to avoid source-breaking downstream dependents with the addition of the close
+// API.
+public extension WritableByteStream {
+    func close() throws { }
 }
 
 // Public alias to the old name to not introduce API compatibility.
@@ -182,6 +191,14 @@ public class _WritableByteStreamBase: WritableByteStream {
 
     @usableFromInline func flushImpl() {
         // Do nothing.
+    }
+
+    public final func close() throws {
+        try closeImpl()
+    }
+
+    @usableFromInline func closeImpl() throws {
+        fatalError("Subclasses must implement this")
     }
 
     @usableFromInline func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
@@ -318,6 +335,12 @@ public final class ThreadSafeOutputByteStream: WritableByteStream {
     public func writeJSONEscaped(_ string: String) {
         queue.sync {
             stream.writeJSONEscaped(string)
+        }
+    }
+
+    public func close() throws {
+        try queue.sync {
+            try stream.close()
         }
     }
 }
@@ -625,19 +648,24 @@ public final class BufferedOutputByteStream: _WritableByteStreamBase {
     override final func writeImpl(_ bytes: ArraySlice<UInt8>) {
         contents += bytes
     }
+
+    override final func closeImpl() throws {
+        // Do nothing. The protocol does not require to stop receiving writes, close only signals that resources could
+        // be released at this point should we need to.
+    }
 }
 
 /// Represents a stream which is backed to a file. Not for instantiating.
 public class FileOutputByteStream: _WritableByteStreamBase {
 
-    /// Closes the file flushing any buffered data.
-    public final func close() throws {
+    public override final func closeImpl() throws {
         flush()
-        try closeImpl()
+        try fileCloseImpl()
     }
 
-    func closeImpl() throws {
-        fatalError("closeImpl() should be implemented by a subclass")
+    /// Closes the file flushing any buffered data.
+    func fileCloseImpl() throws {
+        fatalError("fileCloseImpl() should be implemented by a subclass")
     }
 }
 
@@ -726,7 +754,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         fflush(filePointer)
     }
 
-    override final func closeImpl() throws {
+    override final func fileCloseImpl() throws {
         defer {
             fclose(filePointer)
             // If clients called close we shouldn't call fclose again in deinit.
