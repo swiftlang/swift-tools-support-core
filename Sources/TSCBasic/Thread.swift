@@ -64,6 +64,15 @@ final public class Thread {
             }
         }
     }
+
+    /// Causes the calling thread to yield execution to another thread.
+    public static func yield() {
+        #if os(Windows)
+          SwitchToThread()
+        #else
+          sched_yield()
+        #endif
+    }
 }
 
 #if canImport(Darwin)
