@@ -90,7 +90,6 @@ class LockTests: XCTestCase {
 
             let writerThreads = (0..<100).map { _ in
                 return Thread {
-                    let lock = FileLock(name: "foo", cachePath: tempDir)
                     try! lock.withLock(type: .exclusive) {
                         // Get thr current contents of the file if any.
                         let valueA: Int
@@ -119,13 +118,12 @@ class LockTests: XCTestCase {
 
             let readerThreads = (0..<20).map { _ in
                 return Thread {
-                    let lock = FileLock(name: "foo", cachePath: tempDir)
                     try! lock.withLock(type: .shared) {
-                        try XCTAssertEqual( localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
+                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
 
                         Thread.yield()
 
-                        try XCTAssertEqual( localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
+                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
                     }
                 }
             }
