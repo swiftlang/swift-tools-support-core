@@ -10,6 +10,7 @@
 
 import TSCLibc
 import Foundation
+import Dispatch
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
@@ -515,7 +516,9 @@ public class InMemoryFileSystem: FileSystem {
     /// The root filesytem.
     private var root: Node
     /// A map that keeps weak references to all locked files.
-    private let lockMap = NSMapTable<NSString, ReadWriteLock>(keyOptions: .copyIn, valueOptions: .weakMemory)
+    private var lockFiles = WeakDictionary<AbsolutePath, DispatchQueue>()
+    /// Used to access lockFiles in a thread safe manner.
+    private let lockFilesLock = Lock()
 
     public init() {
         root = Node(.directory(DirectoryContents()))
@@ -776,19 +779,18 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let lock = Lock()
-        var fileLock: ReadWriteLock
+        var fileQueue: DispatchQueue
 
-        lock.lock()
-        if let lock = lockMap.object(forKey: path.pathString as NSString) {
-            fileLock = lock
+        lockFilesLock.lock()
+        if let queue = lockFiles[path] {
+            fileQueue = queue
         } else {
-            fileLock = ReadWriteLock()
-            lockMap.setObject(fileLock, forKey: path.pathString as NSString)
+            fileQueue = DispatchQueue(label: "foo", attributes: .concurrent)
+            lockFiles[path] = fileQueue
         }
-        lock.unlock()
+        lockFilesLock.unlock()
 
-        return try fileLock.withLock(type: type, body)
+        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
     }
 }
 

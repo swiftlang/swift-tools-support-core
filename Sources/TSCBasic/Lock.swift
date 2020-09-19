@@ -40,44 +40,6 @@ public struct Lock {
     }
 }
 
-/// A lock that allows multiple readers but only one write at the same time.
-public class ReadWriteLock {
-    private var lock = pthread_rwlock_t()
-
-    /// Create a new lock.
-    public init() {
-        pthread_rwlock_init(&lock, nil)
-    }
-
-    func readLock() {
-        pthread_rwlock_rdlock(&lock)
-    }
-
-    func writeLock() {
-        pthread_rwlock_wrlock(&lock)
-    }
-
-    func unlock() {
-        pthread_rwlock_unlock(&lock)
-    }
-
-    /// Execute the given block while holding the lock.
-    public func withLock<T>(type lockType: LockType = .exclusive, _ body: () throws -> T) rethrows -> T {
-        switch lockType {
-        case .shared:
-            readLock()
-        case .exclusive:
-            writeLock()
-        }
-        defer { unlock() }
-        return try body()
-    }
-
-    deinit {
-        pthread_rwlock_destroy(&lock)
-    }
-}
-
 enum ProcessLockError: Swift.Error {
     case unableToAquireLock(errno: Int32)
 }
