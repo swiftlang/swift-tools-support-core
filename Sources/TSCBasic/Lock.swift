@@ -72,29 +72,16 @@ public final class FileLock {
     public func lock(type: LockType = .exclusive) throws {
       #if os(Windows)
         if handle == nil {
-            let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
-                switch mode {
-                case .exclusive:
-                    CreateFileW(
-                        $0,
-                        UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
-                        0,
-                        nil,
-                        DWORD(OPEN_ALWAYS),
-                        DWORD(FILE_ATTRIBUTE_NORMAL),
-                        nil
-                    )
-                case .shared:
-                    CreateFileW(
-                        $0,
-                        UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
-                        DWORD(FILE_SHARE_READ),
-                        nil,
-                        DWORD(OPEN_ALWAYS),
-                        DWORD(FILE_ATTRIBUTE_NORMAL),
-                        nil
-                    )
-                }
+            let h: HANDLE = lockFile.pathString.withCString(encodedAs: UTF16.self, {
+                CreateFileW(
+                    $0,
+                    UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
+                    UInt32(FILE_SHARE_READ) | UInt32(FILE_SHARE_WRITE),
+                    nil,
+                    DWORD(OPEN_ALWAYS),
+                    DWORD(FILE_ATTRIBUTE_NORMAL),
+                    nil
+                )
             })
             if h == INVALID_HANDLE_VALUE {
                 throw FileSystemError(errno: Int32(GetLastError()))
@@ -105,7 +92,7 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        switch mode {
+        switch type {
         case .exclusive:
             if !LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0,
                            DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
