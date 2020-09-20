@@ -133,7 +133,11 @@ public struct AbsolutePath: Hashable {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
+#if os(Windows)
+        return _impl.string.withCString(encodedAs: UTF16.self, PathIsRootW)
+#else
         return _impl == PathImpl.root
+#endif
     }
 
     /// Returns the absolute path with the relative path applied.
