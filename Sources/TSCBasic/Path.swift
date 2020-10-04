@@ -134,7 +134,7 @@ public struct AbsolutePath: Hashable {
     /// True if the path is the root directory.
     public var isRoot: Bool {
 #if os(Windows)
-        return _impl.string.withCString(encodedAs: UTF16.self, PathIsRootW)
+        return _impl.string.withCString(encodedAs: UTF16.self, PathCchIsRoot)
 #else
         return _impl == PathImpl.root
 #endif
