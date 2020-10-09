@@ -57,10 +57,8 @@ target_compile_options(TSCBasic PUBLIC
 target_link_libraries(TSCBasic PUBLIC
   TSCLibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  if(Foundation_FOUND)
-    target_link_libraries(TSCBasic PUBLIC
-      Foundation)
-  endif()
+  target_link_libraries(TSCBasic PUBLIC
+    Foundation)
 endif()
 target_link_libraries(TSCBasic PRIVATE
   $<$<PLATFORM_ID:Windows>:Pathcch>)
