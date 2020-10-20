@@ -785,7 +785,7 @@ public class InMemoryFileSystem: FileSystem {
         if let queue = lockFiles[path] {
             fileQueue = queue
         } else {
-            fileQueue = DispatchQueue(label: "foo", attributes: .concurrent)
+            fileQueue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
             lockFiles[path] = fileQueue
         }
         lockFilesLock.unlock()
