@@ -58,6 +58,8 @@ extension Bitcode {
   }
 }
 
+/// Represents the contents of a file encoded using the
+/// [LLVM bitstream container format](https://llvm.org/docs/BitCodeFormat.html#bitstream-container-format)
 public struct Bitcode {
   public let signature: Signature
   public let elements: [BitcodeElement]
@@ -359,10 +361,16 @@ private struct BitstreamReader {
   static let fakeTopLevelBlockID: UInt64 = ~0
 }
 
+/// A visitor which receives callbacks while reading a bitstream.
 public protocol BitstreamVisitor {
+  /// Customization point to validate a bitstream's signature or "magic number".
   func validate(signature: Bitcode.Signature) throws
+  /// Called when a new block is encountered. Return `true` to enter the block
+  /// and read its contents, or `false` to skip it.
   mutating func shouldEnterBlock(id: UInt64) throws -> Bool
+  /// Called when a block is exited.
   mutating func didExitBlock() throws
+  /// Called whenever a record is encountered.
   mutating func visit(record: BitcodeElement.Record) throws
 }
 
@@ -397,6 +405,7 @@ private struct CollectingVisitor: BitstreamVisitor {
 }
 
 extension Bitcode {
+  /// Parse a bitstream from data.
   public init(data: Data) throws {
     precondition(data.count > 4)
     let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
@@ -413,6 +422,8 @@ extension Bitcode {
               blockInfo: reader.blockInfo)
   }
 
+  /// Traverse a bitstream using the specified `visitor`, which will receive
+  /// callbacks when blocks and records are encountered.
   public static func read<Visitor: BitstreamVisitor>(stream data: Data, using visitor: inout Visitor) throws {
     precondition(data.count > 4)
     let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
