@@ -48,8 +48,7 @@ add_library(TSCBasic
   TerminalController.swift
   Thread.swift
   Tuple.swift
-  misc.swift
-  WeakDictionary.swift)
+  misc.swift)
   
 target_compile_options(TSCBasic PUBLIC
   # Don't use GNU strerror_r on Android.
