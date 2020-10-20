@@ -512,11 +512,19 @@ public class InMemoryFileSystem: FileSystem {
             return contents
         }
     }
+    // Used to ensure that DispatchQueues are releassed when they are no longer in use.
+    private struct WeakReference<Value: AnyObject> {
+        weak var reference: Value?
+
+        init(_ value: Value?) {
+            self.reference = value
+        }
+    }
 
     /// The root filesytem.
     private var root: Node
     /// A map that keeps weak references to all locked files.
-    private var lockFiles = WeakDictionary<AbsolutePath, DispatchQueue>()
+    private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
 
@@ -782,11 +790,11 @@ public class InMemoryFileSystem: FileSystem {
         var fileQueue: DispatchQueue
 
         lockFilesLock.lock()
-        if let queue = lockFiles[path] {
+        if let queueReference = lockFiles[path], let queue = queueReference.reference {
             fileQueue = queue
         } else {
             fileQueue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
-            lockFiles[path] = fileQueue
+            lockFiles[path] = WeakReference(fileQueue)
         }
         lockFilesLock.unlock()
 
