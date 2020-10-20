@@ -11,11 +11,6 @@
 import Foundation
 import TSCLibc
 
-public enum LockType {
-    case exclusive
-    case shared
-}
-
 /// A simple lock wrapper.
 public struct Lock {
     private let _lock = NSLock()
@@ -48,6 +43,12 @@ enum ProcessLockError: Swift.Error {
 /// It can be used for things like serializing concurrent mutations on a shared resource
 /// by mutiple instances of a process. The `FileLock` is not thread-safe.
 public final class FileLock {
+
+    public enum LockType {
+        case exclusive
+        case shared
+    }
+
     /// File descriptor to the lock file.
   #if os(Windows)
   @ThreadLocal @AutoClosing private var handle: HANDLE?

@@ -203,7 +203,7 @@ public protocol FileSystem: class {
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Execute the given block while holding the lock.
-    func withLock<T>(on path: AbsolutePath, type: LockType, _ body: () throws -> T) throws -> T
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -245,7 +245,7 @@ public extension FileSystem {
         throw FileSystemError.unsupported
     }
 
-    func withLock<T>(on path: AbsolutePath, type: LockType, _ body: () throws -> T) throws -> T {
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         throw FileSystemError.unsupported
     }
 }
@@ -459,7 +459,7 @@ private class LocalFileSystem: FileSystem {
         try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
     }
 
-    func withLock<T>(on path: AbsolutePath, type: LockType = .exclusive, _ body: () throws -> T) throws -> T {
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         let lock = FileLock(name: path.basename, cachePath: path.parentDirectory)
         return try lock.withLock(type: type, body)
     }
@@ -778,7 +778,7 @@ public class InMemoryFileSystem: FileSystem {
         contents.entries[sourcePath.basename] = nil
     }
 
-    public func withLock<T>(on path: AbsolutePath, type: LockType = .exclusive, _ body: () throws -> T) throws -> T {
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         var fileQueue: DispatchQueue
 
         lockFilesLock.lock()
@@ -897,7 +897,7 @@ public class RerootedFileSystemView: FileSystem {
         try underlyingFileSystem.move(from: formUnderlyingPath(sourcePath), to: formUnderlyingPath(sourcePath))
     }
 
-    public func withLock<T>(on path: AbsolutePath, type: LockType = .exclusive, _ body: () throws -> T) throws -> T {
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         return try underlyingFileSystem.withLock(on: formUnderlyingPath(path), type: type, body)
     }
 }
