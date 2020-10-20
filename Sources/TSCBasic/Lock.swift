@@ -51,9 +51,9 @@ public final class FileLock {
 
     /// File descriptor to the lock file.
   #if os(Windows)
-  @ThreadLocal @AutoClosing private var handle: HANDLE?
+    private var handle: HANDLE?
   #else
-  @ThreadLocal @AutoClosing private var fileDescriptor: CInt?
+    private var fileDescriptor: CInt?
   #endif
 
     /// Path to the lock file.
@@ -137,8 +137,18 @@ public final class FileLock {
         overlapped.hEvent = nil
         UnlockFileEx(handle, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
       #else
-      guard let fd = fileDescriptor else { return }
+        guard let fd = fileDescriptor else { return }
         flock(fd, LOCK_UN)
+      #endif
+    }
+
+    deinit {
+      #if os(Windows)
+        guard let handle = handle else { return }
+        CloseHandle(handle)
+      #else
+        guard let fd = fileDescriptor else { return }
+        close(fd)
       #endif
     }
 

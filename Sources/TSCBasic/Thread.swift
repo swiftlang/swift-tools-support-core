@@ -9,7 +9,6 @@
 */
 
 import Foundation
-import TSCLibc
 
 /// This class bridges the gap between Darwin and Linux Foundation Threading API.
 /// It provides closure based execution and a join method to block the calling thread
@@ -95,60 +94,3 @@ final private class ThreadImpl: Foundation.Thread {
 // Thread on Linux supports closure so just use it directly.
 typealias ThreadImpl = Foundation.Thread
 #endif
-
-protocol Defaultable {
-    static var defaultValue: Self { get }
-}
-
-extension Optional: Defaultable {
-    static var defaultValue: Optional<Wrapped> { .none }
-}
-
-/// `ThreadLocal` properties are  thread-specific. Every thread has its own instance of the wrapped property.
-@propertyWrapper final class ThreadLocal<Value: Defaultable> {
-    private var storage: NSMutableDictionary { ThreadImpl.current.threadDictionary }
-    private let key = UUID().uuidString
-
-    var wrappedValue: Value {
-        get {
-            if let value = storage[key] as? Value {
-                return value
-            } else {
-                let value = Value.defaultValue
-                storage[key] = value
-                return value
-            }
-        }
-        set { storage[key] = newValue }
-    }
-
-    init(wrappedValue: Value) {
-        self.wrappedValue = wrappedValue
-    }
-}
-
-/// Automatically closes the wrapped file descriptor on deinit.
-@propertyWrapper final class AutoClosing: NSObject, Defaultable {
-    #if os(Windows)
-    typealias T = HANDLE
-    #else
-    typealias T = CInt
-    #endif
-    var wrappedValue: T?
-
-    static var defaultValue: AutoClosing { AutoClosing(wrappedValue: .none) }
-
-    init(wrappedValue: T?) {
-        self.wrappedValue = wrappedValue
-    }
-
-    deinit {
-        if let wrappedValue = wrappedValue {
-            #if os(Windows)
-              CloseHandle(wrappedValue)
-            #else
-              close(wrappedValue)
-            #endif
-        }
-    }
-}
