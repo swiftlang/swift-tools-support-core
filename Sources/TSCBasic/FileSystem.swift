@@ -787,16 +787,16 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        var fileQueue: DispatchQueue
 
-        lockFilesLock.lock()
-        if let queueReference = lockFiles[path], let queue = queueReference.reference {
-            fileQueue = queue
-        } else {
-            fileQueue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
-            lockFiles[path] = WeakReference(fileQueue)
+        let fileQueue: DispatchQueue = lockFilesLock.withLock {
+            if let queueReference = lockFiles[path], let queue = queueReference.reference {
+                return queue
+            } else {
+                let queue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
+                lockFiles[path] = WeakReference(queue)
+                return queue
+            }
         }
-        lockFilesLock.unlock()
 
         return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
     }
