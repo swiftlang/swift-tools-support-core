@@ -9,6 +9,9 @@
 */
 
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 /// This class bridges the gap between Darwin and Linux Foundation Threading API.
 /// It provides closure based execution and a join method to block the calling thread
