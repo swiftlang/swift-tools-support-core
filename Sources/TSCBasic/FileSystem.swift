@@ -165,6 +165,12 @@ public protocol FileSystem: class {
     /// - recursive: If true, create missing parent directories if possible.
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
 
+    /// Creates a symbolic link of the source path at the target path
+    /// - Parameters:
+    ///   - path: The path at which to create the link.
+    ///   - destination: The path to which the link points to.
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws
+
     // FIXME: This is obviously not a very efficient or flexible API.
     //
     /// Get the contents of a file.
