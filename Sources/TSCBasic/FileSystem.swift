@@ -349,6 +349,10 @@ private class LocalFileSystem: FileSystem {
         try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
     }
 
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws {
+        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destination.pathString)
+    }
+
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
         let fp = fopen(path.pathString, "rb")
