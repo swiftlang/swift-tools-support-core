@@ -935,6 +935,12 @@ public class RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
 
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws {
+        let path = formUnderlyingPath(path)
+        let destination = formUnderlyingPath(destination)
+        return try underlyingFileSystem.createSymbolicLink(path, pointingAt: destination)
+    }
+
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         return try underlyingFileSystem.readFileContents(formUnderlyingPath(path))
     }
@@ -945,7 +951,7 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func removeFileTree(_ path: AbsolutePath) throws {
-        try underlyingFileSystem.removeFileTree(path)
+        try underlyingFileSystem.removeFileTree(formUnderlyingPath(path))
     }
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
