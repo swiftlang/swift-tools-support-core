@@ -29,7 +29,7 @@ class PathShimTests : XCTestCase {
             let fldrPath = tmpDirPath.appending(component: "fldr")
 
             // Create a symbolic link pointing at the (so far non-existent) directory.
-            try! createSymlink(slnkPath, pointingAt: fldrPath, relative: true)
+            try! localFileSystem.createSymbolicLink(slnkPath, pointingAt: fldrPath)
 
             // Resolving the symlink should not yet change anything.
             XCTAssertEqual(resolveSymlinks(slnkPath), slnkPath)
@@ -113,7 +113,7 @@ class WalkTests : XCTestCase {
 
             try! makeDirectories(tmpDirPath.appending(component: "foo"))
             try! makeDirectories(tmpDirPath.appending(components: "bar", "baz", "goo"))
-            try! createSymlink(tmpDirPath.appending(components: "foo", "symlink"), pointingAt: tmpDirPath.appending(component: "bar"), relative: true)
+            try! localFileSystem.createSymbolicLink(tmpDirPath.appending(components: "foo", "symlink"), pointingAt: tmpDirPath.appending(component: "bar"))
 
             XCTAssertTrue(localFileSystem.isSymlink(tmpDirPath.appending(components: "foo", "symlink")))
             XCTAssertEqual(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink")), tmpDirPath.appending(component: "bar"))
@@ -129,8 +129,8 @@ class WalkTests : XCTestCase {
         try! withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDirPath in
             try! makeDirectories(tmpDirPath.appending(components: "foo", "bar"))
             try! makeDirectories(tmpDirPath.appending(components: "abc", "bar"))
-            try! createSymlink(tmpDirPath.appending(component: "symlink"), pointingAt: tmpDirPath.appending(component: "foo"), relative: true)
-            try! createSymlink(tmpDirPath.appending(components: "foo", "baz"), pointingAt: tmpDirPath.appending(component: "abc"), relative: true)
+            try! localFileSystem.createSymbolicLink(tmpDirPath.appending(component: "symlink"), pointingAt: tmpDirPath.appending(component: "foo"))
+            try! localFileSystem.createSymbolicLink(tmpDirPath.appending(components: "foo", "baz"), pointingAt: tmpDirPath.appending(component: "abc"))
 
             XCTAssertTrue(localFileSystem.isSymlink(tmpDirPath.appending(component: "symlink")))
 

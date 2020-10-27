@@ -37,7 +37,7 @@ class FileSystemTests: XCTestCase {
 
                 // isSymlink()
                 let sym = tempDirPath.appending(component: "hello")
-                try! createSymlink(sym, pointingAt: file.path)
+                try! fs.createSymbolicLink(sym, pointingAt: file.path)
                 XCTAssertTrue(fs.isSymlink(sym))
                 XCTAssertTrue(fs.isFile(sym))
                 XCTAssertEqual(try fs.getFileInfo(sym).fileType, .typeSymbolicLink)
@@ -46,7 +46,7 @@ class FileSystemTests: XCTestCase {
                 // isExecutableFile
                 let executable = tempDirPath.appending(component: "exec-foo")
                 let executableSym = tempDirPath.appending(component: "exec-sym")
-                try! createSymlink(executableSym, pointingAt: executable)
+                try! fs.createSymbolicLink(executableSym, pointingAt: executable)
                 let stream = BufferedOutputByteStream()
                 stream <<< """
                     #!/bin/sh
@@ -54,7 +54,7 @@ class FileSystemTests: XCTestCase {
                     exit
 
                     """
-                try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
+                try! fs.writeFileContents(executable, bytes: stream.bytes)
                 try! Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
                 XCTAssertTrue(fs.isExecutableFile(executable))
                 XCTAssertTrue(fs.isExecutableFile(executableSym))
@@ -94,7 +94,7 @@ class FileSystemTests: XCTestCase {
 
             // Source and target exist.
 
-            try createSymlink(source, pointingAt: target)
+            try fs.createSymbolicLink(source, pointingAt: target)
             XCTAssertEqual(fs.exists(source), true)
             XCTAssertEqual(fs.exists(source, followSymlink: true), true)
             XCTAssertEqual(fs.exists(source, followSymlink: false), true)
@@ -563,7 +563,7 @@ class FileSystemTests: XCTestCase {
             try fs.createDirectory(dir, recursive: true)
             try fs.writeFileContents(foo, bytes: "")
             try fs.writeFileContents(bar, bytes: "")
-            try createSymlink(sym, pointingAt: foo)
+            try fs.createSymbolicLink(sym, pointingAt: foo)
 
             // Set foo to unwritable.
             try fs.chmod(.userUnWritable, path: foo)
