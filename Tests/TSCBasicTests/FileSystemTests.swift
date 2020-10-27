@@ -374,6 +374,37 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
     }
 
+    func testInMemoryCreateSymlink() throws {
+        let fs = InMemoryFileSystem()
+        let path = fs.homeDirectory
+        try fs.createDirectory(path, recursive: true)
+
+        let source = path.appending(component: "source")
+        let target = path.appending(component: "target")
+        try fs.writeFileContents(target, bytes: "source")
+
+        // Source and target exist.
+
+        try fs.createSymbolicLink(source, pointingAt: target)
+        XCTAssertEqual(fs.exists(source), true)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), true)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+        // Source only exists.
+
+        try fs.removeFileTree(target)
+        XCTAssertEqual(fs.exists(source), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+        // None exist.
+
+        try fs.removeFileTree(source)
+        XCTAssertEqual(fs.exists(source), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), false)
+    }
+
     func testInMemoryReadWriteFile() {
         let fs = InMemoryFileSystem()
         try! fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
@@ -548,6 +579,43 @@ class FileSystemTests: XCTestCase {
         XCTAssert(!baseFileSystem.exists(AbsolutePath("/base/rootIsHere/subdir2")))
         try rerootedFileSystem.createDirectory(AbsolutePath("/subdir2"))
         XCTAssert(baseFileSystem.isDirectory(AbsolutePath("/base/rootIsHere/subdir2")))
+    }
+
+    func testRootedCreateSymlink() throws {
+        // Create the test file system.
+        let baseFileSystem = InMemoryFileSystem() as FileSystem
+        try baseFileSystem.createDirectory(AbsolutePath("/base/rootIsHere/subdir"), recursive: true)
+
+        // Create the rooted file system.
+        let fs = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
+
+        let path = AbsolutePath("/test")
+        try fs.createDirectory(path, recursive: true)
+
+        let source = path.appending(component: "source")
+        let target = path.appending(component: "target")
+        try fs.writeFileContents(target, bytes: "source")
+
+        // Source and target exist.
+
+        try fs.createSymbolicLink(source, pointingAt: target)
+        XCTAssertEqual(fs.exists(source), true)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), true)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+        // Source only exists.
+
+        try fs.removeFileTree(target)
+        XCTAssertEqual(fs.exists(source), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+        // None exist.
+
+        try fs.removeFileTree(source)
+        XCTAssertEqual(fs.exists(source), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+        XCTAssertEqual(fs.exists(source, followSymlink: false), false)
     }
 
     func testSetAttribute() throws {
