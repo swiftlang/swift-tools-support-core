@@ -40,7 +40,7 @@ class SQLLiteTests: XCTestCase {
         try self.validateDB(db: db)
     }
 
-    func validateDB(db: SQLite, file: StaticString = #filePath, line: UInt = #line) throws {
+    func validateDB(db: SQLite, file: StaticString = #file, line: UInt = #line) throws {
         let tableName = UUID().uuidString
         let count = Int.random(in: 50 ... 100)
 
