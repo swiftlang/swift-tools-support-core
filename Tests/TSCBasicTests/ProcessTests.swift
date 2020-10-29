@@ -70,7 +70,7 @@ class ProcessTests: XCTestCase {
     }
 
     func testFindExecutable() throws {
-        mktmpdir { path in
+        try mktmpdir { path in
             // This process should always work.
             XCTAssertTrue(Process.findExecutable("ls") != nil)
 
@@ -92,7 +92,7 @@ class ProcessTests: XCTestCase {
     }
 
     func testNonExecutableLaunch() throws {
-        mktmpdir { path in
+        try mktmpdir { path in
             // Create a local nonexecutable file to test.
             let tempExecutable = path.appending(component: "nonExecutableProgram")
             try localFileSystem.writeFileContents(tempExecutable, bytes: """
@@ -117,7 +117,7 @@ class ProcessTests: XCTestCase {
     func testSignals() throws {
 
         // Test sigint terminates the script.
-        mktmpdir { path in
+        try mktmpdir { path in
             let file = path.appending(component: "pidfile")
             let waitFile = path.appending(component: "waitFile")
             let process = Process(args: script("print-pid"), file.pathString, waitFile.pathString)
@@ -136,7 +136,7 @@ class ProcessTests: XCTestCase {
         }
 
         // Test SIGKILL terminates the subprocess and any of its subprocess.
-        mktmpdir { path in
+        try mktmpdir { path in
             let file = path.appending(component: "pidfile")
             let waitFile = path.appending(component: "waitFile")
             let process = Process(args: script("subprocess"), file.pathString, waitFile.pathString)

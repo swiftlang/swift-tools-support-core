@@ -109,7 +109,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testBrewPrefix() throws {
-        mktmpdir { tmpPath in
+        try mktmpdir { tmpPath in
             let fakePkgConfig = tmpPath.appending(components: "bin", "pkg-config")
             try localFileSystem.createDirectory(fakePkgConfig.parentDirectory)
 

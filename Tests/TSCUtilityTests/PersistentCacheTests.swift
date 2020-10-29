@@ -25,7 +25,7 @@ struct Value: Codable, Equatable {
 
 class PersistentCacheTests: XCTestCase {
     func testBasics() throws {
-        mktmpdir { tmpPath in
+        try mktmpdir { tmpPath in
             let encoder = JSONEncoder()
             let decoder = JSONDecoder()
             let cacheFilePath = tmpPath.appending(component: "cache.db")

@@ -30,22 +30,18 @@ public func mktmpdir(
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> Void
-) {
-    do {
-        let cleanedFunction = function.description
-            .replacingOccurrences(of: "(", with: "")
-            .replacingOccurrences(of: ")", with: "")
-            .replacingOccurrences(of: ".", with: "")
-        try withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
-            defer {
-                // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
-            }
-            try body(tmpDirPath)
+) throws {
+    let cleanedFunction = function.description
+        .replacingOccurrences(of: "(", with: "")
+        .replacingOccurrences(of: ")", with: "")
+        .replacingOccurrences(of: ".", with: "")
+    try withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+        defer {
+            // Unblock and remove the tmp dir on deinit.
+            try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+            try? localFileSystem.removeFileTree(tmpDirPath)
         }
-    } catch {
-        XCTFail("\(error)", file: file, line: line)
+        try body(tmpDirPath)
     }
 }
 

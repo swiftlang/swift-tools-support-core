@@ -85,7 +85,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalExistsSymlink() throws {
-        mktmpdir { path in
+        try mktmpdir { path in
             let fs = TSCBasic.localFileSystem
 
             let source = path.appending(component: "source")
@@ -220,7 +220,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testRemoveFileTree() throws {
-        mktmpdir { path in
+        try mktmpdir { path in
             try removeFileTreeTester(fs: localFileSystem, basePath: path)
         }
     }
@@ -228,7 +228,7 @@ class FileSystemTests: XCTestCase {
     func testCopyAndMoveItem() throws {
         let fs = TSCBasic.localFileSystem
 
-        mktmpdir { path in
+        try mktmpdir { path in
             let source = path.appending(component: "source")
             let destination = path.appending(component: "destination")
 
@@ -552,7 +552,7 @@ class FileSystemTests: XCTestCase {
 
     func testSetAttribute() throws {
       #if os(macOS) || os(Linux) || os(Android)
-        mktmpdir { path in
+        try mktmpdir { path in
             let fs = TSCBasic.localFileSystem
 
             let dir = path.appending(component: "dir")
