@@ -13,7 +13,7 @@ import TSCTestSupport
 import TSCUtility
 import XCTest
 
-class SQLLiteTests: XCTestCase {
+class SQLiteTests: XCTestCase {
     func testFile() throws {
         try mktmpdir { tmpPath in
             let path = tmpPath.appending(component: "test.db")

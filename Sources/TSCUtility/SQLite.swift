@@ -32,7 +32,7 @@ public struct SQLite {
         self.configuration = configuration ?? Configuration()
 
         var db: OpaquePointer?
-        try Self.checkError("unable to open database at \(self.location)") {
+        try Self.checkError("Unable to open database at \(self.location)") {
             sqlite3_open_v2(
                 location.pathString,
                 &db,
