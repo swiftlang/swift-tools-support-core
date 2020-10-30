@@ -27,27 +27,31 @@ public struct SQLite {
     /// Create or open the database at the given path.
     ///
     /// The database is opened in serialized mode.
-    public init(location: Location, configuration: Configuration? = nil) throws {
+    public init(location: Location, configuration: Configuration = Configuration()) throws {
         self.location = location
-        self.configuration = configuration ?? Configuration()
+        self.configuration = configuration
 
-        var db: OpaquePointer?
+        var handle: OpaquePointer?
         try Self.checkError("Unable to open database at \(self.location)") {
             sqlite3_open_v2(
                 location.pathString,
-                &db,
+                &handle,
                 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
                 nil
             )
         }
 
-        self.db = db!
-        try Self.checkError { sqlite3_extended_result_codes(db, 1) }
-        try Self.checkError { sqlite3_busy_timeout(db, self.configuration.busyTimeoutSeconds) }
+        guard let db = handle else {
+            throw StringError("Unable to open database at \(self.location)")
+        }
+        self.db = db
+        try Self.checkError("Unable to configure database") { sqlite3_extended_result_codes(db, 1) }
+        try Self.checkError("Unable to configure database") { sqlite3_busy_timeout(db, self.configuration.busyTimeoutSeconds) }
     }
 
-    public init(dbPath: AbsolutePath, configuration: Configuration? = nil) throws {
-        try self.init(location: .path(dbPath), configuration: configuration)
+    @available(*, deprecated, message: "use init(location:configuration) instead")
+    public init(dbPath: AbsolutePath) throws {
+        try self.init(location: .path(dbPath))
     }
 
     /// Prepare the given query.
@@ -58,9 +62,9 @@ public struct SQLite {
     /// Directly execute the given query.
     ///
     /// Note: Use withCString for string arguments.
-    public func exec(query: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
+    public func exec(query queryString: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
         let query = withVaList(args) { ptr in
-            sqlite3_vmprintf(query, ptr)
+            sqlite3_vmprintf(queryString, ptr)
         }
 
         let wcb = callback.map { CallbackWrapper($0) }
