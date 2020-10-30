@@ -41,7 +41,7 @@ public final class SQLiteBackedPersistentCache: PersistentCacheProtocol {
     }
 
     public convenience init(cacheFilePath: AbsolutePath) throws {
-        let db = try SQLite(dbPath: cacheFilePath)
+        let db = try SQLite(location: .path(cacheFilePath))
         try self.init(db: db)
     }
 
