@@ -25,10 +25,8 @@ public enum Configuration {
 }
 
 /// Test helper utility for executing a block with a temporary directory.
-public func mktmpdir(
+public func testWithTemporaryDirectory(
     function: StaticString = #function,
-    file: StaticString = #file,
-    line: UInt = #line,
     body: (AbsolutePath) throws -> Void
 ) throws {
     let cleanedFunction = function.description

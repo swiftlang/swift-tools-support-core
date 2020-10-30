@@ -17,7 +17,7 @@ class ArchiverTests: XCTestCase {
     // MARK: - ZipArchiver Tests
 
     func testZipArchiverSuccess() throws {
-        try mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let expectation = XCTestExpectation(description: "success")
 
             let archiver = ZipArchiver()
@@ -75,7 +75,7 @@ class ArchiverTests: XCTestCase {
     }
 
     func testZipArchiverInvalidArchive() throws {
-        try mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let expectation = XCTestExpectation(description: "failure")
 
             let archiver = ZipArchiver()

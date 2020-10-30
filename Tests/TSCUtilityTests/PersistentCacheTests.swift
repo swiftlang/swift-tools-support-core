@@ -25,10 +25,10 @@ struct Value: Codable, Equatable {
 
 class PersistentCacheTests: XCTestCase {
     func testBasics() throws {
-        try mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpdir in
             let encoder = JSONEncoder()
             let decoder = JSONDecoder()
-            let cacheFilePath = tmpPath.appending(component: "cache.db")
+            let cacheFilePath = tmpdir.appending(component: "cache.db")
             let cache = try SQLiteBackedPersistentCache(cacheFilePath: cacheFilePath)
 
             let key1 = Key(key: "key1")

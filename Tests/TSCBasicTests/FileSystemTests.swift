@@ -85,11 +85,11 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalExistsSymlink() throws {
-        try mktmpdir { path in
+        try testWithTemporaryDirectory { tmpdir in
             let fs = TSCBasic.localFileSystem
 
-            let source = path.appending(component: "source")
-            let target = path.appending(component: "target")
+            let source = tmpdir.appending(component: "source")
+            let target = tmpdir.appending(component: "target")
             try fs.writeFileContents(target, bytes: "source")
 
             // Source and target exist.
@@ -220,17 +220,17 @@ class FileSystemTests: XCTestCase {
     }
 
     func testRemoveFileTree() throws {
-        try mktmpdir { path in
-            try removeFileTreeTester(fs: localFileSystem, basePath: path)
+        try testWithTemporaryDirectory { tmpdir in
+            try removeFileTreeTester(fs: localFileSystem, basePath: tmpdir)
         }
     }
 
     func testCopyAndMoveItem() throws {
         let fs = TSCBasic.localFileSystem
 
-        try mktmpdir { path in
-            let source = path.appending(component: "source")
-            let destination = path.appending(component: "destination")
+        try testWithTemporaryDirectory { tmpdir in
+            let source = tmpdir.appending(component: "source")
+            let destination = tmpdir.appending(component: "destination")
 
             // Copy with no source
 
@@ -552,10 +552,10 @@ class FileSystemTests: XCTestCase {
 
     func testSetAttribute() throws {
       #if os(macOS) || os(Linux) || os(Android)
-        try mktmpdir { path in
+        try testWithTemporaryDirectory { tmpdir in
             let fs = TSCBasic.localFileSystem
 
-            let dir = path.appending(component: "dir")
+            let dir = tmpdir.appending(component: "dir")
             let foo = dir.appending(component: "foo")
             let bar = dir.appending(component: "bar")
             let sym = dir.appending(component: "sym")

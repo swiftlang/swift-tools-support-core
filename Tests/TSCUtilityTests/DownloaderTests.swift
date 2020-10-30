@@ -26,7 +26,7 @@ class DownloaderTests: XCTestCase {
         configuration.protocolClasses = [MockURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        try mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 
@@ -90,7 +90,7 @@ class DownloaderTests: XCTestCase {
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        try mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 
@@ -157,7 +157,7 @@ class DownloaderTests: XCTestCase {
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        try mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 

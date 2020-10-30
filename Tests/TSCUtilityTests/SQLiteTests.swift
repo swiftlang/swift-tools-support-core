@@ -15,8 +15,8 @@ import XCTest
 
 class SQLiteTests: XCTestCase {
     func testFile() throws {
-        try mktmpdir { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+        try testWithTemporaryDirectory { tmpdir in
+            let path = tmpdir.appending(component: "test.db")
             let db = try SQLite(dbPath: path)
             defer { XCTAssertNoThrow(try db.close()) }
 
