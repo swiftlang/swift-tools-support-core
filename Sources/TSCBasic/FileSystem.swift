@@ -169,7 +169,8 @@ public protocol FileSystem: class {
     /// - Parameters:
     ///   - path: The path at which to create the link.
     ///   - destination: The path to which the link points to.
-    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws
+    ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws
 
     // FIXME: This is obviously not a very efficient or flexible API.
     //
@@ -349,8 +350,9 @@ private class LocalFileSystem: FileSystem {
         try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
     }
 
-    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws {
-        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destination.pathString)
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        let destString = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
+        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
@@ -495,7 +497,7 @@ public class InMemoryFileSystem: FileSystem {
     private enum NodeContents {
         case file(ByteString)
         case directory(DirectoryContents)
-        case symlink(AbsolutePath)
+        case symlink(String)
 
         /// Creates deep copy of the object.
         func copy() -> NodeContents {
@@ -525,6 +527,7 @@ public class InMemoryFileSystem: FileSystem {
             return contents
         }
     }
+
     // Used to ensure that DispatchQueues are releassed when they are no longer in use.
     private struct WeakReference<Value: AnyObject> {
         weak var reference: Value?
@@ -577,6 +580,7 @@ public class InMemoryFileSystem: FileSystem {
             case .directory, .file:
                 return node
             case .symlink(let destination):
+                let destination = AbsolutePath(destination, relativeTo: path.parentDirectory)
                 return followSymlink ? try getNodeInternal(destination) : node
             case .none:
                 return nil
@@ -709,7 +713,7 @@ public class InMemoryFileSystem: FileSystem {
         contents.entries[path.basename] = Node(.directory(DirectoryContents()))
     }
 
-    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws {
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
         // Create directory to destination parent.
         guard let destinationParent = try getNode(path.parentDirectory) else {
             throw FileSystemError.noEntry
@@ -723,6 +727,8 @@ public class InMemoryFileSystem: FileSystem {
         guard contents.entries[path.basename] == nil else {
             throw FileSystemError.alreadyExistsAtDestination
         }
+
+        let destination = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
 
         contents.entries[path.basename] = Node(.symlink(destination))
     }
@@ -838,7 +844,7 @@ public class InMemoryFileSystem: FileSystem {
         let resolvedPath: AbsolutePath
 
         if case let .symlink(destination) = try getNode(path)?.contents {
-            resolvedPath = destination
+            resolvedPath = AbsolutePath(destination, relativeTo: path.parentDirectory)
         } else {
             resolvedPath = path
         }
@@ -935,10 +941,10 @@ public class RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
 
-    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath) throws {
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
         let path = formUnderlyingPath(path)
         let destination = formUnderlyingPath(destination)
-        return try underlyingFileSystem.createSymbolicLink(path, pointingAt: destination)
+        return try underlyingFileSystem.createSymbolicLink(path, pointingAt: destination, relative: relative)
     }
 
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
