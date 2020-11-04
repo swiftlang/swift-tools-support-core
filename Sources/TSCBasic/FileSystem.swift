@@ -841,15 +841,17 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let resolvedPath: AbsolutePath
+        let fileQueue: DispatchQueue = try lockFilesLock.withLock {
 
-        if case let .symlink(destination) = try getNode(path)?.contents {
-            resolvedPath = AbsolutePath(destination, relativeTo: path.parentDirectory)
-        } else {
-            resolvedPath = path
-        }
+            let resolvedPath: AbsolutePath
 
-        let fileQueue: DispatchQueue = lockFilesLock.withLock {
+            // FIXME: resolving symlinks is not yet thread safe
+            if case let .symlink(destination) = try getNode(path)?.contents {
+                resolvedPath = AbsolutePath(destination, relativeTo: path.parentDirectory)
+            } else {
+                resolvedPath = path
+            }
+
             if let queueReference = lockFiles[resolvedPath], let queue = queueReference.reference {
                 return queue
             } else {
