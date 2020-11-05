@@ -37,7 +37,7 @@ public final class SQLiteBackedPersistentCache: PersistentCacheProtocol, Closabl
     }
 
     deinit {
-        try? db.close()
+        try? self.close()
     }
     
     public func close() throws {
