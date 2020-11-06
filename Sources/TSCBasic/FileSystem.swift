@@ -528,19 +528,8 @@ public class InMemoryFileSystem: FileSystem {
         }
     }
 
-    // Used to ensure that DispatchQueues are releassed when they are no longer in use.
-    private struct WeakReference<Value: AnyObject> {
-        weak var reference: Value?
-
-        init(_ value: Value?) {
-            self.reference = value
-        }
-    }
-
     /// The root filesytem.
     private var root: Node
-    /// A map that keeps weak references to all locked files.
-    private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
 
@@ -841,27 +830,8 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let fileQueue: DispatchQueue = try lockFilesLock.withLock {
-
-            let resolvedPath: AbsolutePath
-
-            // FIXME: resolving symlinks is not yet thread safe
-            if case let .symlink(destination) = try getNode(path)?.contents {
-                resolvedPath = AbsolutePath(destination, relativeTo: path.parentDirectory)
-            } else {
-                resolvedPath = path
-            }
-
-            if let queueReference = lockFiles[resolvedPath], let queue = queueReference.reference {
-                return queue
-            } else {
-                let queue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
-                lockFiles[resolvedPath] = WeakReference(queue)
-                return queue
-            }
-        }
-
-        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
+        // FIXME: Lock individual files once resolving symlinks is thread-safe.
+        return try lockFilesLock.withLock(body)
     }
 }
 
