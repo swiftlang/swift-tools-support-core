@@ -11,6 +11,7 @@ add_library(TSCBasic
   ByteString.swift
   CStringArray.swift
   CacheableSequence.swift
+  Closable.swift
   CodableResult.swift
   CollectionAlgorithms.swift
   CollectionExtensions.swift
