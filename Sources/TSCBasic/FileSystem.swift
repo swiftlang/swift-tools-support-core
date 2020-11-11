@@ -552,7 +552,7 @@ public class InMemoryFileSystem: FileSystem {
     /// reality, the only practical use for InMemoryFileSystem is for unit
     /// tests.
     private let lock = Lock()
-    
+    /// Exclusive file system lock vended to clients through `withLock()`.
     private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
@@ -906,17 +906,15 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let fileQueue: DispatchQueue = try lockFilesLock.withLock {
-
-            let resolvedPath: AbsolutePath
-
-            // FIXME: resolving symlinks is not yet thread safe
+        let resolvedPath: AbsolutePath = try lock.withLock {
             if case let .symlink(destination) = try getNode(path)?.contents {
-                resolvedPath = AbsolutePath(destination, relativeTo: path.parentDirectory)
+                return  AbsolutePath(destination, relativeTo: path.parentDirectory)
             } else {
-                resolvedPath = path
+                return path
             }
+        }
 
+        let fileQueue: DispatchQueue = lockFilesLock.withLock {
             if let queueReference = lockFiles[resolvedPath], let queue = queueReference.reference {
                 return queue
             } else {
