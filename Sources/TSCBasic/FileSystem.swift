@@ -552,7 +552,7 @@ public class InMemoryFileSystem: FileSystem {
     /// reality, the only practical use for InMemoryFileSystem is for unit
     /// tests.
     private let lock = Lock()
-    /// Exclusive file system lock vended to clients through `withLock()`.
+    /// A map that keeps weak references to all locked files.
     private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
