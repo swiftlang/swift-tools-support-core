@@ -552,9 +552,20 @@ public class InMemoryFileSystem: FileSystem {
     /// reality, the only practical use for InMemoryFileSystem is for unit
     /// tests.
     private let lock = Lock()
+    /// A map that keeps weak references to all locked files.
+    private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
+    /// Used to access lockFiles in a thread safe manner.
+    private let lockFilesLock = Lock()
     
     /// Exclusive file system lock vended to clients through `withLock()`.
-    private let lockFilesLock = Lock()
+    // Used to ensure that DispatchQueues are releassed when they are no longer in use.
+    private struct WeakReference<Value: AnyObject> {
+        weak var reference: Value?
+
+        init(_ value: Value?) {
+            self.reference = value
+        }
+    }
 
     public init() {
         root = Node(.directory(DirectoryContents()))
@@ -895,8 +906,25 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        // FIXME: Lock individual files once resolving symlinks is thread-safe.
-        return try lockFilesLock.withLock(body)
+        let resolvedPath: AbsolutePath = try lock.withLock {
+            if case let .symlink(destination) = try getNode(path)?.contents {
+                return  AbsolutePath(destination, relativeTo: path.parentDirectory)
+            } else {
+                return path
+            }
+        }
+
+        let fileQueue: DispatchQueue = lockFilesLock.withLock {
+            if let queueReference = lockFiles[resolvedPath], let queue = queueReference.reference {
+                return queue
+            } else {
+                let queue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
+                lockFiles[resolvedPath] = WeakReference(queue)
+                return queue
+            }
+        }
+
+        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
     }
 }
 
