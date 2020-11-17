@@ -46,7 +46,10 @@ add_library(TSCUtility
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)
 target_link_libraries(TSCUtility PRIVATE
-  TSCclibc)
+  TSCclibc
+  ${CMAKE_DL_LIBS}
+  Threads::Threads)
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   target_link_libraries(TSCUtility PRIVATE
     SQLite::SQLite3)
