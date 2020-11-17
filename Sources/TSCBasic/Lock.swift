@@ -85,7 +85,7 @@ public final class FileLock {
                 )
             })
             if h == INVALID_HANDLE_VALUE {
-                throw FileSystemError(errno: Int32(GetLastError()))
+                throw FileSystemError(errno: Int32(GetLastError()), lockFile)
             }
             self.handle = h
         }
