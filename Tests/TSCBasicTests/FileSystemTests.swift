@@ -749,6 +749,9 @@ class FileSystemTests: XCTestCase {
     }
 
     func testInMemoryFileSystemFileLock() throws {
+        // Disabled until rdar://71560894 is fixed.
+        try XCTSkipIf(true)
+        
         let fs = InMemoryFileSystem()
         let path = AbsolutePath("/")
         try fs.createDirectory(path)
@@ -807,6 +810,9 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalFileSystemFileLock() throws {
+        // Disabled until rdar://71560894 is fixed.
+        try XCTSkipIf(true)
+        
         try withTemporaryDirectory { tempDir in
             let fileA = tempDir.appending(component: "fileA")
             let fileB = tempDir.appending(component: "fileB")
