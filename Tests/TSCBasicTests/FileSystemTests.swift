@@ -869,6 +869,9 @@ class FileSystemTests: XCTestCase {
     }
 
     func testRerootedFileSystemViewFileLock() throws {
+        // Disabled until rdar://71560894 is fixed.
+        try XCTSkipIf(true)
+
         let inMemoryFS = InMemoryFileSystem()
         let rootPath = AbsolutePath("/tmp")
         try inMemoryFS.createDirectory(rootPath)
