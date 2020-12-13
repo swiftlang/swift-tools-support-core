@@ -149,6 +149,29 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".").basename, ".")
     }
 
+    func testBaseNameWithoutExt() {
+        XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, "/")
+        XCTAssertEqual(AbsolutePath("/a").basenameWithoutExt, "a")
+        XCTAssertEqual(AbsolutePath("/./a").basenameWithoutExt, "a")
+        XCTAssertEqual(AbsolutePath("/../..").basenameWithoutExt, "/")
+        XCTAssertEqual(RelativePath("../..").basenameWithoutExt, "..")
+        XCTAssertEqual(RelativePath("../a").basenameWithoutExt, "a")
+        XCTAssertEqual(RelativePath("../a/..").basenameWithoutExt, "..")
+        XCTAssertEqual(RelativePath("a/..").basenameWithoutExt, ".")
+        XCTAssertEqual(RelativePath("./..").basenameWithoutExt, "..")
+        XCTAssertEqual(RelativePath("a/../////../////./////").basenameWithoutExt, "..")
+        XCTAssertEqual(RelativePath("abc").basenameWithoutExt, "abc")
+        XCTAssertEqual(RelativePath("").basenameWithoutExt, ".")
+        XCTAssertEqual(RelativePath(".").basenameWithoutExt, ".")
+
+        XCTAssertEqual(AbsolutePath("/a.txt").basenameWithoutExt, "a")
+        XCTAssertEqual(AbsolutePath("/./a.txt").basenameWithoutExt, "a")
+        XCTAssertEqual(RelativePath("../a.bc").basenameWithoutExt, "a")
+        XCTAssertEqual(RelativePath("abc.swift").basenameWithoutExt, "abc")
+        XCTAssertEqual(RelativePath("../a.b.c").basenameWithoutExt, "a.b")
+        XCTAssertEqual(RelativePath("abc.xyz.123").basenameWithoutExt, "abc.xyz")
+    }
+
     func testSuffixExtraction() {
         XCTAssertEqual(RelativePath("a").suffix, nil)
         XCTAssertEqual(RelativePath("a").extension, nil)
