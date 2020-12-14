@@ -157,11 +157,15 @@ public struct AbsolutePath: Hashable {
     /// This method should only be used in cases where the input is guaranteed
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
-    public func appending(components names: String...) -> AbsolutePath {
+    public func appending(components names: [String]) -> AbsolutePath {
         // FIXME: This doesn't seem a particularly efficient way to do this.
         return names.reduce(self, { path, name in
             path.appending(component: name)
         })
+    }
+
+    public func appending(components names: String...) -> AbsolutePath {
+        appending(components: names)
     }
 
     /// NOTE: We will most likely want to add other `appending()` methods, such
@@ -243,6 +247,14 @@ public struct RelativePath: Hashable {
         return _impl.basename
     }
 
+    /// Returns the basename without the extension.
+    public var basenameWithoutExt: String {
+        if let ext = self.extension {
+            return String(basename.dropLast(ext.count + 1))
+        }
+        return basename
+    }
+
     /// Suffix (including leading `.` character) if any.  Note that a basename
     /// that starts with a `.` character is not considered a suffix, nor is a
     /// trailing `.` character.
@@ -288,11 +300,15 @@ public struct RelativePath: Hashable {
     /// This method should only be used in cases where the input is guaranteed
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
-    public func appending(components names: String...) -> RelativePath {
+    public func appending(components names: [String]) -> RelativePath {
         // FIXME: This doesn't seem a particularly efficient way to do this.
         return names.reduce(self, { path, name in
             path.appending(component: name)
         })
+    }
+
+    public func appending(components names: String...) -> RelativePath {
+        appending(components: names)
     }
 }
 
