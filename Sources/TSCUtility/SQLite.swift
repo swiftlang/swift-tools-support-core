@@ -46,7 +46,7 @@ public struct SQLite {
         }
         self.db = db
         try Self.checkError("Unable to configure database") { sqlite3_extended_result_codes(db, 1) }
-        try Self.checkError("Unable to configure database") { sqlite3_busy_timeout(db, self.configuration.busyTimeoutSeconds) }
+        try Self.checkError("Unable to configure database") { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) }
     }
 
     @available(*, deprecated, message: "use init(location:configuration) instead")
@@ -89,10 +89,29 @@ public struct SQLite {
     public typealias SQLiteExecCallback = ([Column]) -> Void
 
     public struct Configuration {
-        public var busyTimeoutSeconds: Int32
+        public var busyTimeoutMilliseconds: Int32
 
         public init() {
-            self.busyTimeoutSeconds = 5
+            self.busyTimeoutMilliseconds = 5000
+        }
+
+        // FIXME: deprecated 12/2020, remove once clients migrated over
+        @available(*, deprecated, message: "use busyTimeout instead")
+        public var busyTimeoutSeconds: Int32 {
+            get {
+                self._busyTimeoutSeconds
+            } set {
+                self._busyTimeoutSeconds = newValue
+            }
+        }
+
+        // so tests dont warn
+        internal var _busyTimeoutSeconds: Int32 {
+            get {
+                return Int32(truncatingIfNeeded: Int(Double(self.busyTimeoutMilliseconds) / 1000))
+            } set {
+                self.busyTimeoutMilliseconds = newValue * 1000
+            }
         }
     }
 
