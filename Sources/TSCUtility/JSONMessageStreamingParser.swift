@@ -12,7 +12,7 @@ import Foundation
 import TSCBasic
 
 /// Protocol for the parser delegate to get notified of parsing events.
-public protocol JSONMessageStreamingParserDelegate: class {
+public protocol JSONMessageStreamingParserDelegate: AnyObject {
 
     /// A decodable type representing the JSON messages being parsed.
     associatedtype Message: Decodable
