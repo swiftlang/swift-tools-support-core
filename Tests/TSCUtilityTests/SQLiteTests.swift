@@ -10,7 +10,7 @@
 
 import TSCBasic
 import TSCTestSupport
-import TSCUtility
+@testable import TSCUtility
 import XCTest
 
 class SQLiteTests: XCTestCase {
@@ -70,5 +70,14 @@ class SQLiteTests: XCTestCase {
             let row = try statement.step()
             XCTAssertNotNil(row, "expected results")
         }
+    }
+
+    func testConfiguration() throws {
+        var configuration = SQLite.Configuration()
+
+        let timeout = Int32.random(in: 1000 ... 10000)
+        configuration.busyTimeoutMilliseconds = timeout
+        XCTAssertEqual(configuration.busyTimeoutMilliseconds, timeout)
+        XCTAssertEqual(configuration._busyTimeoutSeconds, Int32(Double(timeout) / 1000))
     }
 }
