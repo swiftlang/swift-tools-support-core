@@ -12,7 +12,7 @@ import TSCBasic
 
 /// A protocol which needs to be implemented by the objects which can be
 /// persisted using SimplePersistence
-public protocol SimplePersistanceProtocol: class, JSONSerializable {
+public protocol SimplePersistanceProtocol: AnyObject, JSONSerializable {
     /// Restores state from the given json object.
     func restore(from json: JSON) throws
 

@@ -11,7 +11,7 @@
 /// A protocol which implements Hashable protocol using ObjectIdentifier.
 ///
 /// Classes can conform to this protocol to auto-conform to Hashable and Equatable.
-public protocol ObjectIdentifierProtocol: class, Hashable {}
+public protocol ObjectIdentifierProtocol: AnyObject, Hashable {}
 
 extension ObjectIdentifierProtocol {
     public func hash(into hasher: inout Hasher) {
