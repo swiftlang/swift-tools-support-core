@@ -133,7 +133,7 @@ public enum FileMode {
 /// substitute a virtual file system or redirect file system operations.
 ///
 /// - Note: All of these APIs are synchronous and can block.
-public protocol FileSystem: class {
+public protocol FileSystem: AnyObject {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
 

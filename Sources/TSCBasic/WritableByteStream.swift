@@ -43,7 +43,7 @@ public protocol ByteStreamable {
 ///
 /// would write each item in the list to the stream, separating them with a
 /// space.
-public protocol WritableByteStream: class, TextOutputStream, Closable {
+public protocol WritableByteStream: AnyObject, TextOutputStream, Closable {
     /// The current offset within the output stream.
     var position: Int { get }
 
