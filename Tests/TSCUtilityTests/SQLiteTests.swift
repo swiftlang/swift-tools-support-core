@@ -79,5 +79,32 @@ class SQLiteTests: XCTestCase {
         configuration.busyTimeoutMilliseconds = timeout
         XCTAssertEqual(configuration.busyTimeoutMilliseconds, timeout)
         XCTAssertEqual(configuration._busyTimeoutSeconds, Int32(Double(timeout) / 1000))
+
+        let maxSizeInBytes = Int.random(in: 1000 ... 10000)
+        configuration.maxSizeInBytes = maxSizeInBytes
+        XCTAssertEqual(configuration.maxSizeInBytes, maxSizeInBytes)
+        XCTAssertEqual(configuration.maxSizeInMegabytes, maxSizeInBytes / (1024 * 1024))
+    }
+
+    func testMaxSize() throws {
+        var configuration = SQLite.Configuration()
+        configuration.maxSizeInBytes = 1024
+        let db = try SQLite(location: .memory, configuration: configuration)
+        defer { XCTAssertNoThrow(try db.close()) }
+
+        func generateData() throws {
+            let tableName = UUID().uuidString
+            try db.exec(query: "CREATE TABLE \"\(tableName)\" (ID INT PRIMARY KEY, NAME STRING);")
+            for index in 0 ..< 1024 {
+                let statement = try db.prepare(query: "INSERT INTO \"\(tableName)\" VALUES (?, ?);")
+                defer { XCTAssertNoThrow(try statement.finalize()) }
+                try statement.bind([.int(index), .string(UUID().uuidString)])
+                try statement.step()
+            }
+        }
+
+        XCTAssertThrowsError(try generateData(), "expected error", { error in
+            XCTAssertEqual(error as? SQLite.Errors, .databaseFull, "Expected 'database or disk is full' error")
+        })
     }
 }
