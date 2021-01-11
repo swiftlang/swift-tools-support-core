@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCBasic
 import Foundation
@@ -25,45 +25,50 @@ public enum Platform: Equatable {
     }
 
     /// Lazily checked current platform.
-    public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
+    public static var currentPlatform = Platform.findCurrentPlatform(localFileSystem)
+
+    /// Returns the cache directories used in Darwin.
+    private static var darwinCacheDirectoriesLock = Lock()
+    private static var _darwinCacheDirectories: [AbsolutePath]? = .none
+
     /// Attempt to match `uname` with recognized platforms.
-    public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
-#if os(Windows)
+    internal static func findCurrentPlatform(_ fileSystem: FileSystem) -> Platform? {
+        #if os(Windows)
         return .windows
-#else
+        #else
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
             return .darwin
         case "linux":
-            return Platform._findCurrentPlatformLinux(fs)
+            return Platform.findCurrentPlatformLinux(fileSystem)
         default:
             return nil
         }
-#endif
+        #endif
     }
 
-    public static func _findCurrentPlatformLinux(_ fs: FileSystem) -> Platform? {
-        if fs.isFile(AbsolutePath("/etc/debian_version")) {
+    internal static func findCurrentPlatformLinux(_ fileSystem: FileSystem) -> Platform? {
+        if fileSystem.isFile(AbsolutePath("/etc/debian_version")) {
             return .linux(.debian)
         }
-        if fs.isFile(AbsolutePath("/system/bin/toolbox")) ||
-           fs.isFile(AbsolutePath("/system/bin/toybox")) {
+        if fileSystem.isFile(AbsolutePath("/system/bin/toolbox")) ||
+            fileSystem.isFile(AbsolutePath("/system/bin/toybox")) {
             return .android
         }
-        if fs.isFile(AbsolutePath("/etc/redhat-release")) ||
-           fs.isFile(AbsolutePath("/etc/centos-release")) ||
-           fs.isFile(AbsolutePath("/etc/fedora-release")) ||
-           Platform.isAmazonLinux2(fs) {
+        if fileSystem.isFile(AbsolutePath("/etc/redhat-release")) ||
+            fileSystem.isFile(AbsolutePath("/etc/centos-release")) ||
+            fileSystem.isFile(AbsolutePath("/etc/fedora-release")) ||
+            Platform.isAmazonLinux2(fileSystem) {
             return .linux(.fedora)
         }
 
         return nil
     }
 
-    private static func isAmazonLinux2(_ fs: FileSystem) -> Bool {
+    private static func isAmazonLinux2(_ fileSystem: FileSystem) -> Bool {
         do {
-            let release = try fs.readFileContents(AbsolutePath("/etc/system-release")).cString
+            let release = try fileSystem.readFileContents(AbsolutePath("/etc/system-release")).cString
             return release.hasPrefix("Amazon Linux release 2")
         } catch {
             return false
@@ -72,23 +77,25 @@ public enum Platform: Equatable {
 
     /// Returns the cache directories used in Darwin.
     public static func darwinCacheDirectories() -> [AbsolutePath] {
-        if let value = Platform._darwinCacheDirectories {
-            return value
+        Self.darwinCacheDirectoriesLock.withLock {
+            if let darwinCacheDirectories = Self._darwinCacheDirectories {
+                return darwinCacheDirectories
+            }
+            var directories = [AbsolutePath]()
+            // Compute the directories.
+            directories.append(AbsolutePath("/private/var/tmp"))
+            (try? TSCBasic.determineTempDirectory()).map{ directories.append($0) }
+            #if os(macOS)
+            getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
+            getConfstr(_CS_DARWIN_USER_CACHE_DIR).map({ directories.append($0) })
+            #endif
+            Self._darwinCacheDirectories = directories
+            return directories
         }
-        var directories = [AbsolutePath]()
-        // Compute the directories.
-        directories.append(AbsolutePath("/private/var/tmp"))
-        (try? TSCBasic.determineTempDirectory()).map{ directories.append($0) }
-      #if os(macOS)
-        getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
-        getConfstr(_CS_DARWIN_USER_CACHE_DIR).map({ directories.append($0) })
-      #endif
-        Platform._darwinCacheDirectories = directories
-        return directories
     }
-    private static var _darwinCacheDirectories: [AbsolutePath]?
 
-#if os(macOS)
+
+    #if os(macOS)
     /// Returns the value of given path variable using `getconf` utility.
     ///
     /// - Note: This method returns `nil` if the value is an invalid path.
@@ -101,5 +108,5 @@ public enum Platform: Equatable {
         guard value.hasSuffix(AbsolutePath.root.pathString) else { return nil }
         return resolveSymlinks(AbsolutePath(value))
     }
-#endif
+    #endif
 }
