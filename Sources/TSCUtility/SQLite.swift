@@ -32,21 +32,25 @@ public struct SQLite {
         self.configuration = configuration
 
         var handle: OpaquePointer?
-        try Self.checkError("Unable to open database at \(self.location)") {
+        try Self.checkError ({
             sqlite3_open_v2(
                 location.pathString,
                 &handle,
                 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
                 nil
             )
-        }
+        },
+        description: "Unable to open database at \(self.location)")
 
         guard let db = handle else {
             throw StringError("Unable to open database at \(self.location)")
         }
         self.db = db
-        try Self.checkError("Unable to configure database") { sqlite3_extended_result_codes(db, 1) }
-        try Self.checkError("Unable to configure database") { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) }
+        try Self.checkError({ sqlite3_extended_result_codes(db, 1) }, description: "Unable to configure database")
+        try Self.checkError({ sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) }, description: "Unable to configure database busy timeout")
+        if let maxPageCount = self.configuration.maxPageCount {
+            try self.exec(query: "PRAGMA max_page_count=\(maxPageCount);")
+        }
     }
 
     @available(*, deprecated, message: "use init(location:configuration) instead")
@@ -90,9 +94,14 @@ public struct SQLite {
 
     public struct Configuration {
         public var busyTimeoutMilliseconds: Int32
+        public var maxSizeInBytes: Int?
+
+        // https://www.sqlite.org/pgszchng2016.html
+        private let defaultPageSizeInBytes = 1024
 
         public init() {
             self.busyTimeoutMilliseconds = 5000
+            self.maxSizeInBytes = .none
         }
 
         // FIXME: deprecated 12/2020, remove once clients migrated over
@@ -112,6 +121,19 @@ public struct SQLite {
             } set {
                 self.busyTimeoutMilliseconds = newValue * 1000
             }
+        }
+
+        public var maxSizeInMegabytes: Int? {
+            get {
+                self.maxSizeInBytes.map { $0 / (1024 * 1024) }
+            }
+            set {
+                self.maxSizeInBytes = newValue.map { $0 * 1024 * 1024 }
+            }
+        }
+
+        public var maxPageCount: Int? {
+            self.maxSizeInBytes.map { $0 / self.defaultPageSizeInBytes }
         }
     }
 
@@ -179,7 +201,7 @@ public struct SQLite {
 
         public init(db: OpaquePointer, query: String) throws {
             var stmt: OpaquePointer?
-            try checkError { sqlite3_prepare_v2(db, query, -1, &stmt, nil) }
+            try SQLite.checkError { sqlite3_prepare_v2(db, query, -1, &stmt, nil) }
             self.stmt = stmt!
         }
 
@@ -227,17 +249,17 @@ public struct SQLite {
 
         /// Reset the prepared statement.
         public func reset() throws {
-            try checkError { sqlite3_reset(stmt) }
+            try SQLite.checkError { sqlite3_reset(stmt) }
         }
 
         /// Clear bindings from the prepared statment.
         public func clearBindings() throws {
-            try checkError { sqlite3_clear_bindings(stmt) }
+            try SQLite.checkError { sqlite3_clear_bindings(stmt) }
         }
 
         /// Finalize the statement and free up resources.
         public func finalize() throws {
-            try checkError { sqlite3_finalize(stmt) }
+            try SQLite.checkError { sqlite3_finalize(stmt) }
         }
     }
 
@@ -248,16 +270,24 @@ public struct SQLite {
         }
     }
 
-    private static func checkError(_ errorPrefix: String? = nil, _ fn: () -> Int32) throws {
+    private static func checkError(_ fn: () -> Int32, description prefix: String? = .none) throws {
         let result = fn()
         if result != SQLITE_OK {
-            var error = ""
-            if let errorPrefix = errorPrefix {
-                error += errorPrefix + ": "
+            var description = String(cString: sqlite3_errstr(result))
+            switch description.lowercased() {
+            case "database or disk is full":
+                throw Errors.databaseFull
+            default:
+                if let prefix = prefix {
+                    description = "\(prefix): \(description)"
+                }
+                throw StringError(description)
             }
-            error += String(cString: sqlite3_errstr(result))
-            throw StringError(error)
         }
+    }
+
+    public enum Errors: Error {
+        case databaseFull
     }
 }
 
