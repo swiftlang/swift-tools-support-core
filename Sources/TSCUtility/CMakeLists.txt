@@ -13,6 +13,7 @@ add_library(TSCUtility
   Bits.swift
   Bitstream.swift
   BitstreamReader.swift
+  BitstreamWriter.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
