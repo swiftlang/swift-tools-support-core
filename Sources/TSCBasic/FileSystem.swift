@@ -440,8 +440,13 @@ private class LocalFileSystem: FileSystem {
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {
-        if self.exists(path, followSymlink: false) {
+        do {
             try FileManager.default.removeItem(atPath: path.pathString)
+        } catch let error as NSError {
+            // If we failed because the directory doesn't actually exist anymore, ignore the error.
+            if !(error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError) {
+                throw error
+            }
         }
     }
 

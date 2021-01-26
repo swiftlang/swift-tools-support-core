@@ -955,4 +955,8 @@ private func removeFileTreeTester(fs: FileSystem, basePath path: AbsolutePath, f
     XCTAssert(fs.exists(filePath), file: file, line: line)
     try fs.removeFileTree(filePath)
     XCTAssertFalse(fs.exists(filePath), file: file, line: line)
+
+    // Test removing non-existent path.
+    let nonExistingPath = folders.appending(component: "does-not-exist")
+    XCTAssertNoThrow(try fs.removeFileTree(nonExistingPath))
 }
