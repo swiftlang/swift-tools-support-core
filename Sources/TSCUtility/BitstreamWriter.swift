@@ -10,6 +10,87 @@
 
 import Foundation
 
+/// A `BitstreamWriter` is an object that is capable of emitting data in the
+/// [LLVM Bitstream](https://llvm.org/docs/BitCodeFormat.html#bitstream-format)
+/// format.
+///
+/// Defining A Container Format
+/// ===========================
+///
+/// While `BitstreamWriter` provides APIs to write raw bytes into a bitstream
+/// file, it is recommended that the higher-level structured API be used
+/// instead. Begin by identifying the top-level blocks your container will need.
+/// Most container formats will need a metadata block followed by a series of
+/// user-defined blocks. These can be given in an extension of
+/// `Bitstream.BlockID` as they will be referred to often. For example:
+///
+/// ```
+/// extension Bitstream.BlockID {
+///     static let metadata     = Self.firstApplicationID
+///     static let diagnostics  = Self.firstApplicationID + 1
+/// }
+/// ```
+///
+/// Next, identify the kinds of records needed in the format and assign them
+/// unique, stable identifiers. For example:
+/// ```
+/// enum DiagnosticRecordID: UInt8 {
+///     case version        = 1
+///     case diagnostic     = 2
+///     case sourceRange    = 3
+///     case diagnosticFlag = 4
+///     case category       = 5
+///     case filename       = 6
+///     case fixIt          = 7
+/// }
+/// ```
+///
+/// Now, instantiate a `BitstreamWriter` and populate the leading "block info"
+/// block with records describing the data layout of sub-blocks and records. The following
+/// block info section describes the layout of the 'metadata' block which contains a single
+/// version record:
+///
+/// ```
+/// var versionAbbrev: Bitstream.AbbreviationID? = nil
+/// let recordWriter = BitstreamWriter()
+/// recordWriter.writeBlockInfoBlock {
+///     // Define the 'metadata' block and give it a name
+///     recordWriter.writeRecord(BitstreamWriter.BlockInfoCode.setBID) {
+///         $0.append(Bitstream.BlockID.metadata)
+///     }
+///     recordWriter.writeRecord(BitstreamWriter.BlockInfoCode.blockName) {
+///         $0.append("Meta")
+///     }
+///
+///     // Define the 'version' record and register its name
+///     recordWriter.writeRecord(BitstreamWriter.BlockInfoCode.setRecordName) {
+///         $0.append(DiagnosticRecordID.version)
+///         $0.append("Version")
+///     }
+///
+///     versionAbbrev = recordWriter.defineBlockInfoAbbreviation(.metadata, .init([
+///         .literalCode(RoundTripRecordID.version),
+///         .fixed(bitWidth: 32)
+///     ]))
+///
+///     // Emit a block ID for the 'diagnostics' block as above and define the
+///     // layout of its records similarly...
+/// }
+/// ```
+///
+/// Finally, write any blocks containing the actual data to be serialized.
+///
+/// ```
+/// recordWriter.writeBlock(.metadata, newAbbrevWidth: 3) {
+///     recordWriter.writeRecord(versionAbbrev!) {
+///         $0.append(RoundTripRecordID.version)
+///         $0.append(25 as UInt32)
+///     }
+/// }
+/// ```
+///
+/// The higher-level APIs will automatically ensure that `BitstreamWriter.data`
+/// is valid. Once serialization has completed, simply emit this data to a file.
 public final class BitstreamWriter {
     public enum BlockInfoCode: UInt8 {
         case setBID = 1
@@ -463,14 +544,12 @@ extension BitstreamWriter {
 // MARK: Block Management
 
 extension BitstreamWriter {
-    public func `switch`(to blockID: Bitstream.BlockID) {
-        if currentBlockID == blockID { return }
-        writeRecord(BlockInfoCode.setBID) {
-            $0.append(blockID)
-        }
-        currentBlockID = blockID
-    }
-
+    /// Defines a scope under which a new block's contents can be defined.
+    ///
+    /// - Parameters:
+    ///   - blockID: The ID of the block to emit.
+    ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
+    ///   - defineSubBlock: A closure that is called to define the contents of the new block.
     public func withSubBlock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil,
@@ -481,6 +560,17 @@ extension BitstreamWriter {
         self.endBlock()
     }
 
+    /// Marks the start of a new block record and switches to it.
+    ///
+    /// - Note: You must call `BitstreamWriter.endBlock()` once you are finished
+    ///         encoding data into the newly-created block, else the resulting
+    ///         bitstream file will become corrupted. It is recommended that
+    ///         you use `BitstreamWriter.withSubBlock(_:abbreviationBitWidth:defineSubBlock:)`
+    ///         instead.
+    ///
+    /// - Parameters:
+    ///   - blockID: The ID of the block to emit.
+    ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
     public func enterSubblock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil
@@ -513,6 +603,7 @@ extension BitstreamWriter {
         }
     }
 
+    /// Marks the end of a new block record.
     public func endBlock() {
         guard let block = blockScope.popLast() else {
             fatalError("endBlock() called with no block registered")
@@ -562,5 +653,13 @@ extension BitstreamWriter {
         let info = BlockInfo()
         blockInfoRecords[id] = info
         return info
+    }
+
+    private func `switch`(to blockID: Bitstream.BlockID) {
+        if currentBlockID == blockID { return }
+        writeRecord(BlockInfoCode.setBID) {
+            $0.append(blockID)
+        }
+        currentBlockID = blockID
     }
 }

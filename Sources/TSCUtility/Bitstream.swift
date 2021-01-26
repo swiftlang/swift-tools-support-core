@@ -79,10 +79,13 @@ public protocol BitstreamVisitor {
   mutating func visit(record: BitcodeElement.Record) throws
 }
 
-/// A top-level namespace for all bitstream
+/// A top-level namespace for all bitstream-related structures.
 public enum Bitstream {}
 
 extension Bitstream {
+  /// An `Abbreviation` represents the encoding definition for a user-defined
+  /// record. An `Abbreviation` is the primary form of compression available in
+  /// a bitstream file.
   public struct Abbreviation {
     public enum Operand {
       /// A literal value (emitted as a VBR8 field).
@@ -145,6 +148,22 @@ extension Bitstream {
 }
 
 extension Bitstream {
+  /// A `BlockID` is a fixed-width field that occurs at the start of all blocks.
+  ///
+  /// Bistream reserves the first 7 block IDs for its own bookkeeping. User
+  /// defined IDs are expected to start at
+  /// `Bitstream.BlockID.firstApplicationID`.
+  ///
+  /// When defining new block IDs, it may be helpful to refer to them by
+  /// a user-defined literal. For example, the `dia` serialized diagnostics
+  /// format used by Clang would define constants for block IDs as follows:
+  ///
+  /// ```
+  /// extension Bitstream.BlockID {
+  ///     static let metadata     = Self.firstApplicationID
+  ///     static let diagnostics  = Self.firstApplicationID + 1
+  /// }
+  /// ```
   public struct BlockID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt8
 
@@ -170,6 +189,18 @@ extension Bitstream {
 }
 
 extension Bitstream {
+  /// An `AbbreviationID` is a fixed-width field that occurs at the start of
+  /// abbreviated data records and inside block definitions.
+  ///
+  /// Bitstream reserves 4 special abbreviation IDs for its own bookkeeping.
+  /// User defined IDs are expected to start at
+  /// `Bitstream.AbbreviationID.firstApplicationID`.
+  ///
+  /// - Warning: Creating your own abbreviations by hand is not recommended as
+  ///            you could potentially corrupt or collide with another
+  ///            abbreviation defined by `BitstreamWriter`. Always use
+  ///            `BitstreamWriter.defineBlockInfoAbbreviation(_:_:)`
+  ///            to register abbreviations.
   public struct AbbreviationID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt64
 
@@ -177,9 +208,13 @@ extension Bitstream {
       self.rawValue = rawValue
     }
 
+    /// Marks the end of the current block.
     public static let endBlock = Self(rawValue: 0)
+    /// Marks the beginning of a new block.
     public static let enterSubblock = Self(rawValue: 1)
+    /// Marks the definition of a new abbreviation.
     public static let defineAbbreviation = Self(rawValue: 2)
+    /// Marks the definition of a new unabbreviated record.
     public static let unabbreviatedRecord = Self(rawValue: 3)
     /// The first application-defined abbreviation ID.
     public static let firstApplicationID = Self(rawValue: 4)
@@ -190,10 +225,6 @@ extension Bitstream {
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
       lhs.rawValue < rhs.rawValue
-    }
-
-    public static func + (lhs: Self, rhs: UInt64) -> Self {
-      return AbbreviationID(rawValue: lhs.rawValue + rhs)
     }
   }
 }
