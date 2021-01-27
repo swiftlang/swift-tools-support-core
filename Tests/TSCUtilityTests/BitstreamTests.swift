@@ -387,7 +387,7 @@ final class BitstreamTests: XCTestCase {
     func testSimpleRecordWrite() {
         let recordWriter = BitstreamWriter()
         recordWriter.withSubBlock(.metadata, abbreviationBitWidth: 2) {
-            recordWriter.writeRecord(BitstreamWriter.BlockInfoCode.setRecordName) {
+            recordWriter.writeRecord(Bitstream.BlockInfoCode.setRecordName) {
                 $0.append(Bitstream.AbbreviationID.mockAbbreviation)
             }
         }
@@ -399,7 +399,7 @@ final class BitstreamTests: XCTestCase {
             UInt8(1), UInt8(0), UInt8(0), UInt8(0),
             // Still 32-bit aligned, now here's the record data
             UInt8(Bitstream.AbbreviationID.unabbreviatedRecord.rawValue)
-                | UInt8(BitstreamWriter.BlockInfoCode.setRecordName.rawValue << 2),
+                | UInt8(Bitstream.BlockInfoCode.setRecordName.rawValue << 2),
             UInt8(1), // record length of 1 - which is just the ID field
             UInt8(1), // record ID itself - which is 0b00001000 but we're
                       // 14 bits in by the time we get here and writing 6 bits,
@@ -409,11 +409,11 @@ final class BitstreamTests: XCTestCase {
     }
 
     func emitBlockID(_ id: Bitstream.BlockID, named name: String, to stream: BitstreamWriter) {
-        stream.writeRecord(BitstreamWriter.BlockInfoCode.setBID) {
+        stream.writeRecord(Bitstream.BlockInfoCode.setBID) {
             $0.append(id)
         }
 
-        stream.writeRecord(BitstreamWriter.BlockInfoCode.blockName) {
+        stream.writeRecord(Bitstream.BlockInfoCode.blockName) {
             $0.append(name)
         }
     }
@@ -421,7 +421,7 @@ final class BitstreamTests: XCTestCase {
     func emitRecordID<CodeType>(_ id: CodeType, named name: String, to stream: BitstreamWriter)
         where CodeType: RawRepresentable, CodeType.RawValue: UnsignedInteger & ExpressibleByIntegerLiteral
     {
-        stream.writeRecord(BitstreamWriter.BlockInfoCode.setRecordName) {
+        stream.writeRecord(Bitstream.BlockInfoCode.setRecordName) {
             $0.append(id)
             $0.append(name)
         }

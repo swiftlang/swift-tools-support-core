@@ -259,16 +259,16 @@ private struct BitstreamReader {
         }
 
         switch code {
-        case 1:
+        case UInt64(Bitstream.BlockInfoCode.setBID.rawValue):
           guard operands.count == 1 else { throw Error.invalidBlockInfoRecord(recordID: code) }
           currentBlockID = operands.first
-        case 2:
+        case UInt64(Bitstream.BlockInfoCode.blockName.rawValue):
           guard let blockID = currentBlockID else {
             throw Error.missingSETBID
           }
           if blockInfo[blockID] == nil { blockInfo[blockID] = BlockInfo() }
           blockInfo[blockID]!.name = String(bytes: operands.map { UInt8($0) }, encoding: .utf8) ?? "<invalid>"
-        case 3:
+        case UInt64(Bitstream.BlockInfoCode.setRecordName.rawValue):
           guard let blockID = currentBlockID else {
             throw Error.missingSETBID
           }

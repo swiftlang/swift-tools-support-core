@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
-
 /// A `BitstreamWriter` is an object that is capable of emitting data in the
 /// [LLVM Bitstream](https://llvm.org/docs/BitCodeFormat.html#bitstream-format)
 /// format.
@@ -33,6 +31,7 @@ import Foundation
 ///
 /// Next, identify the kinds of records needed in the format and assign them
 /// unique, stable identifiers. For example:
+/// 
 /// ```
 /// enum DiagnosticRecordID: UInt8 {
 ///     case version        = 1
@@ -69,7 +68,7 @@ import Foundation
 ///     }
 ///
 ///     versionAbbrev = recordWriter.defineBlockInfoAbbreviation(.metadata, .init([
-///         .literalCode(RoundTripRecordID.version),
+///         .literalCode(DiagnosticRecordID.version),
 ///         .fixed(bitWidth: 32)
 ///     ]))
 ///
@@ -83,7 +82,7 @@ import Foundation
 /// ```
 /// recordWriter.writeBlock(.metadata, newAbbrevWidth: 3) {
 ///     recordWriter.writeRecord(versionAbbrev!) {
-///         $0.append(RoundTripRecordID.version)
+///         $0.append(DiagnosticRecordID.version)
 ///         $0.append(25 as UInt32)
 ///     }
 /// }
@@ -92,12 +91,6 @@ import Foundation
 /// The higher-level APIs will automatically ensure that `BitstreamWriter.data`
 /// is valid. Once serialization has completed, simply emit this data to a file.
 public final class BitstreamWriter {
-    public enum BlockInfoCode: UInt8 {
-        case setBID = 1
-        case blockName = 2
-        case setRecordName = 3
-    }
-
     /// The buffer of data being written to.
     private(set) public var data: [UInt8]
 
@@ -657,7 +650,7 @@ extension BitstreamWriter {
 
     private func `switch`(to blockID: Bitstream.BlockID) {
         if currentBlockID == blockID { return }
-        writeRecord(BlockInfoCode.setBID) {
+        writeRecord(Bitstream.BlockInfoCode.setBID) {
             $0.append(blockID)
         }
         currentBlockID = blockID

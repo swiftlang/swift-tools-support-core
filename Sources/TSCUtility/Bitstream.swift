@@ -148,6 +148,24 @@ extension Bitstream {
 }
 
 extension Bitstream {
+    /// A `BlockInfoCode` enumerates the bits that occur in the metadata for
+    /// a block or record. Of these bits, only `setBID` is required. If
+    /// a name is given to a block or record with `blockName` or
+    /// `setRecordName`, debugging tools like `llvm-bcanalyzer` can be used to
+    /// introspect the structure of blocks and records in the bitstream file.
+    public enum BlockInfoCode: UInt8 {
+        /// Indicates which block ID is being described.
+        case setBID = 1
+        /// An optional element that records which bytes of the record are the
+        /// name of the block.
+        case blockName = 2
+        /// An optional element that records the record ID number and the bytes
+        /// for the name of the corresponding record.
+        case setRecordName = 3
+    }
+}
+
+extension Bitstream {
   /// A `BlockID` is a fixed-width field that occurs at the start of all blocks.
   ///
   /// Bistream reserves the first 7 block IDs for its own bookkeeping. User
