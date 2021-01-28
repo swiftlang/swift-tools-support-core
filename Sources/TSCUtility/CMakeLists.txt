@@ -12,6 +12,8 @@ add_library(TSCUtility
   ArgumentParserShellCompletion.swift
   Bits.swift
   Bitstream.swift
+  BitstreamReader.swift
+  BitstreamWriter.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
