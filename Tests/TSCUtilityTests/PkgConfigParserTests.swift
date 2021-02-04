@@ -16,7 +16,7 @@ import TSCTestSupport
 
 final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {
-        XCTAssertTrue(try PkgConfig(name: "harfbuzz", additionalSearchPaths: [pcFilePath("harfbuzz.pc")], diagnostics: DiagnosticsEngine(), brewPrefix: nil).diagnostics.diagnostics.contains { diagnostic in
+        XCTAssertTrue(try PkgConfig(name: "harfbuzz", additionalSearchPaths: [AbsolutePath("/custom")], diagnostics: DiagnosticsEngine(), brewPrefix: nil).diagnostics.diagnostics.contains { diagnostic in
             diagnostic.message.text == "circular dependency detected while parsing harfbuzz: harfbuzz -> freetype2 -> harfbuzz"
         })
     }
