@@ -174,9 +174,7 @@ public struct PkgConfig {
             var libs = [String]()
             
             for dep in dependencies {
-                let firstOccurrence = loadingContext.pkgConfigStack.firstIndex(of: dep)
-
-                if let index = firstOccurrence {
+                if let index = loadingContext.pkgConfigStack.firstIndex(of: dep) {
                     diagnostics.emit(warning: "circular dependency detected while parsing \(loadingContext.pkgConfigStack[0]): \(loadingContext.pkgConfigStack[index..<loadingContext.pkgConfigStack.count].joined(separator: " -> ")) -> \(dep)")
                     continue
                 }
