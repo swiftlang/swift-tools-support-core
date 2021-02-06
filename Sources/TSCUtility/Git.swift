@@ -12,9 +12,8 @@ import class Foundation.ProcessInfo
 import TSCBasic
 
 extension Version {
-    /// Try a version from a git tag.
-    ///
-    /// - Parameter tag: A version string possibly prepended with "v".
+    // FIXME: deprecate 2/2021 (used below), remove once clients transitioned
+    @available(*, deprecated, message: "moved to SwiftPM")
     init?(tag: String) {
         if tag.first == "v" {
             self.init(string: String(tag.dropFirst()))
@@ -24,8 +23,9 @@ extension Version {
     }
 }
 
-public class Git {
-    /// Compute the version -> tags mapping from a list of input `tags`.
+public enum Git {
+    // FIXME: deprecate 2/2021, remove once clients transitioned
+    @available(*, deprecated, message: "moved to SwiftPM")
     public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]

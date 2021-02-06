@@ -10,9 +10,8 @@
 
 @_implementationOnly import TSCclibc
 
-/// A Swift version number.
-///
-/// Note that these are *NOT* semantically versioned numbers.
+// FIXME: deprecate 2/2021, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 public struct SwiftVersion {
     /// The version number.
     public var version: (major: Int, minor: Int, patch: Int)
@@ -69,7 +68,8 @@ private func getBuildIdentifier() -> String? {
     return buildIdentifier.isEmpty ? nil : buildIdentifier
 }
 
-/// Version support for the package manager.
+// FIXME: deprecate 2/2021, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 public struct Versioning {
 
     /// The current version of the package manager.
