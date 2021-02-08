@@ -5,7 +5,7 @@ includedir=${prefix}/include
 Name: harfbuzz
 Description: HarfBuzz text shaping library
 Version: 2.7.4
-Requires.private: freetype2, graphite2, glib-2.0
+Requires.private: freetype2 
 Libs: -L${libdir} -lharfbuzz
 Libs.private: -pthread -lm
 Cflags: -I${includedir}/harfbuzz
