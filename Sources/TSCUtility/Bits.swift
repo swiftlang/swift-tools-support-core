@@ -9,15 +9,16 @@
 */
 
 import Foundation
+import TSCBasic
 
 struct Bits: RandomAccessCollection {
-  var buffer: Data
+  var buffer: ByteString
 
   var startIndex: Int { return 0 }
   var endIndex: Int { return buffer.count * 8 }
 
   subscript(index: Int) -> UInt8 {
-    let byte = buffer[index / 8]
+    let byte = buffer.contents[index / 8]
     return (byte >> UInt8(index % 8)) & 1
   }
 
@@ -27,7 +28,7 @@ struct Bits: RandomAccessCollection {
     precondition(offset &+ count >= offset)
     precondition(offset &+ count <= self.endIndex)
 
-    return buffer.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+    return buffer.contents.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
       let upperBound = offset &+ count
       let topByteIndex = upperBound >> 3
       var result: UInt64 = 0
@@ -56,8 +57,12 @@ struct Bits: RandomAccessCollection {
       self.buffer = buffer
     }
     
-    init(buffer: Data) {
+    init(buffer: ByteString) {
       self.init(buffer: Bits(buffer: buffer))
+    }
+
+    var isAtStart: Bool {
+      return offset == buffer.startIndex
     }
 
     var isAtEnd: Bool {
@@ -74,14 +79,14 @@ struct Bits: RandomAccessCollection {
       return try peek(count)
     }
 
-    mutating func read(bytes count: Int) throws -> Data {
+    mutating func read(bytes count: Int) throws -> ArraySlice<UInt8> {
       precondition(count >= 0)
       precondition(offset & 0b111 == 0)
       let newOffset = offset &+ (count << 3)
       precondition(newOffset >= offset)
       if newOffset > buffer.count { throw Error.bufferOverflow }
       defer { offset = newOffset }
-      return buffer.buffer.dropFirst(offset >> 3).prefix((newOffset - offset) >> 3)
+      return buffer.buffer.contents.dropFirst(offset >> 3).prefix((newOffset - offset) >> 3)
     }
 
     mutating func skip(bytes count: Int) throws {

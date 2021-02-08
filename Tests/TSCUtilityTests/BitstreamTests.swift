@@ -37,7 +37,7 @@ final class BitstreamTests: XCTestCase {
             .appending(components: "Inputs", "serialized.dia")
         let contents = try localFileSystem.readFileContents(bitstreamPath)
         var visitor = LoggingVisitor()
-        try Bitcode.read(stream: Data(contents.contents), using: &visitor)
+        try Bitcode.read(bytes: contents, using: &visitor)
         XCTAssertEqual(visitor.log, [
             "entering block: 8",
             "Record (id: 1, fields: [1], payload: none",
@@ -130,7 +130,7 @@ final class BitstreamTests: XCTestCase {
             .appending(components: "Inputs", "serialized.dia")
         let contents = try localFileSystem.readFileContents(bitstreamPath)
         var visitor = LoggingVisitor()
-        try Bitcode.read(stream: Data(contents.contents), using: &visitor)
+        try Bitcode.read(bytes: contents, using: &visitor)
         XCTAssertEqual(visitor.log, ["skipping block: 8",
                                      "skipping block: 9",
                                      "skipping block: 9",
@@ -155,7 +155,7 @@ final class BitstreamTests: XCTestCase {
         let bitstreamPath = AbsolutePath(#file).parentDirectory
             .appending(components: "Inputs", "serialized.dia")
         let contents = try localFileSystem.readFileContents(bitstreamPath)
-        let bitcode = try Bitcode(data: Data(contents.contents))
+        let bitcode = try Bitcode(bytes: contents)
         XCTAssertEqual(bitcode.signature, .init(string: "DIAG"))
         XCTAssertEqual(bitcode.elements.count, 18)
         guard case .block(let metadataBlock) = bitcode.elements.first else {
@@ -381,7 +381,7 @@ final class BitstreamTests: XCTestCase {
         }
 
         var visitor = RoundTripVisitor()
-        try Bitcode.read(stream: Data(writer.data), using: &visitor)
+        try Bitcode.read(bytes: ByteString(writer.data), using: &visitor)
     }
 
     func testSimpleRecordWrite() {
