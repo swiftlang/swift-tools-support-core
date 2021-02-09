@@ -9,34 +9,42 @@
 */
 
 import Foundation
+import TSCBasic
 
 extension Bitcode {
   /// Parse a bitstream from data.
+  @available(*, deprecated, message: "Use Bitcode.init(bytes:) instead")
   public init(data: Data) throws {
     precondition(data.count > 4)
-    let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
-    let bitstreamData = data[4..<data.count]
-
-    var reader = BitstreamReader(buffer: bitstreamData)
+    try self.init(bytes: ByteString(data))
+  }
+  
+  public init(bytes: ByteString) throws {
+    precondition(bytes.count > 4)
+    var reader = BitstreamReader(buffer: bytes)
+    let signature = try reader.readSignature()
     var visitor = CollectingVisitor()
     try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
                          abbrevWidth: 2,
                          abbrevInfo: [],
                          visitor: &visitor)
-    self.init(signature: .init(value: signatureValue),
+    self.init(signature: signature,
               elements: visitor.finalizeTopLevelElements(),
               blockInfo: reader.blockInfo)
   }
 
   /// Traverse a bitstream using the specified `visitor`, which will receive
   /// callbacks when blocks and records are encountered.
+  @available(*, deprecated, message: "Use Bitcode.read(bytes:using:) instead")
   public static func read<Visitor: BitstreamVisitor>(stream data: Data, using visitor: inout Visitor) throws {
     precondition(data.count > 4)
-    let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
-    try visitor.validate(signature: .init(value: signatureValue))
+    try Self.read(bytes: ByteString(data), using: &visitor)
+  }
 
-    let bitstreamData = data[4..<data.count]
-    var reader = BitstreamReader(buffer: bitstreamData)
+  public static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
+    precondition(bytes.count > 4)
+    var reader = BitstreamReader(buffer: bytes)
+    try visitor.validate(signature: reader.readSignature())
     try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
                          abbrevWidth: 2,
                          abbrevInfo: [],
@@ -113,8 +121,14 @@ private struct BitstreamReader {
   var blockInfo: [UInt64: BlockInfo] = [:]
   var globalAbbrevs: [UInt64: [Bitstream.Abbreviation]] = [:]
 
-  init(buffer: Data) {
-    cursor = Bits.Cursor(buffer: buffer)
+  init(buffer: ByteString) {
+    self.cursor = Bits.Cursor(buffer: buffer)
+  }
+
+  mutating func readSignature() throws -> Bitcode.Signature {
+    precondition(self.cursor.isAtStart)
+    let bits = try UInt32(self.cursor.read(MemoryLayout<UInt32>.size * 8))
+    return Bitcode.Signature(value: bits)
   }
 
   mutating func readAbbrevOp() throws -> Bitstream.Abbreviation.Operand {
@@ -220,7 +234,7 @@ private struct BitstreamReader {
       case .blob:
         let length = Int(try cursor.readVBR(6))
         try cursor.advance(toBitAlignment: 32)
-        payload = .blob(try cursor.read(bytes: length))
+        payload = .blob(try Data(cursor.read(bytes: length)))
         try cursor.advance(toBitAlignment: 32)
       default:
         fatalError()

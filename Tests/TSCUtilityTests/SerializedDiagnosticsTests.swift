@@ -18,7 +18,7 @@ final class SerializedDiagnosticsTests: XCTestCase {
     let serializedDiagnosticsPath = AbsolutePath(#file).parentDirectory
         .appending(components: "Inputs", "serialized.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
-    let serializedDiags = try SerializedDiagnostics(data: Data(contents.contents))
+    let serializedDiags = try SerializedDiagnostics(bytes: contents)
 
     XCTAssertEqual(serializedDiags.versionNumber, 1)
     XCTAssertEqual(serializedDiags.diagnostics.count, 17)
@@ -66,7 +66,7 @@ final class SerializedDiagnosticsTests: XCTestCase {
     let serializedDiagnosticsPath = AbsolutePath(#file).parentDirectory
         .appending(components: "Inputs", "clang.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
-    let serializedDiags = try SerializedDiagnostics(data: Data(contents.contents))
+    let serializedDiags = try SerializedDiagnostics(bytes: contents)
 
     XCTAssertEqual(serializedDiags.versionNumber, 1)
     XCTAssertEqual(serializedDiags.diagnostics.count, 4)

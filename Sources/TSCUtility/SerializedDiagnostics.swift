@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 import Foundation
+import TSCBasic
 
 /// Represents diagnostics serialized in a .dia file by the Swift compiler or Clang.
 public struct SerializedDiagnostics {
@@ -42,9 +43,18 @@ public struct SerializedDiagnostics {
   /// Serialized diagnostics.
   public var diagnostics: [Diagnostic]
 
+  @available(*, deprecated, message: "Use SerializedDiagnostics.init(bytes:) instead")
   public init(data: Data) throws {
     var reader = Reader()
     try Bitcode.read(stream: data, using: &reader)
+    guard let version = reader.versionNumber else { throw Error.noMetadataBlock }
+    self.versionNumber = version
+    self.diagnostics = reader.diagnostics
+  }
+
+  public init(bytes: ByteString) throws {
+    var reader = Reader()
+    try Bitcode.read(bytes: bytes, using: &reader)
     guard let version = reader.versionNumber else { throw Error.noMetadataBlock }
     self.versionNumber = version
     self.diagnostics = reader.diagnostics
