@@ -104,6 +104,15 @@ public struct PCFileFinder {
     }
 }
 
+/// Informations to track circular dependencies and other PkgConfig issues
+public class LoadingContext {
+    public init() {
+        pkgConfigStack = [String]()
+    }
+
+    public var pkgConfigStack: [String]
+}
+
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {
     /// The name of the package.
@@ -138,8 +147,10 @@ public struct PkgConfig {
         additionalSearchPaths: [AbsolutePath] = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
-        brewPrefix: AbsolutePath?
+        brewPrefix: AbsolutePath?,
+        loadingContext: LoadingContext = LoadingContext()
     ) throws {
+        loadingContext.pkgConfigStack.append(name)
 
         if let path = try? AbsolutePath(validating: name) {
             guard fileSystem.isFile(path) else { throw PkgConfigError.couldNotFindConfigFile(name: name) }
@@ -163,13 +174,19 @@ public struct PkgConfig {
             var libs = [String]()
             
             for dep in dependencies {
+                if let index = loadingContext.pkgConfigStack.firstIndex(of: dep) {
+                    diagnostics.emit(warning: "circular dependency detected while parsing \(loadingContext.pkgConfigStack[0]): \(loadingContext.pkgConfigStack[index..<loadingContext.pkgConfigStack.count].joined(separator: " -> ")) -> \(dep)")
+                    continue
+                }
+
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
                 let pkg = try PkgConfig(
-                    name: dep, 
+                    name: dep,
                     additionalSearchPaths: additionalSearchPaths,
                     diagnostics: diagnostics,
                     fileSystem: fileSystem,
-                    brewPrefix: brewPrefix
+                    brewPrefix: brewPrefix,
+                    loadingContext: loadingContext
                 )
 
                 cFlags += pkg.cFlags
@@ -184,6 +201,8 @@ public struct PkgConfig {
 
         self.cFlags = parser.cFlags + dependencyFlags.cFlags + privateDependencyFlags.cFlags
         self.libs = parser.libs + dependencyFlags.libs
+
+        loadingContext.pkgConfigStack.removeLast();
     }
 
     private static var envSearchPaths: [AbsolutePath] {
@@ -408,3 +427,4 @@ public struct PkgConfigParser {
         return splits
     }
 }
+

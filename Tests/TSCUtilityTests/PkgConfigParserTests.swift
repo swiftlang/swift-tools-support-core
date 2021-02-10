@@ -15,6 +15,11 @@ import TSCTestSupport
 @testable import TSCUtility
 
 final class PkgConfigParserTests: XCTestCase {
+    func testCircularPCFile() throws {
+        XCTAssertTrue(try PkgConfig(name: "harfbuzz", additionalSearchPaths: [AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs")], diagnostics: DiagnosticsEngine(), brewPrefix: nil).diagnostics.diagnostics.contains { diagnostic in
+            diagnostic.message.text == "circular dependency detected while parsing harfbuzz: harfbuzz -> freetype2 -> harfbuzz"
+        })
+    }
 
     func testGTK3PCFile() {
         try! loadPCFile("gtk+-3.0.pc") { parser in
