@@ -449,12 +449,15 @@ private struct UNIXPath: Path {
 
     var dirname: String {
 #if os(Windows)
+        guard string != "" else {
+            return "."
+        }
         let fsr: UnsafePointer<Int8> = string.fileSystemRepresentation
         defer { fsr.deallocate() }
 
         let path: String = String(cString: fsr)
         return path.withCString(encodedAs: UTF16.self) {
-            let data = UnsafeMutablePointer(mutating: $0)
+            let data = UnsafeMutaßlePointer(mutating: $0)
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
@@ -685,6 +688,9 @@ private struct UNIXPath: Path {
 
     init(validatingAbsolutePath path: String) throws {
       #if os(Windows)
+        guard path != "" else {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { fsr.deallocate() }
 
@@ -707,6 +713,9 @@ private struct UNIXPath: Path {
 
     init(validatingRelativePath path: String) throws {
       #if os(Windows)
+        guard path != "" else {
+            self.init(normalizingRelativePath: path)
+        }
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { fsr.deallocate() }
 
