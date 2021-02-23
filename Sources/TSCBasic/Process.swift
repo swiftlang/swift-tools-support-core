@@ -611,6 +611,14 @@ public final class Process: ObjectIdentifierProtocol {
                     break loop
                 }
             case 0:
+                // Close the read end of the output pipe.
+                // We should avoid closing the read end of the pipe in case
+                // -1 because the child process may still have content to be
+                // flushed into the write end of the pipe. If the read end of the
+                // pipe is closed, then a write will cause a SIGPIPE signal to
+                // be generated for the calling process.  If the calling process is
+                // ignoring this signal, then write fails with the error EPIPE.
+                close(fd)
                 break loop
             default:
                 let data = buf[0..<n]
@@ -621,8 +629,6 @@ public final class Process: ObjectIdentifierProtocol {
                 }
             }
         }
-        // Close the read end of the output pipe.
-        close(fd)
         // Construct the output result.
         return error.map(Result.failure) ?? .success(out)
     }
