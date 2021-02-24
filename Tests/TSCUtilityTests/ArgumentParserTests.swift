@@ -481,35 +481,6 @@ class ArgumentParserTests: XCTestCase {
         }
     }
 
-    func testPathArgument() {
-        // Test that relative path is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "some/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that relative path starting with ./ is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "./some/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that relative path starting with ../ is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "../other/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that absolute path is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "/bin/echo"])
-            XCTAssertEqual(stdout.spm_chomp(), "/bin/echo")
-        }
-    }
-
     func testShellCompletionGeneration() throws {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
