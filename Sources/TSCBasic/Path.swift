@@ -620,21 +620,14 @@ private struct UNIXPath: Path {
     }
 
     init(normalizingRelativePath path: String) {
+        let pathSeparator: Character
       #if os(Windows)
-        var result: PWSTR?
-        defer { LocalFree(result) }
-
-        _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
-            PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
-        }
-
-        var canonicalized: String = String(decodingCString: result!, as: UTF16.self)
-        if canonicalized == "" || canonicalized == "\\" {
-            canonicalized = "."
-        }
-        self.init(string: canonicalized)
+        pathSeparator = "\\"
+        let path = path.replacingOccurrences(of: "/", with: "\\")
       #else
-        precondition(path.first != "/")
+        pathSeparator = "/"
+      #endif
+        precondition(path.first != pathSeparator)
 
         // FIXME: Here we should also keep track of whether anything actually has
         // to be changed in the string, and if not, just return the existing one.
@@ -644,7 +637,7 @@ private struct UNIXPath: Path {
         // the normalized string representation.
         var parts: [String] = []
         var capacity = 0
-        for part in path.split(separator: "/") {
+        for part in path.split(separator: pathSeparator) {
             switch part.count {
             case 0:
                 // Ignore empty path components.
@@ -683,7 +676,7 @@ private struct UNIXPath: Path {
         if let first = iter.next() {
             result.append(contentsOf: first)
             while let next = iter.next() {
-                result.append("/")
+                result.append(pathSeparator)
                 result.append(contentsOf: next)
             }
         }
@@ -694,7 +687,6 @@ private struct UNIXPath: Path {
 
         // If the result is empty, return `.`, otherwise we return it as a string.
         self.init(string: result.isEmpty ? "." : result)
-      #endif
     }
 
     init(validatingAbsolutePath path: String) throws {
