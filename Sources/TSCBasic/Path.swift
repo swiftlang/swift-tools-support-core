@@ -449,18 +449,20 @@ private struct UNIXPath: Path {
 
     var dirname: String {
 #if os(Windows)
-        guard string != "" else {
-            return "."
-        }
         let fsr: UnsafePointer<Int8> = string.fileSystemRepresentation
         defer { fsr.deallocate() }
 
         let path: String = String(cString: fsr)
-        return path.withCString(encodedAs: UTF16.self) {
-            let data = UnsafeMutaßlePointer(mutating: $0)
+        let dir: String = path.withCString(encodedAs: UTF16.self) {
+            let data = UnsafeMutablePointer(mutating: $0)
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
+        // These two expressions represent for the current directory.
+        if dir == "\\" || dir == "" {
+            return "."
+        }
+        return dir
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
@@ -547,11 +549,13 @@ private struct UNIXPath: Path {
 
     init(normalizingAbsolutePath path: String) {
       #if os(Windows)
-        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+        var result: PWSTR?
+        defer { LocalFree(result) }
+
         _ = path.withCString(encodedAs: UTF16.self) {
-            PathCanonicalizeW(&buffer, $0)
+            PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
         }
-        self.init(string: String(decodingCString: buffer, as: UTF16.self))
+        self.init(string: String(decodingCString: result!, as: UTF16.self))
       #else
         precondition(path.first == "/", "Failure normalizing \(path), absolute paths should start with '/'")
 
@@ -617,11 +621,18 @@ private struct UNIXPath: Path {
 
     init(normalizingRelativePath path: String) {
       #if os(Windows)
-        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+        var result: PWSTR?
+        defer { LocalFree(result) }
+
         _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
-            PathCanonicalizeW(&buffer, $0)
+            PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
         }
-        self.init(string: String(decodingCString: buffer, as: UTF16.self))
+
+        var canonicalized: String = String(decodingCString: result!, as: UTF16.self)
+        if canonicalized == "" || canonicalized == "\\" {
+            canonicalized = "."
+        }
+        self.init(string: canonicalized)
       #else
         precondition(path.first != "/")
 
@@ -715,6 +726,7 @@ private struct UNIXPath: Path {
       #if os(Windows)
         guard path != "" else {
             self.init(normalizingRelativePath: path)
+            return
         }
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { fsr.deallocate() }
