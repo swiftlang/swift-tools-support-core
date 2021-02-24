@@ -458,8 +458,8 @@ private struct UNIXPath: Path {
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
-        // These two expressions represent for the current directory.
-        if dir == "\\" || dir == "" {
+        // Blank path represents for the current directory.
+        if dir == "" {
             return "."
         }
         return dir
