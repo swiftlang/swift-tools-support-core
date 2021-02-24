@@ -17,6 +17,8 @@ import Foundation
 import FoundationNetworking
 #endif
 
+// deprecated 2/2021
+@available(*, deprecated)
 class DownloaderTests: XCTestCase {
 
     func testSuccess() throws {
