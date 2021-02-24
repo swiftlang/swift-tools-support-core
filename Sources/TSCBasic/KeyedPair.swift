@@ -45,7 +45,8 @@ public struct KeyedPair<T, K: Hashable>: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(key)
     }
-}
-public func ==<T, K>(lhs: KeyedPair<T, K>, rhs: KeyedPair<T, K>) -> Bool {
-    return lhs.key == rhs.key
+
+    public static func ==(lhs: KeyedPair<T, K>, rhs: KeyedPair<T, K>) -> Bool {
+        return lhs.key == rhs.key
+    }
 }
