@@ -27,13 +27,8 @@ let package = Package(
         .library(
             name: "TSCTestSupport",
             targets: ["TSCTestSupport"]),
-        .executable(
-            name: "TSCTestSupportExecutable",
-            targets: ["TSCTestSupportExecutable"]),
     ],
-    dependencies: [
-        
-    ],
+    dependencies: [],
     targets: [
         
         // MARK: Tools support core targets
@@ -61,17 +56,13 @@ let package = Package(
             /** Generic test support library */
             name: "TSCTestSupport",
             dependencies: ["TSCBasic", "TSCUtility"]),
-        .target(
-            /** Test support executable */
-            name: "TSCTestSupportExecutable",
-            dependencies: ["TSCBasic", "TSCUtility"]),
         
         
         // MARK: Tools support core tests
         
         .testTarget(
             name: "TSCBasicTests",
-            dependencies: ["TSCTestSupport", "TSCTestSupportExecutable", "TSCclibc"]),
+            dependencies: ["TSCTestSupport", "TSCclibc"]),
         .testTarget(
             name: "TSCBasicPerformanceTests",
             dependencies: ["TSCBasic", "TSCTestSupport"]),
@@ -80,7 +71,7 @@ let package = Package(
             dependencies: ["TSCTestSupport"]),
         .testTarget(
             name: "TSCUtilityTests",
-            dependencies: ["TSCUtility", "TSCTestSupport", "TSCTestSupportExecutable"]),
+            dependencies: ["TSCUtility", "TSCTestSupport"]),
     ]
 )
 

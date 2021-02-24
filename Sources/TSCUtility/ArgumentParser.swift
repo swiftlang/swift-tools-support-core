@@ -13,6 +13,8 @@ import Foundation
 import func TSCLibc.exit
 
 /// Errors which may be encountered when running argument parser.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public enum ArgumentParserError: Swift.Error {
 
     /// An unknown option is encountered.
@@ -34,12 +36,16 @@ public enum ArgumentParserError: Swift.Error {
     case duplicateArgument(String)
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentParserError: LocalizedError {
     public var errorDescription: String? {
         return description
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -65,6 +71,8 @@ extension ArgumentParserError: CustomStringConvertible {
 
 /// Conversion errors that can be returned from `ArgumentKind`'s failable
 /// initializer.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public enum ArgumentConversionError: Swift.Error {
 
     /// The value is unknown.
@@ -77,12 +85,16 @@ public enum ArgumentConversionError: Swift.Error {
     case custom(String)
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentConversionError: LocalizedError {
     public var errorDescription: String? {
         return description
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentConversionError: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -96,6 +108,8 @@ extension ArgumentConversionError: CustomStringConvertible {
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentConversionError: Equatable {
     public static func ==(lhs: ArgumentConversionError, rhs: ArgumentConversionError) -> Bool {
         switch (lhs, rhs) {
@@ -116,6 +130,8 @@ extension ArgumentConversionError: Equatable {
 }
 
 /// Different shells for which we can generate shell scripts.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public enum Shell: String, StringEnumArgument {
     case bash
     case zsh
@@ -127,6 +143,8 @@ public enum Shell: String, StringEnumArgument {
 }
 
 /// Various shell completions modes supplied by ArgumentKind.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public enum ShellCompletion {
     /// Offers no completions at all.
     ///
@@ -156,6 +174,8 @@ public enum ShellCompletion {
 ///
 /// Conforming to this protocol will qualify the type to act as
 /// positional and option arguments in the argument parser.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public protocol ArgumentKind {
     /// Throwable convertion initializer.
     init(argument: String) throws
@@ -166,6 +186,8 @@ public protocol ArgumentKind {
 
 // MARK: - ArgumentKind conformance for common types
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension String: ArgumentKind {
     public init(argument: String) throws {
         self = argument
@@ -174,6 +196,8 @@ extension String: ArgumentKind {
     public static let completion: ShellCompletion = .none
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension Int: ArgumentKind {
     public init(argument: String) throws {
         guard let int = Int(argument) else {
@@ -186,6 +210,8 @@ extension Int: ArgumentKind {
     public static let completion: ShellCompletion = .none
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension Bool: ArgumentKind {
     public init(argument: String) throws {
         guard let bool = Bool(argument) else {
@@ -202,10 +228,14 @@ extension Bool: ArgumentKind {
 ///
 /// Conforming to this protocol will automatically make an enum with is
 /// String initializable conform to ArgumentKind.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public protocol StringEnumArgument: ArgumentKind {
     init?(rawValue: String)
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension StringEnumArgument {
     public init(argument: String) throws {
         guard let value = Self.init(rawValue: argument) else {
@@ -219,6 +249,8 @@ extension StringEnumArgument {
 /// An argument representing a path (file / directory).
 ///
 /// The path is resolved in the current working directory.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public struct PathArgument: ArgumentKind {
     public let path: AbsolutePath
 
@@ -235,6 +267,8 @@ public struct PathArgument: ArgumentKind {
 }
 
 /// An enum representing the strategy to parse argument values.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public enum ArrayParsingStrategy {
     /// Will parse only the next argument and append all values together: `-Xcc -Lfoo -Xcc -Lbar`.
     case oneByOne
@@ -277,6 +311,8 @@ public enum ArrayParsingStrategy {
 }
 
 /// A protocol representing positional or options argument.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 protocol ArgumentProtocol: Hashable {
     // FIXME: This should be constrained to ArgumentKind but Array can't conform
     // to it: `extension of type 'Array' with constraints cannot have an
@@ -313,6 +349,8 @@ protocol ArgumentProtocol: Hashable {
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind]
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentProtocol {
     // MARK: - Conformance for Hashable
 
@@ -334,6 +372,8 @@ fileprivate func isPositional(argument: String) -> Bool {
 /// A class representing option arguments. These are optional arguments which may
 /// or may not be provided in the command line. They are always prefixed by their
 /// name. For e.g. --verbosity true.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public final class OptionArgument<Kind>: ArgumentProtocol {
     typealias ArgumentKindTy = Kind
 
@@ -390,6 +430,8 @@ public final class OptionArgument<Kind>: ArgumentProtocol {
 
 /// A class representing positional arguments. These arguments must be present
 /// and in the same order as they are added in the parser.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public final class PositionalArgument<Kind>: ArgumentProtocol {
 
     typealias ArgumentKindTy = Kind
@@ -446,6 +488,8 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 /// A type-erased argument.
 ///
 /// Note: Only used for argument parsing purpose.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     typealias ArgumentKindTy = Any
 
@@ -512,6 +556,8 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
 //
 /// Argument parser protocol passed in initializers of ArgumentKind to manipulate
 /// parser as needed by the argument.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public protocol ArgumentParserProtocol {
     /// The current argument being parsed.
     var currentArgument: String { get }
@@ -528,6 +574,8 @@ public protocol ArgumentParserProtocol {
 
 /// Argument parser struct responsible to parse the provided array of arguments
 /// and return the parsed result.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public final class ArgumentParser {
 
     /// A class representing result of the parsed arguments.
@@ -978,6 +1026,8 @@ public final class ArgumentParser {
 }
 
 /// A class to bind ArgumentParser's arguments to an option structure.
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 public final class ArgumentBinder<Options> {
     /// The signature of body closure.
     private typealias BodyClosure = (inout Options, ArgumentParser.Result) throws -> Void

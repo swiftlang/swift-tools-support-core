@@ -18,6 +18,8 @@ enum SampleEnum: String {
     case Bar
 }
 
+// deprecated 2/2021
+@available(*, deprecated)
 extension SampleEnum: StringEnumArgument {
     static var completion: ShellCompletion {
         return .values([
@@ -41,6 +43,8 @@ struct Options {
     var bar: Int?
 }
 
+// deprecated 2/2021
+@available(*, deprecated)
 class ArgumentParserTests: XCTestCase {
 
     func testBasics() throws {
