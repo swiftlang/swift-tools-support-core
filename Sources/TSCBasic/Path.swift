@@ -12,11 +12,7 @@ import Foundation
 import WinSDK
 #endif
 
-#if os(Windows)
 private typealias PathImpl = UNIXPath
-#else
-private typealias PathImpl = UNIXPath
-#endif
 
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
@@ -453,16 +449,12 @@ private struct UNIXPath: Path {
         defer { fsr.deallocate() }
 
         let path: String = String(cString: fsr)
-        let dir: String = path.withCString(encodedAs: UTF16.self) {
+        let result: String = path.withCString(encodedAs: UTF16.self) {
             let data = UnsafeMutablePointer(mutating: $0)
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
-        // Blank path represents for the current directory.
-        if dir == "" {
-            return "."
-        }
-        return dir
+        return result.isEmpty ? "." : result
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
@@ -621,12 +613,12 @@ private struct UNIXPath: Path {
 
     init(normalizingRelativePath path: String) {
         let pathSeparator: Character
-      #if os(Windows)
+#if os(Windows)
         pathSeparator = "\\"
         let path = path.replacingOccurrences(of: "/", with: "\\")
-      #else
+#else
         pathSeparator = "/"
-      #endif
+#endif
         precondition(path.first != pathSeparator)
 
         // FIXME: Here we should also keep track of whether anything actually has
@@ -690,7 +682,7 @@ private struct UNIXPath: Path {
     }
 
     init(validatingAbsolutePath path: String) throws {
-      #if os(Windows)
+#if os(Windows)
         guard path != "" else {
             throw PathValidationError.invalidAbsolutePath(path)
         }
@@ -702,7 +694,7 @@ private struct UNIXPath: Path {
             throw PathValidationError.invalidAbsolutePath(path)
         }
         self.init(normalizingAbsolutePath: path)
-      #else
+#else
         switch path.first {
         case "/":
             self.init(normalizingAbsolutePath: path)
@@ -711,11 +703,11 @@ private struct UNIXPath: Path {
         default:
             throw PathValidationError.invalidAbsolutePath(path)
         }
-      #endif
+#endif
     }
 
     init(validatingRelativePath path: String) throws {
-      #if os(Windows)
+#if os(Windows)
         guard path != "" else {
             self.init(normalizingRelativePath: path)
             return
@@ -728,14 +720,14 @@ private struct UNIXPath: Path {
             throw PathValidationError.invalidRelativePath(path)
         }
         self.init(normalizingRelativePath: path)
-      #else
+#else
         switch path.first {
         case "/", "~":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(normalizingRelativePath: path)
         }
-      #endif
+#endif
     }
 
     func suffix(withDot: Bool) -> String? {
