@@ -12,7 +12,7 @@ import TSCLibc
 import Foundation
 import Dispatch
 
-public struct FileSystemError: Swift.Error, Equatable {
+public struct FileSystemError: Error, Equatable {
     public enum Kind: Equatable {
         /// Access to the path is denied.
         ///
@@ -77,6 +77,12 @@ public struct FileSystemError: Swift.Error, Equatable {
     public init(_ kind: Kind, _ path: AbsolutePath? = nil) {
         self.kind = kind
         self.path = path
+    }
+}
+
+extension FileSystemError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
 

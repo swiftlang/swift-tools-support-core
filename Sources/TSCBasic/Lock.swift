@@ -35,10 +35,15 @@ public struct Lock {
     }
 }
 
-enum ProcessLockError: Swift.Error {
+enum ProcessLockError: Error {
     case unableToAquireLock(errno: Int32)
 }
 
+extension ProcessLockError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
+}
 /// Provides functionality to aquire a lock on a file via POSIX's flock() method.
 /// It can be used for things like serializing concurrent mutations on a shared resource
 /// by mutiple instances of a process. The `FileLock` is not thread-safe.

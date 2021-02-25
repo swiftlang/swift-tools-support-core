@@ -169,9 +169,15 @@ extension JSON: ByteStreamable {
 
 import Foundation
 
-enum JSONDecodingError: Swift.Error {
+enum JSONDecodingError: Error {
     /// The input byte string is malformed.
     case malformed
+}
+
+extension JSONDecodingError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
 }
 
 // NOTE: This implementation is carefully crafted to work correctly on both

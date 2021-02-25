@@ -82,7 +82,14 @@ public final class JSONMessageStreamingParser<Delegate: JSONMessageStreamingPars
 private extension JSONMessageStreamingParser {
 
     /// Error corresponding to invalid Swift compiler output.
-    struct ParsingError: LocalizedError {
+    struct ParsingError: CustomStringConvertible, LocalizedError {
+        var description: String {
+            if let error = underlyingError {
+                return "\(reason): \(error)"
+            } else {
+                return reason
+            }
+        }
 
         /// Text describing the specific reason for the parsing failure.
         let reason: String
@@ -91,11 +98,7 @@ private extension JSONMessageStreamingParser {
         let underlyingError: Error?
 
         var errorDescription: String? {
-            if let error = underlyingError {
-                return "\(reason): \(error)"
-            } else {
-                return reason
-            }
+            self.description
         }
     }
 
@@ -171,3 +174,9 @@ private extension JSONMessageStreamingParser {
 }
 
 private let newline = UInt8(ascii: "\n")
+
+extension JSONMessageStreamingParser.ParsingError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
+    }
+}

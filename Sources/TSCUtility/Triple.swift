@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
 import TSCBasic
 
 /// Triple - Helper class for working with Destination.target values
@@ -207,5 +209,11 @@ extension Triple {
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
             return ".resources"
         }
+    }
+}
+
+extension Triple.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }

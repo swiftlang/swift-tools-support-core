@@ -18,6 +18,9 @@ private typealias PathImpl = UNIXPath
 private typealias PathImpl = UNIXPath
 #endif
 
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
+
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
 /// An absolute path always starts with a `/` character, and holds a normalized
@@ -911,6 +914,12 @@ extension AbsolutePath {
         return self.components.starts(with: other.components)
     }
 
+}
+
+extension PathValidationError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
+    }
 }
 
 // FIXME: We should consider whether to merge the two `normalize()` functions.

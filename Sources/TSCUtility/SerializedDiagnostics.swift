@@ -61,6 +61,12 @@ public struct SerializedDiagnostics {
   }
 }
 
+extension SerializedDiagnostics.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
+}
+
 extension SerializedDiagnostics {
   public struct Diagnostic {
 

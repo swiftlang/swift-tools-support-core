@@ -8,6 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
+
 extension Result where Failure == Error {
     public func tryMap<NewSuccess>(_ closure: (Success) throws -> NewSuccess) -> Result<NewSuccess, Error> {
         flatMap({ value in
@@ -27,6 +30,12 @@ public struct StringError: Equatable, Codable, CustomStringConvertible, Error {
     /// Create an instance of StringError.
     public init(_ description: String) {
         self.description = description
+    }
+}
+
+extension StringError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
     }
 }
 
