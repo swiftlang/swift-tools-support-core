@@ -434,12 +434,17 @@ private struct UNIXPath: Path {
     static let root = UNIXPath(string: "/")
 
     static func isValidComponent(_ name: String) -> Bool {
+#if os(Windows)
+        if name.contains("\\") {
+            return false
+        }
+#endif
         return name != "" && name != "." && name != ".." && !name.contains("/")
     }
 
 #if os(Windows)
     static func isAbsolutePath(_ path: String) -> Bool {
-        return !path.withCString(encodedAs: UTF16.self, PathIsRelativeW)
+        return !path.prenormalized().withCString(encodedAs: UTF16.self, PathIsRelativeW)
     }
 #endif
 
@@ -541,13 +546,13 @@ private struct UNIXPath: Path {
 
     init(normalizingAbsolutePath path: String) {
       #if os(Windows)
-        var result: PWSTR?
+        var result: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
         defer { LocalFree(result) }
 
-        _ = path.withCString(encodedAs: UTF16.self) {
-            PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+        _ = path.prenormalized().withCString(encodedAs: UTF16.self) {
+            PathCchCanonicalize($0, result.length, $0)
         }
-        self.init(string: String(decodingCString: result!, as: UTF16.self))
+        self.init(string: String(decodingCString: result, as: UTF16.self))
       #else
         precondition(path.first == "/", "Failure normalizing \(path), absolute paths should start with '/'")
 
@@ -615,7 +620,7 @@ private struct UNIXPath: Path {
         let pathSeparator: Character
 #if os(Windows)
         pathSeparator = "\\"
-        let path = path.replacingOccurrences(of: "/", with: "\\")
+        let path = path.prenormalized()
 #else
         pathSeparator = "/"
 #endif
@@ -683,7 +688,9 @@ private struct UNIXPath: Path {
 
     init(validatingAbsolutePath path: String) throws {
 #if os(Windows)
-        guard path != "" else {
+        // Explicitly handle the empty path, since retrieving
+        // `fileSystemRepresentation` of it is illegal.
+        guard !path.isEmpty else {
             throw PathValidationError.invalidAbsolutePath(path)
         }
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
@@ -708,7 +715,9 @@ private struct UNIXPath: Path {
 
     init(validatingRelativePath path: String) throws {
 #if os(Windows)
-        guard path != "" else {
+        // Explicitly handle the empty path, since retrieving
+        // `fileSystemRepresentation` of it is illegal.
+        guard !path.isEmpty else {
             self.init(normalizingRelativePath: path)
             return
         }
@@ -946,3 +955,11 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
     }
     return false
 }
+
+#if os(Windows)
+fileprivate extension String {
+    func prenormalized() -> String {
+        return self.replacingOccurrences(of: "/", with: "\\")
+    }
+}
+#endif
