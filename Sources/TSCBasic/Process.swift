@@ -9,6 +9,8 @@
 */
 
 import class Foundation.ProcessInfo
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
 
 #if os(Windows)
 import Foundation
@@ -755,6 +757,13 @@ extension Process.Error: CustomStringConvertible {
         }
     }
 }
+
+extension Process.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
+    }
+}
+
 #endif
 
 extension ProcessResult.Error: CustomStringConvertible {
@@ -793,5 +802,11 @@ extension ProcessResult.Error: CustomStringConvertible {
 
             return stream.bytes.description
         }
+    }
+}
+
+extension ProcessResult.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
     }
 }

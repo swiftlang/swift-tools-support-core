@@ -157,7 +157,7 @@ extension AbsolutePath {
 }
 
 // FIXME: Eliminate or find a proper place for this.
-public enum SystemError: Swift.Error {
+public enum SystemError: Error {
     case chdir(Int32, String)
     case close(Int32)
     case exec(Int32, path: String, args: [String])
@@ -233,6 +233,12 @@ extension SystemError: CustomStringConvertible {
         case .waitpid(let errno):
             return "waitpid error: \(strerror(errno))"
         }
+    }
+}
+
+extension SystemError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
     }
 }
 

@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
 import TSCBasic
 
 /// A protocol which needs to be implemented by the objects which can be
@@ -33,6 +35,12 @@ extension SimplePersistence.Error: CustomStringConvertible {
         case let .restoreFailure(stateFile, error):
             return "unable to restore state from \(stateFile); \(error)"
         }
+    }
+}
+
+extension SimplePersistence.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: self.description]
     }
 }
 

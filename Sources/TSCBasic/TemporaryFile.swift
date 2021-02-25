@@ -12,8 +12,10 @@ import TSCLibc
 import class Foundation.FileHandle
 import class Foundation.FileManager
 import func Foundation.NSTemporaryDirectory
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
 
-public enum TempFileError: Swift.Error {
+public enum TempFileError: Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
 
@@ -24,6 +26,12 @@ public enum TempFileError: Swift.Error {
 
     /// Couldn't find a temporary directory.
     case couldNotFindTmpDir
+}
+
+extension TempFileError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
 }
 
 private extension TempFileError {
@@ -150,7 +158,7 @@ public func withTemporaryFile<Result>(
 // FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
 //
 /// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
-public enum MakeDirectoryError: Swift.Error {
+public enum MakeDirectoryError: Error {
     /// The given path already exists as a directory, file or symbolic link.
     case pathExists
     /// The path provided was too long.
@@ -186,6 +194,12 @@ private extension MakeDirectoryError {
         default:
             self = .other(errno)
         }
+    }
+}
+
+extension MakeDirectoryError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
 

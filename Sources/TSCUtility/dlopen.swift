@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
 import TSCLibc
 
 public final class DLHandle {
@@ -73,9 +75,15 @@ public struct DLOpenFlags: RawRepresentable, OptionSet {
     }
 }
 
-public enum DLError: Swift.Error {
+public enum DLError: Error {
     case `open`(String)
     case close(String)
+}
+
+extension DLError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
 }
 
 public func dlopen(_ path: String?, mode: DLOpenFlags) throws -> DLHandle {

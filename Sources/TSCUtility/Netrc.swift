@@ -136,6 +136,13 @@ public extension Netrc {
 }
 
 @available (OSX 10.13, *)
+extension Netrc.Error: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
+}
+
+@available (OSX 10.13, *)
 fileprivate enum RegexUtil {
     @frozen fileprivate enum Token: String, CaseIterable {
         case machine, login, password, account, macdef, `default`
