@@ -444,7 +444,8 @@ private struct UNIXPath: Path {
 
 #if os(Windows)
     static func isAbsolutePath(_ path: String) -> Bool {
-        return !path.prenormalized().withCString(encodedAs: UTF16.self, PathIsRelativeW)
+        return !path.standardizingPathSeparator()
+                    .withCString(encodedAs: UTF16.self, PathIsRelativeW)
     }
 #endif
 
@@ -547,9 +548,8 @@ private struct UNIXPath: Path {
     init(normalizingAbsolutePath path: String) {
       #if os(Windows)
         var result: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
-        defer { LocalFree(result) }
 
-        _ = path.prenormalized().withCString(encodedAs: UTF16.self) {
+        _ = path.standardizingPathSeparator().withCString(encodedAs: UTF16.self) {
             PathCchCanonicalize($0, result.length, $0)
         }
         self.init(string: String(decodingCString: result, as: UTF16.self))
@@ -620,7 +620,7 @@ private struct UNIXPath: Path {
         let pathSeparator: Character
 #if os(Windows)
         pathSeparator = "\\"
-        let path = path.prenormalized()
+        let path = path.standardizingPathSeparator()
 #else
         pathSeparator = "/"
 #endif
@@ -958,7 +958,7 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 
 #if os(Windows)
 fileprivate extension String {
-    func prenormalized() -> String {
+    func standardizingPathSeparator() -> String {
         return self.replacingOccurrences(of: "/", with: "\\")
     }
 }
