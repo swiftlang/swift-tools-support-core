@@ -26,6 +26,8 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     var resolved: URL = URL(fileURLWithPath: path.pathString)
     if let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: path.pathString) {
         resolved = URL(fileURLWithPath: destination, relativeTo: URL(fileURLWithPath: path.pathString))
+    } else {
+        return try! AbsolutePath(validating: path.pathString)
     }
 
     return resolved.standardized.withUnsafeFileSystemRepresentation {

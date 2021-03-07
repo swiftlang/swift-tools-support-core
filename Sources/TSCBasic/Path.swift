@@ -431,7 +431,11 @@ extension Path {
 private struct UNIXPath: Path {
     let string: String
 
+#if os(Windows)
+    static let root = UNIXPath(string: "\\")
+#else
     static let root = UNIXPath(string: "/")
+#endif
 
     static func isValidComponent(_ name: String) -> Bool {
 #if os(Windows)
@@ -550,7 +554,7 @@ private struct UNIXPath: Path {
         var result: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
 
         _ = path.standardizingPathSeparator().withCString(encodedAs: UTF16.self) {
-            PathCchCanonicalize($0, result.length, $0)
+            PathCchCanonicalize(&result, result.count, $0)
         }
         self.init(string: String(decodingCString: result, as: UTF16.self))
       #else
