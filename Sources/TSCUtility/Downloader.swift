@@ -15,6 +15,8 @@ import FoundationNetworking
 #endif
 
 /// Error enumeration that can be returned by a `Downloader` conforming type.
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 public enum DownloaderError: Error {
 
     /// Error thrown when the downloader fails to establish a connection to the server.
@@ -28,6 +30,8 @@ public enum DownloaderError: Error {
 }
 
 /// The `Downloader` protocol abstract away the download of a file with a progress report.
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 public protocol Downloader {
 
     /// The progress closure type. The first arguments contains the number of bytes downloaded, and the second argument
@@ -55,6 +59,8 @@ public protocol Downloader {
     )
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 extension DownloaderError: LocalizedError {
     public var errorDescription: String? {
         switch self {
@@ -69,6 +75,8 @@ extension DownloaderError: LocalizedError {
 }
 
 /// A `Downloader` conformance that uses Foundation's `URLSession`.
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 public final class FoundationDownloader: NSObject, Downloader {
 
     /// The integer identifier of a `URLSessionTask`.
@@ -134,6 +142,8 @@ public final class FoundationDownloader: NSObject, Downloader {
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 extension FoundationDownloader: URLSessionDownloadDelegate {
     public func urlSession(
         _ session: URLSession,
@@ -177,6 +187,8 @@ extension FoundationDownloader: URLSessionDownloadDelegate {
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 extension FoundationDownloader {
 
     /// Returns the download data structure associated with a task and fails if none is found as this should never
@@ -191,6 +203,8 @@ extension FoundationDownloader {
     }
 }
 
+// deprecated 2/2021
+@available(*, deprecated, message: "moved to SwiftPM, use URLSession or async-http-client instead")
 extension FoundationDownloader.Download {
     func notifyProgress(bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         DispatchQueue.global().async {
