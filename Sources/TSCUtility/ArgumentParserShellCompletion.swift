@@ -13,6 +13,8 @@ import TSCBasic
 
 fileprivate let removeDefaultRegex = try! NSRegularExpression(pattern: "\\[default: .+?\\]", options: [])
 
+// deprecated 2/2021
+@available(*, deprecated, message: "use swift-argument-parser instead")
 extension ArgumentParser {
 
     /// Generates part of a completion script for the given shell.

@@ -38,7 +38,18 @@ class LockTests: XCTestCase {
                 let N = 10
                 let threads = (1...N).map { idx in
                     return Thread {
-                        _ = try! TestSupportExecutable.execute(["fileLockTest", tempDirPath.pathString, sharedResource.path.pathString, String(idx)])
+                        let lock = FileLock(name: "TestLock", cachePath: tempDirPath)
+                        try! lock.withLock {
+                            // Get thr current contents of the file if any.
+                            let currentData: Int
+                            if localFileSystem.exists(sharedResource.path) {
+                                currentData = Int(try localFileSystem.readFileContents(sharedResource.path).description) ?? 0
+                            } else {
+                                currentData = 0
+                            }
+                            // Sum and write back to file.
+                            try localFileSystem.writeFileContents(sharedResource.path, bytes: ByteString(encodingAsUTF8: String(currentData + idx)))
+                        }
                     }
                 }
                 threads.forEach { $0.start() }

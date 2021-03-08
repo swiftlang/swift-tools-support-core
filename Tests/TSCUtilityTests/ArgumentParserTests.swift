@@ -18,6 +18,8 @@ enum SampleEnum: String {
     case Bar
 }
 
+// deprecated 2/2021
+@available(*, deprecated)
 extension SampleEnum: StringEnumArgument {
     static var completion: ShellCompletion {
         return .values([
@@ -41,6 +43,8 @@ struct Options {
     var bar: Int?
 }
 
+// deprecated 2/2021
+@available(*, deprecated)
 class ArgumentParserTests: XCTestCase {
 
     func testBasics() throws {
@@ -474,35 +478,6 @@ class ArgumentParserTests: XCTestCase {
             try binder.fill(parseResult: result, into: &options)
             XCTAssertEqual(options.package, nil)
             XCTAssertEqual(options.revision, "bugfix")
-        }
-    }
-
-    func testPathArgument() {
-        // Test that relative path is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "some/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that relative path starting with ./ is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "./some/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that relative path starting with ../ is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "../other/path"])
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).pathString
-            XCTAssertEqual(stdout.spm_chomp(), expected)
-        }
-
-        // Test that absolute path is resolved.
-        do {
-            let (stdout, _) = try! TestSupportExecutable.execute(["pathArgumentTest", "/bin/echo"])
-            XCTAssertEqual(stdout.spm_chomp(), "/bin/echo")
         }
     }
 

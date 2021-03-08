@@ -122,11 +122,3 @@ extension Product {
         throw SwiftPMProductError.packagePathNotFound
     }
 }
-
-public struct TestSupportProduct: Product {
-    public var exec: RelativePath {
-        return RelativePath("TSCTestSupportExecutable")
-    }
-}
-
-public let TestSupportExecutable = TestSupportProduct()
