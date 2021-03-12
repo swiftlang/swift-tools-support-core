@@ -116,51 +116,72 @@ class ProcessTests: XCTestCase {
 
   #if !os(Windows) // Signals are not supported in Windows
     func testSignals() throws {
+        let group = DispatchGroup()
 
-        // Test sigint terminates the script.
-        try testWithTemporaryDirectory { tmpdir in
-            let file = tmpdir.appending(component: "pidfile")
-            let waitFile = tmpdir.appending(component: "waitFile")
-            let process = Process(args: script("print-pid"), file.pathString, waitFile.pathString)
-            try process.launch()
-            guard waitForFile(waitFile) else {
-                return XCTFail("Couldn't launch the process")
+        DispatchQueue.global().async(group: group) {
+            do {
+                // Test sigint terminates the script.
+                try testWithTemporaryDirectory { tmpdir in
+                    let file = tmpdir.appending(component: "pidfile")
+                    let waitFile = tmpdir.appending(component: "waitFile")
+                    let process = Process(args: self.script("print-pid"), file.pathString, waitFile.pathString)
+                    try process.launch()
+                    guard waitForFile(waitFile) else {
+                        return XCTFail("Couldn't launch the process")
+                    }
+                    // Ensure process has started running.
+                    guard try Process.running(process.processID) else {
+                       return XCTFail("Couldn't launch the process")
+                    }
+                    process.signal(SIGINT)
+                    try process.waitUntilExit()
+                    // Ensure the process's pid was written.
+                    let contents = try localFileSystem.readFileContents(file).description
+                    XCTAssertEqual("\(process.processID)", contents)
+                    XCTAssertFalse(try Process.running(process.processID))
+                }
+            } catch {
+                XCTFail("\(error)")
             }
-            // Ensure process has started running.
-            XCTAssertTrue(try Process.running(process.processID))
-            process.signal(SIGINT)
-            try process.waitUntilExit()
-            // Ensure the process's pid was written.
-            let contents = try localFileSystem.readFileContents(file).description
-            XCTAssertEqual("\(process.processID)", contents)
-            XCTAssertFalse(try Process.running(process.processID))
         }
 
         // Test SIGKILL terminates the subprocess and any of its subprocess.
-        try testWithTemporaryDirectory { tmpdir in
-            let file = tmpdir.appending(component: "pidfile")
-            let waitFile = tmpdir.appending(component: "waitFile")
-            let process = Process(args: script("subprocess"), file.pathString, waitFile.pathString)
-            try process.launch()
-            guard waitForFile(waitFile) else {
-                return XCTFail("Couldn't launch the process")
+        DispatchQueue.global().async(group: group) {
+            do {
+                try testWithTemporaryDirectory { tmpdir in
+                    let file = tmpdir.appending(component: "pidfile")
+                    let waitFile = tmpdir.appending(component: "waitFile")
+                    let process = Process(args: self.script("subprocess"), file.pathString, waitFile.pathString)
+                    try process.launch()
+                    guard waitForFile(waitFile) else {
+                        return XCTFail("Couldn't launch the process")
+                    }
+                    // Ensure process has started running.
+                    guard try Process.running(process.processID) else {
+                        return XCTFail("Couldn't launch the process")
+                    }
+                    process.signal(SIGKILL)
+                    let result = try process.waitUntilExit()
+                    XCTAssertEqual(result.exitStatus, .signalled(signal: SIGKILL))
+                    let json = try JSON(bytes: localFileSystem.readFileContents(file))
+                    guard case let .dictionary(dict) = json,
+                          case let .int(parent)? = dict["parent"],
+                          case let .int(child)? = dict["child"] else {
+                        return XCTFail("Couldn't launch the process")
+                    }
+                    XCTAssertEqual(process.processID, ProcessID(parent))
+                    // We should have killed the process and any subprocess spawned by it.
+                    XCTAssertFalse(try Process.running(ProcessID(parent)))
+                    // FIXME: The child process becomes defunct when executing the tests using docker directly without entering the bash.
+                    XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
+                }
+            } catch {
+                XCTFail("\(error)")
             }
-            // Ensure process has started running.
-            XCTAssertTrue(try Process.running(process.processID))
-            process.signal(SIGKILL)
-            let result = try process.waitUntilExit()
-            XCTAssertEqual(result.exitStatus, .signalled(signal: SIGKILL))
-            let json = try JSON(bytes: localFileSystem.readFileContents(file))
-            guard case let .dictionary(dict) = json,
-                  case let .int(parent)? = dict["parent"],
-                  case let .int(child)? = dict["child"] else {
-                return XCTFail("Couldn't launch the process")
-            }
-            XCTAssertEqual(process.processID, ProcessID(parent))
-            // We should have killed the process and any subprocess spawned by it.
-            XCTAssertFalse(try Process.running(ProcessID(parent)))
-            // FIXME: The child process becomes defunct when executing the tests using docker directly without entering the bash.
-            XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
+        }
+
+        if case .timedOut = group.wait(timeout: .now() + 1) {
+            XCTFail("timeout waiting for signals to be processed")
         }
     }
   #endif
