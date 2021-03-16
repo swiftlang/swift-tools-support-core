@@ -55,7 +55,10 @@ let package = Package(
         .target(
             /** Generic test support library */
             name: "TSCTestSupport",
-            dependencies: ["TSCBasic", "TSCUtility"]),
+            dependencies: ["TSCBasic", "TSCUtility"],
+            linkerSettings: [
+                .linkedFramework("XCTest", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS])),
+            ]),
         
         
         // MARK: Tools support core tests
