@@ -180,7 +180,7 @@ class ProcessTests: XCTestCase {
             }
         }
 
-        if case .timedOut = group.wait(timeout: .now() + 1) {
+        if case .timedOut = group.wait(timeout: .now() + 10) {
             XCTFail("timeout waiting for signals to be processed")
         }
     }
