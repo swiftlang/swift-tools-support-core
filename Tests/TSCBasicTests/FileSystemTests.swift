@@ -787,33 +787,24 @@ class FileSystemTests: XCTestCase {
     }
 
     private func _testFileSystemFileLock(fileSystem fs: FileSystem, fileA: AbsolutePath, fileB: AbsolutePath, lockFile: AbsolutePath) throws {
-
         // write initial value, since reader may start before writers and files would not exist
-        try fs.writeFileContents(fileA, bytes: [0])
-        try fs.writeFileContents(fileB, bytes: [0])
+        try fs.writeFileContents(fileA, bytes: "0")
+        try fs.writeFileContents(fileB, bytes: "0")
 
         let writerThreads = (0..<100).map { _ in
             return Thread {
                 try! fs.withLock(on: lockFile, type: .exclusive) {
                     // Get the current contents of the file if any.
-                    let valueA: Int
-                    if fs.exists(fileA) {
-                        valueA = Int(try fs.readFileContents(fileA).description) ?? 0
-                    } else {
-                        valueA = 0
-                    }
+                    let valueA = Int(try fs.readFileContents(fileA).description)!
+
                     // Sum and write back to file.
                     try fs.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
 
                     Thread.yield()
 
                     // Get the current contents of the file if any.
-                    let valueB: Int
-                    if fs.exists(fileB) {
-                        valueB = Int(try fs.readFileContents(fileB).description) ?? 0
-                    } else {
-                        valueB = 0
-                    }
+                    let valueB = Int(try fs.readFileContents(fileB).description)!
+
                     // Sum and write back to file.
                     try fs.writeFileContents(fileB, bytes: ByteString(encodingAsUTF8: String(valueB + 1)))
                 }
