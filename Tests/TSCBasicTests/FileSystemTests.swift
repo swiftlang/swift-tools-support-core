@@ -749,9 +749,6 @@ class FileSystemTests: XCTestCase {
     }
 
     func testInMemoryFileSystemFileLock() throws {
-        // Disabled until rdar://71560894 is fixed.
-        try XCTSkipIf(true)
-        
         let fs = InMemoryFileSystem()
         let path = AbsolutePath("/")
         try fs.createDirectory(path)
@@ -760,118 +757,20 @@ class FileSystemTests: XCTestCase {
         let fileB = path.appending(component: "fileB")
         let lockFile = path.appending(component: "lockfile")
 
-        let writerThreads = (0..<100).map { _ in
-            return Thread {
-                try! fs.withLock(on: lockFile, type: .exclusive) {
-                    // Get thr current contents of the file if any.
-                    let valueA: Int
-                    if fs.exists(fileA) {
-                        valueA = Int(try fs.readFileContents(fileA).description) ?? 0
-                    } else {
-                        valueA = 0
-                    }
-                    // Sum and write back to file.
-                    try fs.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
-
-                    Thread.yield()
-
-                    // Get thr current contents of the file if any.
-                    let valueB: Int
-                    if fs.exists(fileB) {
-                        valueB = Int(try fs.readFileContents(fileB).description) ?? 0
-                    } else {
-                        valueB = 0
-                    }
-                    // Sum and write back to file.
-                    try fs.writeFileContents(fileB, bytes: ByteString(encodingAsUTF8: String(valueB + 1)))
-                }
-            }
-        }
-
-        let readerThreads = (0..<20).map { _ in
-            return Thread {
-                try! fs.withLock(on: lockFile, type: .shared) {
-                    try XCTAssertEqual(fs.readFileContents(fileA), fs.readFileContents(fileB))
-
-                    Thread.yield()
-
-                    try XCTAssertEqual(fs.readFileContents(fileA), fs.readFileContents(fileB))
-                }
-            }
-        }
-
-        writerThreads.forEach { $0.start() }
-        readerThreads.forEach { $0.start() }
-        writerThreads.forEach { $0.join() }
-        readerThreads.forEach { $0.join() }
-
-        try XCTAssertEqual(fs.readFileContents(fileA), "100")
-        try XCTAssertEqual(fs.readFileContents(fileB), "100")
+        try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
     }
 
     func testLocalFileSystemFileLock() throws {
-        // Disabled until rdar://71560894 is fixed.
-        try XCTSkipIf(true)
-        
         try withTemporaryDirectory { tempDir in
             let fileA = tempDir.appending(component: "fileA")
             let fileB = tempDir.appending(component: "fileB")
             let lockFile = tempDir.appending(component: "lockfile")
 
-            let writerThreads = (0..<100).map { _ in
-                return Thread {
-                    try! localFileSystem.withLock(on: lockFile, type: .exclusive) {
-                        // Get thr current contents of the file if any.
-                        let valueA: Int
-                        if localFileSystem.exists(fileA) {
-                            valueA = Int(try localFileSystem.readFileContents(fileA).description) ?? 0
-                        } else {
-                            valueA = 0
-                        }
-                        // Sum and write back to file.
-                        try localFileSystem.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
-
-                        Thread.yield()
-
-                        // Get thr current contents of the file if any.
-                        let valueB: Int
-                        if localFileSystem.exists(fileB) {
-                            valueB = Int(try localFileSystem.readFileContents(fileB).description) ?? 0
-                        } else {
-                            valueB = 0
-                        }
-                        // Sum and write back to file.
-                        try localFileSystem.writeFileContents(fileB, bytes: ByteString(encodingAsUTF8: String(valueB + 1)))
-                    }
-                }
-            }
-
-            let readerThreads = (0..<20).map { _ in
-                return Thread {
-                    try! localFileSystem.withLock(on: lockFile, type: .shared) {
-                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
-
-                        Thread.yield()
-
-                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
-                    }
-                }
-            }
-
-            writerThreads.forEach { $0.start() }
-            readerThreads.forEach { $0.start() }
-            writerThreads.forEach { $0.join() }
-            readerThreads.forEach { $0.join() }
-
-            try XCTAssertEqual(localFileSystem.readFileContents(fileA), "100")
-            try XCTAssertEqual(localFileSystem.readFileContents(fileB), "100")
+            try _testFileSystemFileLock(fileSystem: localFileSystem, fileA: fileA, fileB: fileB, lockFile: lockFile)
         }
     }
 
     func testRerootedFileSystemViewFileLock() throws {
-        // Disabled until rdar://71560894 is fixed.
-        try XCTSkipIf(true)
-
         let inMemoryFS = InMemoryFileSystem()
         let rootPath = AbsolutePath("/tmp")
         try inMemoryFS.createDirectory(rootPath)
@@ -884,22 +783,31 @@ class FileSystemTests: XCTestCase {
         let fileB = path.appending(component: "fileB")
         let lockFile = path.appending(component: "lockfile")
 
+        try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
+    }
+
+    private func _testFileSystemFileLock(fileSystem fs: FileSystem, fileA: AbsolutePath, fileB: AbsolutePath, lockFile: AbsolutePath) throws {
+
+        // write initial value, since reader may start before writers and files would not exist
+        try fs.writeFileContents(fileA, bytes: [0])
+        try fs.writeFileContents(fileB, bytes: [0])
+
         let writerThreads = (0..<100).map { _ in
             return Thread {
                 try! fs.withLock(on: lockFile, type: .exclusive) {
-                    // Get thr current contents of the file if any.
+                    // Get the current contents of the file if any.
                     let valueA: Int
                     if fs.exists(fileA) {
-                        valueA = Int(try! fs.readFileContents(fileA).description) ?? 0
+                        valueA = Int(try fs.readFileContents(fileA).description) ?? 0
                     } else {
                         valueA = 0
                     }
                     // Sum and write back to file.
-                    try! fs.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
+                    try fs.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
 
                     Thread.yield()
 
-                    // Get thr current contents of the file if any.
+                    // Get the current contents of the file if any.
                     let valueB: Int
                     if fs.exists(fileB) {
                         valueB = Int(try fs.readFileContents(fileB).description) ?? 0
@@ -932,7 +840,6 @@ class FileSystemTests: XCTestCase {
         try XCTAssertEqual(fs.readFileContents(fileA), "100")
         try XCTAssertEqual(fs.readFileContents(fileB), "100")
     }
-
 }
 
 /// Helper method to test file tree removal method on the given file system.
