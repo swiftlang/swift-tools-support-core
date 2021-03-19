@@ -41,6 +41,7 @@ public struct Triple: Encodable, Equatable {
         case powerpc64le
         case s390x
         case aarch64
+        case amd64
         case armv7
         case arm
         case arm64
@@ -59,6 +60,7 @@ public struct Triple: Encodable, Equatable {
         case linux
         case windows
         case wasi
+        case openbsd
     }
 
     public enum ABI: String, Encodable {
@@ -127,6 +129,10 @@ public struct Triple: Encodable, Equatable {
         return os == .wasi
     }
 
+    public func isOpenBSD() -> Bool {
+        return os == .openbsd
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
@@ -173,7 +179,7 @@ extension Triple {
         switch os {
         case .darwin, .macOS:
             return ".dylib"
-        case .linux:
+        case .linux, .openbsd:
             return ".so"
         case .windows:
             return ".dll"
@@ -186,7 +192,7 @@ extension Triple {
       switch os {
       case .darwin, .macOS:
         return ""
-      case .linux:
+      case .linux, .openbsd:
         return ""
       case .wasi:
         return ".wasm"
