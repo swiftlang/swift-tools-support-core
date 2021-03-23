@@ -25,7 +25,7 @@ public enum TempFileError: Error {
     case other(Int32)
 
     /// Couldn't find a temporary directory.
-    case couldNotFindTmpDir
+    case couldNotFindTmpDir(String)
 }
 
 extension TempFileError: CustomNSError {
@@ -55,7 +55,7 @@ private extension TempFileError {
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
     let tmpDir = dir ?? cachedTempDirectory
     guard localFileSystem.isDirectory(tmpDir) else {
-        throw TempFileError.couldNotFindTmpDir
+        throw TempFileError.couldNotFindTmpDir(tmpDir.pathString)
     }
     return tmpDir
 }
