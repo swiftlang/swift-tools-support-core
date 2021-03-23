@@ -315,20 +315,29 @@ public final class Process: ObjectIdentifierProtocol {
     /// Returns the path of the the given program if found in the search paths.
     ///
     /// The program can be executable name, relative path or absolute path.
-    public static func findExecutable(_ program: String) -> AbsolutePath? {
+    public static func findExecutable(
+        _ program: String,
+        workingDirectory: AbsolutePath? = nil
+    ) -> AbsolutePath? {
         return Process.executablesQueue.sync {
             // Check if we already have a value for the program.
             if let value = Process.validatedExecutablesMap[program] {
                 return value
             }
+
+            let cwd = workingDirectory ?? localFileSystem.currentWorkingDirectory
+
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
                 pathString: ProcessEnv.path,
-                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+                currentWorkingDirectory: cwd
             )
             // Lookup and cache the executable path.
             let value = lookupExecutablePath(
-                filename: program, searchPaths: envSearchPaths)
+                filename: program,
+                currentWorkingDirectory: cwd,
+                searchPaths: envSearchPaths
+            )
             Process.validatedExecutablesMap[program] = value
             return value
         }
@@ -350,7 +359,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         // Look for executable.
         let executable = arguments[0]
-        guard let executablePath = Process.findExecutable(executable) else {
+        guard let executablePath = Process.findExecutable(executable, workingDirectory: workingDirectory) else {
             throw Process.Error.missingExecutableProgram(program: executable)
         }
 
@@ -495,7 +504,11 @@ public final class Process: ObjectIdentifierProtocol {
             posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
         }
 
-        let argv = CStringArray(arguments)
+        var resolvedArgs = arguments
+        if workingDirectory != nil {
+            resolvedArgs[0] = executablePath.pathString
+        }
+        let argv = CStringArray(resolvedArgs)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
         let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
