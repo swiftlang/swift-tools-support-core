@@ -319,27 +319,45 @@ public final class Process: ObjectIdentifierProtocol {
         _ program: String,
         workingDirectory: AbsolutePath? = nil
     ) -> AbsolutePath? {
-        return Process.executablesQueue.sync {
-            // Check if we already have a value for the program.
-            if let value = Process.validatedExecutablesMap[program] {
-                return value
+        if let abs = try? AbsolutePath(validating: program) {
+            return abs
+        }
+        let cwdOpt = workingDirectory ?? localFileSystem.currentWorkingDirectory
+        // The program might be a multi-component relative path.
+        if let rel = try? RelativePath(validating: program), rel.components.count > 1 {
+            if let cwd = cwdOpt {
+                let abs = cwd.appending(rel)
+                if localFileSystem.isExecutableFile(abs) {
+                    return abs
+                }
             }
-
-            let cwd = workingDirectory ?? localFileSystem.currentWorkingDirectory
-
-            // FIXME: This can be cached.
+            return nil
+        }
+        // From here on out, the program is an executable name, i.e. it doesn't contain a "/"
+        let lookup: () -> AbsolutePath? = {
             let envSearchPaths = getEnvSearchPaths(
                 pathString: ProcessEnv.path,
-                currentWorkingDirectory: cwd
+                currentWorkingDirectory: cwdOpt
             )
-            // Lookup and cache the executable path.
             let value = lookupExecutablePath(
                 filename: program,
-                currentWorkingDirectory: cwd,
+                currentWorkingDirectory: cwdOpt,
                 searchPaths: envSearchPaths
             )
-            Process.validatedExecutablesMap[program] = value
             return value
+        }
+        // This should cover the most common cases, i.e. when the cache is most helpful.
+        if workingDirectory == localFileSystem.currentWorkingDirectory {
+            return Process.executablesQueue.sync {
+                if let value = Process.validatedExecutablesMap[program] {
+                    return value
+                }
+                let value = lookup()
+                Process.validatedExecutablesMap[program] = value
+                return value
+            }
+        } else {
+            return lookup()
         }
     }
 
