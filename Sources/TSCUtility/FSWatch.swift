@@ -428,11 +428,21 @@ public final class Inotify {
 // FIXME: <rdar://problem/45794219> Swift should provide shims for FD_ macros
 
 private func FD_ZERO(_ set: inout fd_set) {
-      #if os(Android)
-	set.fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      #else
-	set.__fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      #endif
+    #if os(Android)
+        #if arch(arm)
+            set.fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        #else
+            set.fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        #endif
+    #else
+        #if arch(arm)
+            set.__fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        #else
+            set.__fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        #endif
+    #endif
 }
 
 private func FD_SET(_ fd: Int32, _ set: inout fd_set) {
