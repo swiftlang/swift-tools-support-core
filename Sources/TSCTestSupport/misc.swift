@@ -86,7 +86,8 @@ public func withCustomEnv(_ env: [String: String], body: () throws -> Void) thro
 /// Waits for a file to appear for around 1 second.
 /// Returns true if found, false otherwise.
 public func waitForFile(_ path: AbsolutePath) -> Bool {
-    let endTime = NSDate().timeIntervalSince1970 + 2
+    // setting timeout for 30s as on busy systems (such as CI) this could take a while
+    let endTime = NSDate().timeIntervalSince1970 + 30
     while NSDate().timeIntervalSince1970 < endTime {
         // Sleep for a bit so we don't burn a lot of CPU.
         Thread.sleep(forTimeInterval: 0.01)
