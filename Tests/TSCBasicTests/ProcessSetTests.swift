@@ -55,7 +55,7 @@ class ProcessSetTests: XCTestCase {
                         threadStartCondition.signal()
                     }
                     let result = try process.waitUntilExit()
-                    // Ensure we did terminated due to signal.
+                    // Ensure we did termiated due to signal.
                     switch result.exitStatus {
                     case .signalled: break
                     default: XCTFail("Expected to exit via signal")
