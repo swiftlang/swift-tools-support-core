@@ -361,8 +361,11 @@ public final class Process: ObjectIdentifierProtocol {
         }
     }
 
-    /// Launch the subprocess.
-    public func launch() throws {
+    /// Launch the subprocess. Returns a WritableByteStream object that can be used to communicate to the process's
+    /// stdin. If needed, the stream can be closed using the close() API. Otherwise, the stream will be closed
+    /// automatically.
+    @discardableResult
+    public func launch() throws -> WritableByteStream {
         precondition(arguments.count > 0 && !arguments[0].isEmpty, "Need at least one argument to launch the process.")
         precondition(!launched, "It is not allowed to launch the same process object again.")
 
@@ -387,6 +390,9 @@ public final class Process: ObjectIdentifierProtocol {
         _process?.executableURL = executablePath.asURL
         _process?.environment = environment
 
+        let stdinPipe = Pipe()
+        _process?.standardInput = stdinPipe
+
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
@@ -409,6 +415,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         try _process?.run()
+        return stdinPipe.fileHandleForWriting
       #else
         // Initialize the spawn attributes.
       #if canImport(Darwin) || os(Android)
@@ -483,14 +490,17 @@ public final class Process: ObjectIdentifierProtocol {
           #endif
         }
 
-        // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
-        // Change allowing for newer version of glibc
-        guard let devNull = strdup("/dev/null") else {
-            throw SystemError.posix_spawn(0, arguments)
-        }
-        defer { free(devNull) }
-        // Open /dev/null as stdin.
-        posix_spawn_file_actions_addopen(&fileActions, 0, devNull, O_RDONLY, 0)
+        var stdinPipe: [Int32] = [-1, -1]
+        try open(pipe: &stdinPipe)
+
+        let stdinStream = try LocalFileOutputByteStream(filePointer: fdopen(stdinPipe[1], "wb"), closeOnDeinit: true)
+
+        // Dupe the read portion of the remote to 0.
+        posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
+
+        // Close the other side's pipe since it was dupped to 0.
+        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
+        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
 
         var outputPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
@@ -501,7 +511,7 @@ public final class Process: ObjectIdentifierProtocol {
             // Open the write end of the pipe.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
 
-            // Close the other ends of the pipe.
+            // Close the other ends of the pipe since they were dupped to 1.
             posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
             posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
 
@@ -513,7 +523,7 @@ public final class Process: ObjectIdentifierProtocol {
                 try open(pipe: &stderrPipe)
                 posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
 
-                // Close the other ends of the pipe.
+                // Close the other ends of the pipe since they were dupped to 2.
                 posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
                 posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
             }
@@ -534,11 +544,14 @@ public final class Process: ObjectIdentifierProtocol {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
+        // Close the local read end of the input pipe.
+        try close(fd: stdinPipe[0])
+
         if outputRedirection.redirectsOutput {
             let outputClosures = outputRedirection.outputClosures
 
-            // Close the write end of the output pipe.
-            try close(fd: &outputPipe[1])
+            // Close the local write end of the output pipe.
+            try close(fd: outputPipe[1])
 
             // Create a thread and start reading the output on it.
             var thread = Thread { [weak self] in
@@ -551,8 +564,8 @@ public final class Process: ObjectIdentifierProtocol {
 
             // Only schedule a thread for stderr if no redirect was requested.
             if !outputRedirection.redirectStderr {
-                // Close the write end of the stderr pipe.
-                try close(fd: &stderrPipe[1])
+                // Close the local write end of the stderr pipe.
+                try close(fd: stderrPipe[1])
 
                 // Create a thread and start reading the stderr output on it.
                 thread = Thread { [weak self] in
@@ -564,7 +577,8 @@ public final class Process: ObjectIdentifierProtocol {
                 self.stderr.thread = thread
             }
         }
-      #endif // POSIX implementation
+        return stdinStream
+        #endif // POSIX implementation
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
@@ -771,11 +785,15 @@ private func open(pipe: inout [Int32]) throws {
 }
 
 /// Close the given fd.
-private func close(fd: inout Int32) throws {
-    let rv = TSCLibc.close(fd)
-    guard rv == 0 else {
-        throw SystemError.close(rv)
+private func close(fd: Int32) throws {
+    func innerClose(_ fd: inout Int32) throws {
+        let rv = TSCLibc.close(fd)
+        guard rv == 0 else {
+            throw SystemError.close(rv)
+        }
     }
+    var innerFd = fd
+    try innerClose(&innerFd)
 }
 
 extension Process.Error: CustomStringConvertible {
@@ -836,8 +854,26 @@ extension ProcessResult.Error: CustomStringConvertible {
     }
 }
 
-extension ProcessResult.Error: CustomNSError {
-    public var errorUserInfo: [String : Any] {
-        return [NSLocalizedDescriptionKey: self.description]
+#if os(Windows)
+extension FileHandle: WritableByteStream {
+    public var position: Int {
+        return Int(offsetInFile)
+    }
+
+    public func write(_ byte: UInt8) {
+        write(Data([byte]))
+    }
+
+    public func write<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+        write(Data(bytes))
+    }
+
+    public func flush() {
+        synchronizeFile()
+    }
+
+    public func close() throws {
+        closeFile()
     }
 }
+#endif
