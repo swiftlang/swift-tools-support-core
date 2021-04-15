@@ -181,7 +181,8 @@ public final class Process: ObjectIdentifierProtocol {
     // process execution mutable state
     private enum State {
         case idle
-        case readingOutput(stdout: Thread, stderr: Thread?)
+        case readingOutputThread(stdout: Thread, stderr: Thread?)
+        case readingOutputPipe(sync: DispatchGroup)
         case outputReady(stdout: Result<[UInt8], Swift.Error>, stderr: Result<[UInt8], Swift.Error>)
         case complete(ProcessResult)
     }
@@ -232,7 +233,7 @@ public final class Process: ObjectIdentifierProtocol {
     private let stateLock = Lock()
 
     /// The result of the process execution. Available after process is terminated.
-    /// This will block while the process is running, as such equivalent to `waitUntilExit`
+    /// This will block while the process is awaiting result
     @available(*, deprecated, message: "use waitUntilExit instead")
     public var result: ProcessResult? {
         return self.stateLock.withLock {
@@ -403,42 +404,64 @@ public final class Process: ObjectIdentifierProtocol {
         let stdinPipe = Pipe()
         _process?.standardInput = stdinPipe
 
+        let group = DispatchGroup()
+
+        var stdout: [UInt8] = []
+        let stdoutLock = Lock()
+
+        var stderr: [UInt8] = []
+        let stderrLock = Lock()
+
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
 
-            var pending: [UInt8]?
-            let pendingLock = Lock()
-
+            group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stdoutClosure([UInt8](contents))
-                pendingLock.withLock {
-                    if let stderr = pending {
-                        self.stateLock.withLock {
-                            self?.state = .outputReady(stdout: .success(contents), stderr: .success(stderr))
-                        }
-                    } else {
-                        pending = contents
+                let data = fh.availableData
+                if (data.count == 0) {
+                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                    group.leave()
+                } else {
+                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    self.outputRedirection.outputClosures?.stdoutClosure(contents)
+                    stdoutLock.withLock {
+                        stdout += contents
                     }
                 }
             }
+
+            group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stderrClosure([UInt8](contents))
-                pendingLock.withLock {
-                    if let stdout = pending {
-                        self.stateLock.withLock {
-                            self?.state = .outputReady(stdout: .success(stdout), stderr: .success(contents))
-                        }
-                    } else {
-                        pending = contents
+                let data = fh.availableData
+                if (data.count == 0) {
+                    stderrPipe.fileHandleForReading.readabilityHandler = nil
+                    group.leave()
+                } else {
+                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    self.outputRedirection.outputClosures?.stderrClosure(contents)
+                    stderrLock.withLock {
+                        stderr += contents
                     }
                 }
             }
 
             _process?.standardOutput = stdoutPipe
             _process?.standardError = stderrPipe
+        }
+
+        // first set state then start reading threads
+        let sync = DispatchGroup()
+        sync.enter()
+        self.stateLock.withLock {
+            self.state = .readingOutputPipe(sync: sync)
+        }
+
+        group.notify(queue: .global()) {
+            self.stateLock.withLock {
+                self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
+            }
+            sync.leave()
         }
 
         try _process?.run()
@@ -640,7 +663,7 @@ public final class Process: ObjectIdentifierProtocol {
             }
             // first set state then start reading threads
             self.stateLock.withLock {
-                self.state = .readingOutput(stdout: stdoutThread, stderr: stderrThread)
+                self.state = .readingOutputThread(stdout: stdoutThread, stderr: stderrThread)
             }
             stdoutThread.start()
             stderrThread?.start()
@@ -653,22 +676,6 @@ public final class Process: ObjectIdentifierProtocol {
     /// Blocks the calling process until the subprocess finishes execution.
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
-      #if os(Windows)
-        precondition(_process != nil, "The process is not yet launched.")
-        let p = _process!
-        p.waitUntilExit()
-        stdout.thread?.join()
-        stderr.thread?.join()
-
-        let executionResult = ProcessResult(
-            arguments: arguments,
-            environment: environment,
-            exitStatusCode: p.terminationStatus,
-            output: stdout.result,
-            stderrOutput: stderr.result
-        )
-        return executionResult
-      #else
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -677,15 +684,25 @@ public final class Process: ObjectIdentifierProtocol {
         case .complete(let result):
             defer { self.stateLock.unlock() }
             return result
-        case .readingOutput(let stdoutThread, let stderrThread):
+        case .readingOutputThread(let stdoutThread, let stderrThread):
             self.stateLock.unlock() // unlock early since output read thread need to change state
             // If we're reading output, make sure that is finished.
             stdoutThread.join()
             stderrThread?.join()
             return try self.waitUntilExit()
+        case .readingOutputPipe(let sync):
+            self.stateLock.unlock() // unlock early since output read thread need to change state
+            sync.wait()
+            return try self.waitUntilExit()
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
+          #if os(Windows)
+            precondition(_process != nil, "The process is not yet launched.")
+            let p = _process!
+            p.waitUntilExit()
+            let exitStatusCode = p.terminationStatus
+          #else
             var exitStatusCode: Int32 = 0
             var result = waitpid(processID, &exitStatusCode, 0)
             while result == -1 && errno == EINTR {
@@ -694,6 +711,7 @@ public final class Process: ObjectIdentifierProtocol {
             if result == -1 {
                 throw SystemError.waitpid(errno)
             }
+          #endif
 
             // Construct the result.
             let executionResult = ProcessResult(
@@ -706,7 +724,6 @@ public final class Process: ObjectIdentifierProtocol {
             self.state = .complete(executionResult)
             return executionResult
         }
-      #endif
     }
 
   #if !os(Windows)
