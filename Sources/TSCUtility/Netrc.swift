@@ -13,15 +13,6 @@ extension AuthorizationProviding {
     }
 }
 
-#if os(Windows)
-// FIXME: - add support for Windows when regex function available
-#endif
-
-#if os(Linux)
-// FIXME: - add support for Linux when regex function available
-#endif
-
-#if os(macOS)
 /*
  Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
  which is only available in macOS 10.13+ at this time.
@@ -168,4 +159,3 @@ fileprivate enum RegexUtil {
         return #"\s*\#(string)\s+(?<\#(prefix + string)>\S++)"#
     }
 }
-#endif
