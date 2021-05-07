@@ -78,7 +78,7 @@ extension SerializedDiagnostics {
     /// The level the diagnostic was emitted at.
     public var level: Level
     /// The location the diagnostic was emitted at in the source file.
-    public var location: SourceLocation
+    public var location: SourceLocation?
     /// The diagnostic category. Currently only Clang emits this.
     public var category: String?
     /// The corresponding diagnostic command-line flag. Currently only Clang emits this.
@@ -109,20 +109,20 @@ extension SerializedDiagnostics {
 
           text = String(data: diagnosticBlob, encoding: .utf8)
           level = Level(rawValue: record.fields[0])
-          location = try SourceLocation(fields: record.fields[1...4],
-                                        filenameMap: filenameMap)
+          location = SourceLocation(fields: record.fields[1...4],
+                                    filenameMap: filenameMap)
           category = categoryMap[record.fields[5]]
           flag = flagMap[record.fields[6]]
 
         case .sourceRange:
           guard record.fields.count == 8 else { throw Error.malformedRecord }
 
-          let start = try SourceLocation(fields: record.fields[0...3],
-                                         filenameMap: filenameMap)
-          let end = try SourceLocation(fields: record.fields[4...7],
-                                       filenameMap: filenameMap)
-          ranges.append((start, end))
-
+          if let start = SourceLocation(fields: record.fields[0...3],
+                                        filenameMap: filenameMap),
+             let end = SourceLocation(fields: record.fields[4...7],
+                                      filenameMap: filenameMap) {
+              ranges.append((start, end))
+          }
         case .flag:
           guard record.fields.count == 2,
                 case .blob(let flagBlob) = record.payload,
@@ -157,11 +157,12 @@ extension SerializedDiagnostics {
                 let fixItText = String(data: fixItBlob, encoding: .utf8)
           else { throw Error.malformedRecord }
 
-          let start = try SourceLocation(fields: record.fields[0...3],
-                                         filenameMap: filenameMap)
-          let end = try SourceLocation(fields: record.fields[4...7],
-                                       filenameMap: filenameMap)
-          fixIts.append(FixIt(start: start, end: end, text: fixItText))
+          if let start = SourceLocation(fields: record.fields[0...3],
+                                        filenameMap: filenameMap),
+             let end = SourceLocation(fields: record.fields[4...7],
+                                      filenameMap: filenameMap) {
+            fixIts.append(FixIt(start: start, end: end, text: fixItText))
+          }
 
         case .version, nil:
           throw Error.unexpectedRecord
@@ -169,7 +170,7 @@ extension SerializedDiagnostics {
       }
 
       do {
-        guard let text = text, let level = level, let location = location else {
+        guard let text = text, let level = level else {
           throw Error.missingInformation
         }
         self.text = text
@@ -192,12 +193,10 @@ extension SerializedDiagnostics {
     /// Clang includes this, it is set to 0 by Swift.
     public var offset: UInt64
 
-    fileprivate init(fields: ArraySlice<UInt64>,
-                     filenameMap: [UInt64: String]) throws {
-      guard let name = filenameMap[fields[fields.startIndex]] else {
-        throw Error.missingInformation
-      }
-      self.filename = name
+    fileprivate init?(fields: ArraySlice<UInt64>,
+                      filenameMap: [UInt64: String]) {
+      guard let filename = filenameMap[fields[fields.startIndex]] else { return nil }
+      self.filename = filename
       self.line = fields[fields.startIndex + 1]
       self.column = fields[fields.startIndex + 2]
       self.offset = fields[fields.startIndex + 3]
