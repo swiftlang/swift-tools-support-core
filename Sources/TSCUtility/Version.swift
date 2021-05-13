@@ -46,11 +46,17 @@ public struct Version: Hashable {
 }
 
 extension Version: Comparable {
-
+    
     func isEqualWithoutPrerelease(_ other: Version) -> Bool {
         return major == other.major && minor == other.minor && patch == other.patch
     }
-
+    
+    // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/apple/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
+    @inlinable
+    public static func == (lhs: Version, rhs: Version) -> Bool {
+        !(lhs < rhs) && !(lhs > rhs)
+    }
+    
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
@@ -88,6 +94,7 @@ extension Version: Comparable {
 
         return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
+    
 }
 
 extension Version: CustomStringConvertible {
