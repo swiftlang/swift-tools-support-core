@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -103,47 +103,68 @@ extension Version: CustomStringConvertible {
     }
 }
 
-public extension Version {
-
-    /// Create a version object from string.
-    ///
-    /// - Parameters:
-    ///   - string: The string to parse.
-    init?(string: String) {
-        let prereleaseStartIndex = string.firstIndex(of: "-")
-        let metadataStartIndex = string.firstIndex(of: "+")
-
-        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? string.endIndex
-        let requiredCharacters = string.prefix(upTo: requiredEndIndex)
-        let requiredComponents = requiredCharacters
-            .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).compactMap({ Int($0) }).filter({ $0 >= 0 })
-
-        guard requiredComponents.count == 3 else { return nil }
-
-        self.major = requiredComponents[0]
-        self.minor = requiredComponents[1]
-        self.patch = requiredComponents[2]
-
-        func identifiers(start: String.Index?, end: String.Index) -> [String] {
-            guard let start = start else { return [] }
-            let identifiers = string[string.index(after: start)..<end]
-            return identifiers.split(separator: ".").map(String.init)
+extension Version: LosslessStringConvertible {
+    /// Initializes a version struct with the provided version string.
+    /// - Parameter version: A version string to use for creating a new version struct.
+    public init?(_ versionString: String) {
+        // SemVer 2.0.0 allows only ASCII alphanumerical characters and "-" in the version string, except for "." and "+" as delimiters. ("-" is used as a delimiter between the version core and pre-release identifiers, but it's allowed within pre-release and metadata identifiers as well.)
+        // Alphanumerics check will come later, after each identifier is split out (i.e. after the delimiters are removed).
+        guard versionString.allSatisfy(\.isASCII) else { return nil }
+        
+        let metadataDelimiterIndex = versionString.firstIndex(of: "+")
+        // SemVer 2.0.0 requires that pre-release identifiers come before build metadata identifiers
+        let prereleaseDelimiterIndex = versionString[..<(metadataDelimiterIndex ?? versionString.endIndex)].firstIndex(of: "-")
+        
+        let versionCore = versionString[..<(prereleaseDelimiterIndex ?? metadataDelimiterIndex ?? versionString.endIndex)]
+        let versionCoreIdentifiers = versionCore.split(separator: ".", omittingEmptySubsequences: false)
+        
+        guard
+            versionCoreIdentifiers.count == 3,
+            // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
+            // Converting each identifier from a substring to an integer doubles as checking if the identifiers have non-numeric characters.
+            let major = Int(versionCoreIdentifiers[0]),
+            let minor = Int(versionCoreIdentifiers[1]),
+            let patch = Int(versionCoreIdentifiers[2])
+        else { return nil }
+        
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+        
+        if prereleaseDelimiterIndex == nil {
+            self.prereleaseIdentifiers = []
+        } else {
+            let prereleaseStartIndex = prereleaseDelimiterIndex.map(versionString.index(after:)) ?? metadataDelimiterIndex ?? versionString.endIndex
+            let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
+            guard prereleaseIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
+            self.prereleaseIdentifiers = prereleaseIdentifiers.map { String($0) }
         }
+        
+        if metadataDelimiterIndex == nil {
+            self.buildMetadataIdentifiers = []
+        } else {
+            let metadataStartIndex = metadataDelimiterIndex.map(versionString.index(after:)) ?? versionString.endIndex
+            let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
+            guard buildMetadataIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
+            self.buildMetadataIdentifiers = buildMetadataIdentifiers.map { String($0) }
+        }
+    }
+}
 
-        self.prereleaseIdentifiers = identifiers(
-            start: prereleaseStartIndex,
-            end: metadataStartIndex ?? string.endIndex)
-        self.buildMetadataIdentifiers = identifiers(
-            start: metadataStartIndex,
-            end: string.endIndex)
+extension Version {
+    // This initialiser is no longer necessary, but kept around for source compatibility with SwiftPM.
+    /// Create a version object from string.
+    /// - Parameter  string: The string to parse.
+    @available(*, deprecated, renamed: "init(_:)")
+    public init?(string: String) {
+        self.init(string)
     }
 }
 
 extension Version: ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) {
-        guard let version = Version(string: value) else {
+        guard let version = Version(value) else {
             fatalError("\(value) is not a valid version")
         }
         self = version
@@ -163,7 +184,7 @@ extension Version: JSONMappable, JSONSerializable {
         guard case .string(let string) = json else {
             throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
         }
-        guard let version = Version(string: string) else {
+        guard let version = Version(string) else {
             throw JSON.MapError.custom(key: nil, message: "Invalid version string \(string)")
         }
         self.init(version)
@@ -192,7 +213,7 @@ extension Version: Codable {
         let container = try decoder.singleValueContainer()
         let string = try container.decode(String.self)
 
-        guard let version = Version(string: string) else {
+        guard let version = Version(string) else {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath,
                 debugDescription: "Invalid version string \(string)"))
