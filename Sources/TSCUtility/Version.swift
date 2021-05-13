@@ -268,11 +268,10 @@ extension Range where Bound == Version {
 }
 
 extension Range where Bound == Version {
-
     public func contains(version: Version) -> Bool {
         // Special cases if version contains prerelease identifiers.
         if !version.prereleaseIdentifiers.isEmpty {
-            // If the ranage does not contain prerelease identifiers, return false.
+            // If the range does not contain prerelease identifiers, return false.
             if lowerBound.prereleaseIdentifiers.isEmpty && upperBound.prereleaseIdentifiers.isEmpty {
                 return false
             }
