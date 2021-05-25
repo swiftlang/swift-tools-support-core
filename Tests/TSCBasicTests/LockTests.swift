@@ -61,34 +61,27 @@ class LockTests: XCTestCase {
     }
 
     func testReadWriteFileLock() throws {
-        try XCTSkipIf(true, "fails spuriously if reader thread beats first writer rdar://78461378")
         try withTemporaryDirectory { tempDir in
             let fileA = tempDir.appending(component: "fileA")
             let fileB = tempDir.appending(component: "fileB")
+
+            // write initial value, since reader may start before writers and files would not exist
+            try localFileSystem.writeFileContents(fileA, bytes: "0")
+            try localFileSystem.writeFileContents(fileB, bytes: "0")
 
             let writerThreads = (0..<100).map { _ in
                 return Thread {
                     let lock = FileLock(name: "foo", cachePath: tempDir)
                     try! lock.withLock(type: .exclusive) {
-                        // Get thr current contents of the file if any.
-                        let valueA: Int
-                        if localFileSystem.exists(fileA) {
-                            valueA = Int(try localFileSystem.readFileContents(fileA).description) ?? 0
-                        } else {
-                            valueA = 0
-                        }
+                        // Get the current contents of the file if any.
+                        let valueA = Int(try localFileSystem.readFileContents(fileA).description)!
                         // Sum and write back to file.
                         try localFileSystem.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
 
                         Thread.yield()
 
-                        // Get thr current contents of the file if any.
-                        let valueB: Int
-                        if localFileSystem.exists(fileB) {
-                            valueB = Int(try localFileSystem.readFileContents(fileB).description) ?? 0
-                        } else {
-                            valueB = 0
-                        }
+                        // Get the current contents of the file if any.
+                        let valueB = Int(try localFileSystem.readFileContents(fileB).description)!
                         // Sum and write back to file.
                         try localFileSystem.writeFileContents(fileB, bytes: ByteString(encodingAsUTF8: String(valueB + 1)))
                     }
