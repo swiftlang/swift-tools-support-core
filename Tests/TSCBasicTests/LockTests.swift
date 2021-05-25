@@ -61,6 +61,7 @@ class LockTests: XCTestCase {
     }
 
     func testReadWriteFileLock() throws {
+        try XCTSkipIf(true, "fails spuriously if reader thread beats first writer rdar://78461378")
         try withTemporaryDirectory { tempDir in
             let fileA = tempDir.appending(component: "fileA")
             let fileB = tempDir.appending(component: "fileB")
