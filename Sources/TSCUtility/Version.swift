@@ -11,7 +11,7 @@
 import TSCBasic
 
 /// A struct representing a semver version.
-public struct Version: Hashable {
+public struct Version {
 
     /// The major version.
     public let major: Int
@@ -45,7 +45,7 @@ public struct Version: Hashable {
     }
 }
 
-extension Version: Comparable {
+extension Version: Comparable, Hashable {
     
     func isEqualWithoutPrerelease(_ other: Version) -> Bool {
         return major == other.major && minor == other.minor && patch == other.patch
@@ -95,6 +95,14 @@ extension Version: Comparable {
         return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
     
+    // Custom `Equatable` conformance leads to custom `Hashable` conformance.
+    // [SR-11588](https://bugs.swift.org/browse/SR-11588)
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(major)
+        hasher.combine(minor)
+        hasher.combine(patch)
+        hasher.combine(prereleaseIdentifiers)
+    }
 }
 
 extension Version: CustomStringConvertible {
@@ -138,22 +146,22 @@ extension Version: LosslessStringConvertible {
         self.minor = minor
         self.patch = patch
         
-        if prereleaseDelimiterIndex == nil {
-            self.prereleaseIdentifiers = []
-        } else {
-            let prereleaseStartIndex = prereleaseDelimiterIndex.map(versionString.index(after:)) ?? metadataDelimiterIndex ?? versionString.endIndex
+        if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
+            let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
             guard prereleaseIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
             self.prereleaseIdentifiers = prereleaseIdentifiers.map { String($0) }
+        } else {
+            self.prereleaseIdentifiers = []
         }
         
-        if metadataDelimiterIndex == nil {
-            self.buildMetadataIdentifiers = []
-        } else {
-            let metadataStartIndex = metadataDelimiterIndex.map(versionString.index(after:)) ?? versionString.endIndex
+        if let metadataDelimiterIndex = metadataDelimiterIndex {
+            let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
             let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
             guard buildMetadataIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
             self.buildMetadataIdentifiers = buildMetadataIdentifiers.map { String($0) }
+        } else {
+            self.buildMetadataIdentifiers = []
         }
     }
 }
