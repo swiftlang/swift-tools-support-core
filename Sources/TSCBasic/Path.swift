@@ -15,16 +15,16 @@ import var Foundation.NSLocalizedDescriptionKey
 public protocol Path: Hashable, Codable, CustomStringConvertible {
     /// Underlying type, based on SwiftSystem.
     var filepath: FilePath { get }
-    
+
     /// Public initializer from FilePath.
     init(_ filepath: FilePath)
-    
+
     /// Public initializer from String.
     init(_ string: String)
-    
+
     /// Convenience initializer that verifies that the path lexically.
     init(validating path: String) throws
-    
+
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     var pathString: String { get }
@@ -38,27 +38,27 @@ public protocol Path: Hashable, Codable, CustomStringConvertible {
 
     /// Last path component (including the suffix, if any).
     var basename: String { get }
-    
+
     /// Returns the basename without the extension.
     var basenameWithoutExt: String { get }
-    
+
     /// Extension of the give path's basename. This follow same rules as
     /// suffix except that it doesn't include leading `.` character.
     var `extension`: String? { get }
-    
+
     /// Suffix (including leading `.` character) if any.  Note that a basename
     /// that starts with a `.` character is not considered a suffix, nor is a
     /// trailing `.` character.
     var suffix: String? { get }
-    
+
     /// True if the path is a root directory.
     var isRoot: Bool { get }
-    
+
     /// Returns the path with an additional literal component appended.
     ///
     /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
     func appending(component: String) -> Self
-    
+
     /// Returns the relative path with additional literal components appended.
     ///
     /// This method should only be used in cases where the input is guaranteed
@@ -66,7 +66,7 @@ public protocol Path: Hashable, Codable, CustomStringConvertible {
     /// separator, or be a pseudo-path like '.' or '..').
     func appending(components names: [String]) -> Self
     func appending(components names: String...) -> Self
-    
+
     /// Returns an array of strings that make up the path components of the
     /// path.  This is the same sequence of strings as the basenames of each
     /// successive path component.
@@ -83,11 +83,11 @@ extension Path {
         }
         return filepath.string
     }
-    
+
     public var root: String? {
         return filepath.root?.string
     }
-    
+
     public var dirname: String {
         let dirname = filepath.removingLastComponent().string
         if dirname.isEmpty {
@@ -95,15 +95,15 @@ extension Path {
         }
         return dirname
     }
-    
+
     public var basename: String {
         return filepath.lastComponent?.string ?? root ?? "."
     }
-    
+
     public var basenameWithoutExt: String {
         return filepath.lastComponent?.stem ?? root ?? "."
     }
-    
+
     public var `extension`: String? {
         guard let ext = filepath.extension,
               !ext.isEmpty else {
@@ -111,7 +111,7 @@ extension Path {
         }
         return filepath.extension
     }
-    
+
     public var suffix: String? {
         if let ext = `extension` {
             return ".\(ext)"
@@ -123,7 +123,7 @@ extension Path {
     public var isRoot: Bool {
         return filepath.isRoot
     }
-    
+
     public func appending(component: String) -> Self {
         return Self(filepath.appending(
                                 FilePath.Component(stringLiteral: component)))
@@ -137,7 +137,7 @@ extension Path {
     public func appending(components names: String...) -> Self {
         appending(components: names)
     }
-    
+
     public var components: [String] {
         var components = filepath.components.map(\.string)
         if filepath.isRelative && components.isEmpty {
@@ -145,7 +145,7 @@ extension Path {
         }
         return components
     }
-    
+
     public var description: String {
         return pathString
     }
@@ -424,7 +424,7 @@ extension FilePath {
         }
 #endif
     }
-    
+
     var isRoot: Bool {
         root != nil && components.isEmpty
     }
