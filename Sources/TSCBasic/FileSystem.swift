@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCLibc
 import Foundation
 import Dispatch
+import SystemPackage
 
 public struct FileSystemError: Error, Equatable {
     public enum Kind: Equatable {
@@ -86,20 +86,31 @@ extension FileSystemError: CustomNSError {
     }
 }
 
-public extension FileSystemError {
-    init(errno: Int32, _ path: AbsolutePath) {
+extension FileSystemError.Kind {
+    public static func errno(_ errno: Errno) -> FileSystemError.Kind {
         switch errno {
-        case TSCLibc.EACCES:
-            self.init(.invalidAccess, path)
-        case TSCLibc.EISDIR:
-            self.init(.isDirectory, path)
-        case TSCLibc.ENOENT:
-            self.init(.noEntry, path)
-        case TSCLibc.ENOTDIR:
-            self.init(.notDirectory, path)
-        default:
-            self.init(.unknownOSError, path)
+        case .permissionDenied:         return .invalidAccess
+        case .isDirectory:              return.isDirectory
+        case .noSuchFileOrDirectory:    return .noEntry
+        case .notDirectory:             return .notDirectory
+        default:                        return .unknownOSError
         }
+    }
+}
+
+public extension FileSystemError {
+    init(errno: Errno, _ path: AbsolutePath) {
+        self.init(.errno(errno), path)
+    }
+    init(errno: Int32, _ path: AbsolutePath) {
+        self.init(errno: Errno(rawValue: errno), path)
+    }
+}
+
+func withFileSystemError<Result>(path: AbsolutePath, _ body: () throws -> Result) throws -> Result {
+    do { return try body() }
+    catch let errno as Errno {
+        throw FileSystemError(errno: errno, path)
     }
 }
 
@@ -284,7 +295,7 @@ private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // Our semantics doesn't consider directories.
-        return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
+        return (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
@@ -382,55 +393,34 @@ private class LocalFileSystem: FileSystem {
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
-        // Open the file.
-        let fp = fopen(path.pathString, "rb")
-        if fp == nil {
-            throw FileSystemError(errno: errno, path)
-        }
-        defer { fclose(fp) }
-
-        // Read the data one block at a time.
-        let data = BufferedOutputByteStream()
-        var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
-        while true {
-            let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
-            }
-            if n == 0 {
-                let errno = ferror(fp)
-                if errno != 0 {
-                    throw FileSystemError(.ioError(code: errno), path)
+        try withFileSystemError(path: path) {
+            let data = BufferedOutputByteStream()
+            // Open the file.
+            let fd = try FileDescriptor.open(path.filepath, .readOnly)
+            var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
+            try fd.closeAfter {
+                while true {
+                    // Read the data one block at a time.
+                    let n = try tmpBuffer.withUnsafeMutableBytes {
+                        try fd.read(into: $0)
+                    }
+                    guard n > 0 else { break }
+                    data <<< tmpBuffer[0..<n]
                 }
-                break
             }
-            data <<< tmpBuffer[0..<n]
+            return data.bytes
         }
-
-        return data.bytes
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        // Open the file.
-        let fp = fopen(path.pathString, "wb")
-        if fp == nil {
-            throw FileSystemError(errno: errno, path)
-        }
-        defer { fclose(fp) }
-
-        // Write the data in one chunk.
-        var contents = bytes.contents
-        while true {
-            let n = fwrite(&contents, 1, contents.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
+        try withFileSystemError(path: path) {
+            // Open the file.
+            let fd = try FileDescriptor.open(path.filepath, .writeOnly, options: [.create, .truncate], permissions: [
+                .ownerReadWrite, .groupReadWrite, .otherRead
+            ])
+            _ = try fd.closeAfter {
+                try fd.writeAll(bytes.contents)
             }
-            if n != contents.count {
-                throw FileSystemError(.unknownOSError, path)
-            }
-            break
         }
     }
 
