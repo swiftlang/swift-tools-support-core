@@ -77,16 +77,3 @@ let package = Package(
             dependencies: ["TSCUtility", "TSCTestSupport"]),
     ]
 )
-
-// FIXME: conditionalise these flags since SwiftPM 5.3 and earlier will crash
-// for platforms they don't know about.
-#if os(Windows)
-  if let TSCBasic = package.targets.first(where: { $0.name == "TSCBasic" }) {
-    TSCBasic.cxxSettings = [
-      .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
-    ]
-    TSCBasic.linkerSettings = [
-      .linkedLibrary("Pathcch", .when(platforms: [.windows])),
-    ]
-  }
-#endif
