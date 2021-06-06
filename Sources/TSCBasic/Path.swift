@@ -114,8 +114,8 @@ extension Path {
     }
 
     public var suffix: String? {
-        if let ext = `extension` {
-            return ".\(ext)"
+        if let ext = self.extension {
+            return "." + ext
         } else {
             return nil
         }
