@@ -377,7 +377,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
-        let destString = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
+        let destString = relative ? try destination.relative(to: path.parentDirectory).pathString : destination.pathString
         try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
     }
 
@@ -803,7 +803,7 @@ public class InMemoryFileSystem: FileSystem {
                 throw FileSystemError(.alreadyExistsAtDestination, path)
             }
 
-            let destination = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
+            let destination = relative ? try destination.relative(to: path.parentDirectory).pathString : destination.pathString
 
             contents.entries[path.basename] = Node(.symlink(destination))
         }

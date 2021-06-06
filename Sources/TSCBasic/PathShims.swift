@@ -19,6 +19,7 @@
 
 import TSCLibc
 import Foundation
+import SystemPackage
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
@@ -63,7 +64,7 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 /// be a relative path, otherwise it will be absolute.
 @available(*, deprecated, renamed: "localFileSystem.createSymbolicLink")
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
-    let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
+    let destString = relative ? try dest.relative(to: path.parentDirectory).pathString : dest.pathString
     try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
 }
 
@@ -177,7 +178,7 @@ extension AbsolutePath {
         if self == dir {
             return "."
         } else if self.pathString.hasPrefix(dir.pathString + "/") {
-            return "./" + self.relative(to: dir).pathString
+            return try! "./" + self.relative(to: dir).pathString
         } else {
             return self.pathString
         }
