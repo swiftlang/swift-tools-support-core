@@ -76,6 +76,7 @@ public protocol Path: Hashable, Codable, CustomStringConvertible {
     var components: [String] { get }
 }
 
+/// Default implementations of some protocol stubs.
 extension Path {
     public var pathString: String {
         if filepath.string.isEmpty {
@@ -145,7 +146,10 @@ extension Path {
         }
         return components
     }
+}
 
+/// Default implementation of `CustomStringConvertible`.
+extension Path {
     public var description: String {
         return pathString
     }
@@ -156,6 +160,7 @@ extension Path {
     }
 }
 
+/// Default implementation of `Codable`.
 extension Path {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
@@ -265,9 +270,7 @@ public struct AbsolutePath: Path {
         return AbsolutePath(filepath)
     }
 
-    /// Root directory (whose string representation is just a path separator).
-    ///
-    /// FIXME: root is not a static value, we'd better remove this property.
+    /// The root directory. It is always `/` on UNIX, but may vary on Windows.
     @available(*, deprecated, message: "root is not a static value, use the instance property instead")
     public static var root: AbsolutePath {
         if let rootPath = localFileSystem.currentWorkingDirectory?.root {
