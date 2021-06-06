@@ -69,10 +69,10 @@ public protocol Path: Hashable, Codable, CustomStringConvertible {
 
     /// Returns an array of strings that make up the path components of the
     /// path.  This is the same sequence of strings as the basenames of each
-    /// successive path component.
-    ///
-    /// An empty path has a single path
+    /// successive path component.  An empty path has a single path
     /// component: the `.` string.
+    ///
+    /// NOTE: Path components no longer include the root.  Use `root` instead.
     var components: [String] { get }
 }
 
