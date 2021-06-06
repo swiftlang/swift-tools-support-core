@@ -268,7 +268,14 @@ public struct AbsolutePath: Path {
     /// Root directory (whose string representation is just a path separator).
     ///
     /// FIXME: root is not a static value, we'd better remove this property.
-    public static let root = AbsolutePath(FilePath._root)
+    @available(*, deprecated, message: "root is not a static value, use the instance property instead")
+    public static var root: AbsolutePath {
+        if let rootPath = localFileSystem.currentWorkingDirectory?.root {
+            return AbsolutePath(rootPath)
+        } else {
+            return AbsolutePath(FilePath._root)
+        }
+    }
 }
 
 /// Represents a relative file system path.  A relative path never starts with

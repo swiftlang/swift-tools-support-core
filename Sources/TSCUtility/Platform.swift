@@ -105,8 +105,8 @@ public enum Platform: Equatable {
         defer { tmp.deallocate() }
         guard confstr(name, tmp.baseAddress, len) == len else { return nil }
         let value = String(cString: tmp.baseAddress!)
-        guard value.hasSuffix(AbsolutePath.root.pathString) else { return nil }
-        return resolveSymlinks(AbsolutePath(value))
+        guard let path = try? AbsolutePath(validating: value) else { return nil }
+        return resolveSymlinks(path)
     }
     #endif
 }
