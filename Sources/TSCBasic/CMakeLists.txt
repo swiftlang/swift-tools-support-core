@@ -57,9 +57,10 @@ target_compile_options(TSCBasic PUBLIC
   # Ignore secure function warnings on Windows.
   "$<$<PLATFORM_ID:Windows>:SHELL:-Xcc -D_CRT_SECURE_NO_WARNINGS>")
 target_link_libraries(TSCBasic PUBLIC
-  TSCLibc)
+  TSCLibc
+  SwiftSystem)
 target_link_libraries(TSCBasic PRIVATE
-   TSCclibc)
+  TSCclibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   if(Foundation_FOUND)
     target_link_libraries(TSCBasic PUBLIC
