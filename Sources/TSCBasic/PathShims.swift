@@ -175,7 +175,11 @@ extension AbsolutePath {
         }
         if let first = rel.components.first,
             first != ".." {
+#if os(Windows)
+            return ".\\" + rel.pathString
+#else
             return "./" + rel.pathString
+#endif
         } else {
             return rel.pathString
         }
