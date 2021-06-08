@@ -706,7 +706,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+        return AbsolutePath.withPOSIX(path: "/")
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
@@ -715,7 +715,7 @@ public class InMemoryFileSystem: FileSystem {
 
     public var homeDirectory: AbsolutePath {
         // FIXME: Maybe we should allow setting this when creating the fs.
-        return AbsolutePath("/home/user")
+        return AbsolutePath.withPOSIX(path: "/home/user")
     }
     
     public var cachesDirectory: AbsolutePath? {

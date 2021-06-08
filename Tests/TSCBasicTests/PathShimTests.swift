@@ -37,19 +37,19 @@ class WalkTests : XCTestCase {
       #if os(Android)
         let root = "/system"
         var expected = [
-            AbsolutePath("\(root)/usr"),
-            AbsolutePath("\(root)/bin"),
-            AbsolutePath("\(root)/xbin")
+            AbsolutePath.withPOSIX(path: "\(root)/usr"),
+            AbsolutePath.withPOSIX(path: "\(root)/bin"),
+            AbsolutePath.withPOSIX(path: "\(root)/xbin")
         ]
       #else
         let root = ""
         var expected = [
-            AbsolutePath("/usr"),
-            AbsolutePath("/bin"),
-            AbsolutePath("/sbin")
+            AbsolutePath.withPOSIX(path: "/usr"),
+            AbsolutePath.withPOSIX(path: "/bin"),
+            AbsolutePath.withPOSIX(path: "/sbin")
         ]
       #endif
-        for x in try! walk(AbsolutePath("\(root)/"), recursively: false) {
+        for x in try! walk(AbsolutePath.withPOSIX(path: "\(root)/"), recursively: false) {
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }

@@ -291,6 +291,7 @@ public struct AbsolutePath: Path {
     public static func withPOSIX(path: String) -> AbsolutePath {
 #if os(Windows)
         var filepath = FilePath(path)
+        precondition(filepath.root != nil)
         if !filepath.isAbsolute {
             filepath.root = root.filepath.root
         }
