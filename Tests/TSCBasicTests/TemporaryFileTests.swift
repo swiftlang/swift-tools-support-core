@@ -137,6 +137,7 @@ class TemporaryFileTests: XCTestCase {
         XCTAssertFalse(localFileSystem.isDirectory(pathTwo))
     }
 
+#if !os(Windows)
     /// Check that the temporary file doesn't leak file descriptors.
     func testLeaks() throws {
         // We check this by testing that we get back the same FD after a
@@ -150,4 +151,5 @@ class TemporaryFileTests: XCTestCase {
         let endFD = try Int(withTemporaryFile { return $0.fileHandle.fileDescriptor })
         XCTAssertEqual(initialFD, endFD)
     }
+#endif
 }

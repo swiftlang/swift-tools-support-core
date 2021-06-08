@@ -276,8 +276,28 @@ public struct AbsolutePath: Path {
         if let rootPath = localFileSystem.currentWorkingDirectory?.root {
             return AbsolutePath(rootPath)
         } else {
-            return AbsolutePath(FilePath._root)
+#if !os(Windows)
+            return AbsolutePath("/")
+#else
+            if let drive = ProcessEnv.vars["SystemDrive"] ?? ProcessEnv.vars["HomeDrive"] {
+                return AbsolutePath(drive + "\\")
+            } else {
+                fatalError("cannot determine the drive")
+            }
+#endif
         }
+    }
+
+    public static func withPOSIX(path: String) -> AbsolutePath {
+#if os(Windows)
+        var filepath = FilePath(path)
+        if !filepath.isAbsolute {
+            filepath.root = root.filepath.root
+        }
+        return AbsolutePath(filepath)
+#else
+        return AbsolutePath(path)
+#endif
     }
 }
 
@@ -408,14 +428,6 @@ extension PathValidationError: CustomNSError {
 }
 
 extension FilePath {
-    static var _root: FilePath {
-#if os(Windows)
-        return FilePath("\\")
-#else
-        return FilePath("/")
-#endif
-    }
-
     init(validatingAbsolutePath path: String) throws {
         self.init(path)
         guard self.isAbsolute else {
