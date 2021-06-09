@@ -24,9 +24,9 @@ extension AuthorizationProviding {
 #if os(macOS)
 /*
  Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
- which is only available in macOS 10.13+ at this time.
+ which is only available in macOS 10.13+, iOS 11+, etc at this time.
  */
-@available (OSX 10.13, *)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 /// Container of parsed netrc connection settings
 public struct Netrc: AuthorizationProviding {
     /// Representation of `machine` connection settings & `default` connection settings.
@@ -97,7 +97,7 @@ public struct Netrc: AuthorizationProviding {
     }
 }
 
-@available (OSX 10.13, *)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public extension Netrc {
     enum Error: Swift.Error {
         case invalidFilePath
@@ -135,14 +135,14 @@ public extension Netrc {
     }
 }
 
-@available (OSX 10.13, *)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 extension Netrc.Error: CustomNSError {
     public var errorUserInfo: [String : Any] {
         return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
 
-@available (OSX 10.13, *)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 fileprivate enum RegexUtil {
     @frozen fileprivate enum Token: String, CaseIterable {
         case machine, login, password, account, macdef, `default`
