@@ -3,7 +3,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2019 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2019 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -12,9 +12,20 @@
 
 
 import PackageDescription
+import class Foundation.ProcessInfo
+
+let macOSPlatform: SupportedPlatform
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFT_TOOLCHAIN_MACOS_DEPLOYMENT_TARGET"] {
+    macOSPlatform = .macOS(deploymentTarget)
+} else {
+    macOSPlatform = .macOS(.v10_10)
+}
 
 let package = Package(
     name: "swift-tools-support-core",
+    platforms: [
+        macOSPlatform,
+    ],
     products: [
         .library(
             name: "SwiftToolsSupport",
