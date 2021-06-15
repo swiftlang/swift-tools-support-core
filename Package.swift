@@ -14,17 +14,11 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
-let macOSPlatform: SupportedPlatform
-if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFT_TOOLCHAIN_MACOS_DEPLOYMENT_TARGET"] {
-    macOSPlatform = .macOS(deploymentTarget)
-} else {
-    macOSPlatform = .macOS(.v10_10)
-}
-
 let package = Package(
     name: "swift-tools-support-core",
     platforms: [
-        macOSPlatform,
+        .macOS(.v10_15),
+        .iOS(.v13)
     ],
     products: [
         .library(
