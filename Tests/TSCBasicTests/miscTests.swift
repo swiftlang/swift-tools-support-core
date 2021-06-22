@@ -14,6 +14,10 @@ import TSCBasic
 
 class miscTests: XCTestCase {
 
+    func testExpectedFailure() {
+	XCTFail("test that we see this failure")
+    }
+
     func testExecutableLookup() throws {
         try testWithTemporaryDirectory { path in
             
