@@ -14,7 +14,7 @@ import Foundation
 ///
 /// This struct provides useful operations for working with buffers of
 /// bytes. Conceptually it is just a contiguous array of bytes (UInt8), but it
-/// contains methods and default behavor suitable for common operations done
+/// contains methods and default behavior suitable for common operations done
 /// using bytes strings.
 ///
 /// This struct *is not* intended to be used for significant mutation of byte
