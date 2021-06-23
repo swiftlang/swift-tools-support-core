@@ -22,7 +22,7 @@ public let executableFileSuffix = ""
 /// - Parameters:
 ///   - path: Absolute path to the executable.
 ///   - args: The executable arguments.
-public func exec(path: String, args: [String]) throws {
+public func exec(path: String, args: [String]) throws -> Never {
     let cArgs = CStringArray(args)
   #if os(Windows)
     guard cArgs.cArray.withUnsafeBufferPointer({
@@ -38,6 +38,13 @@ public func exec(path: String, args: [String]) throws {
         throw SystemError.exec(errno, path: path, args: args)
     }
   #endif
+    fatalError("unreachable")
+}
+
+@_disfavoredOverload
+@available(*, deprecated, message: "Use the overload which returns Never")
+public func exec(path: String, args: [String]) throws {
+    try exec(path: path, args: args)
 }
 
 // MARK: TSCUtility function for searching for executables
