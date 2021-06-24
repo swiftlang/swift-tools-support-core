@@ -245,7 +245,7 @@ class FileSystemTests: XCTestCase {
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
             // Check read/write of a directory.
-            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), filePath.parentDirectory)) {
+            XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
                 _ = try fs.readFileContents(filePath.parentDirectory)
             }
             XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
@@ -259,9 +259,8 @@ class FileSystemTests: XCTestCase {
             #else
             let root = AbsolutePath("/")
             #endif
-            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), root)) {
+            XCTAssertThrows(FileSystemError(.isDirectory, root)) {
                 _ = try fs.readFileContents(root)
-
             }
             XCTAssertThrows(FileSystemError(.isDirectory, root)) {
                 try fs.writeFileContents(root, bytes: [])

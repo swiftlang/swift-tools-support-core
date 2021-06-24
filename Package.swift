@@ -39,7 +39,9 @@ let package = Package(
             name: "TSCTestSupport",
             targets: ["TSCTestSupport"]),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "0.0.1"))
+    ],
     targets: [
         
         // MARK: Tools support core targets
@@ -55,7 +57,8 @@ let package = Package(
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
-            dependencies: ["TSCLibc", "TSCclibc"]),
+            dependencies: ["TSCLibc", "TSCclibc",
+                           .product(name: "SystemPackage", package: "swift-system")]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
@@ -92,9 +95,6 @@ let package = Package(
   if let TSCBasic = package.targets.first(where: { $0.name == "TSCBasic" }) {
     TSCBasic.cxxSettings = [
       .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
-    ]
-    TSCBasic.linkerSettings = [
-      .linkedLibrary("Pathcch", .when(platforms: [.windows])),
     ]
   }
 #endif

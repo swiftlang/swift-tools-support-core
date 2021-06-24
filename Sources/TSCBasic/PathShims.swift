@@ -63,7 +63,7 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 /// be a relative path, otherwise it will be absolute.
 @available(*, deprecated, renamed: "localFileSystem.createSymbolicLink")
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
-    let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
+    let destString = relative ? try dest.relative(to: path.parentDirectory).pathString : dest.pathString
     try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
 }
 
@@ -168,18 +168,16 @@ extension AbsolutePath {
     /// Returns a path suitable for display to the user (if possible, it is made
     /// to be relative to the current working directory).
     public func prettyPath(cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory) -> String {
-        guard let dir = cwd else {
-            // No current directory, display as is.
+        guard let dir = cwd,
+            let rel = try? relative(to: dir) else {
+            // Cannot create relative path, display as is.
             return self.pathString
         }
-        // FIXME: Instead of string prefix comparison we should add a proper API
-        // to AbsolutePath to determine ancestry.
-        if self == dir {
-            return "."
-        } else if self.pathString.hasPrefix(dir.pathString + "/") {
-            return "./" + self.relative(to: dir).pathString
+        if let first = rel.components.first,
+            first != ".." {
+            return "./" + rel.pathString
         } else {
-            return self.pathString
+            return rel.pathString
         }
     }
 }

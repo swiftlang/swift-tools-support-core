@@ -14,7 +14,7 @@ import TSCBasic
 import TSCTestSupport
 
 class SynchronizedQueuePerfTests: XCTestCasePerf {
-    
+
     // Mock the UnitTest struct in SwiftPM/SwiftTestTool.swift
     struct Item {
         let productPath: AbsolutePath
@@ -28,7 +28,6 @@ class SynchronizedQueuePerfTests: XCTestCasePerf {
         }
     }
 
-    
     func testEnqueueDequeue_10000() {
         let queue = SynchronizedQueue<Item>()
         let test = Item(productPath: AbsolutePath.root, name: "TestName", testCase: "TestCaseName")
@@ -42,7 +41,7 @@ class SynchronizedQueuePerfTests: XCTestCasePerf {
             }
         }
     }
-    
+
     func testEnqueueDequeue_1000() {
         let queue = SynchronizedQueue<Item>()
         let test = Item(productPath: AbsolutePath.root, name: "TestName", testCase: "TestCaseName")
@@ -56,7 +55,7 @@ class SynchronizedQueuePerfTests: XCTestCasePerf {
             }
         }
     }
-    
+
     func testEnqueueDequeue_100() {
         let queue = SynchronizedQueue<Item>()
         let test = Item(productPath: AbsolutePath.root, name: "TestName", testCase: "TestCaseName")
