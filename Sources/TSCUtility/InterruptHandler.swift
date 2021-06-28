@@ -63,7 +63,7 @@ public final class InterruptHandler {
         }
       #else
         var action = sigaction()
-      #if canImport(Darwin)
+      #if canImport(Darwin) || os(OpenBSD)
         action.__sigaction_u.__sa_handler = signalHandler
       #elseif os(Android)
         action.sa_handler = signalHandler

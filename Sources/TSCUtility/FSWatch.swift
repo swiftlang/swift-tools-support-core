@@ -47,7 +47,9 @@ public class FSWatch {
         self.paths = paths
         self.latency = latency
 
-      #if canImport(Glibc)
+      #if os(OpenBSD)
+        self._watcher = NoOpWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
+      #elseif canImport(Glibc)
         var ipaths: [AbsolutePath: Inotify.WatchOptions] = [:]
 
         // FIXME: We need to recurse here.
@@ -93,17 +95,37 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if canImport(Glibc)
+#if os(OpenBSD)
+extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
+extension NoOpWatcher: _FileWatcher{}
+#elseif canImport(Glibc)
 extension FSWatch._WatcherDelegate: InotifyDelegate {}
 extension Inotify: _FileWatcher{}
 #elseif os(macOS)
 extension FSWatch._WatcherDelegate: FSEventStreamDelegate {}
 extension FSEventStream: _FileWatcher{}
+#else
+#error("Implementation required")
 #endif
 
 // MARK:- inotify
 
-#if canImport(Glibc)
+#if os(OpenBSD)
+
+public protocol NoOpWatcherDelegate {
+    func pathsDidReceiveEvent(_ paths: [AbsolutePath])
+}
+
+public final class NoOpWatcher {
+    public init(paths: [AbsolutePath], latency: Double, delegate: NoOpWatcherDelegate? = nil) {
+    }
+
+    public func start() throws {}
+
+    public func stop() {}
+}
+
+#elseif canImport(Glibc)
 
 /// The delegate for receiving inotify events.
 public protocol InotifyDelegate {
