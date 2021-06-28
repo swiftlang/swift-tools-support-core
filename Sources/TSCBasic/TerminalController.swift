@@ -40,7 +40,7 @@ public final class TerminalController {
 
         case white
         case black
-        case grey
+        case gray
 
         /// Returns the color code which can be prefixed on a string to display it in that color.
         fileprivate var string: String {
@@ -52,9 +52,12 @@ public final class TerminalController {
                 case .cyan: return "\u{001B}[36m"
                 case .white: return "\u{001B}[37m"
                 case .black: return "\u{001B}[30m"
-                case .grey: return "\u{001B}[30;1m"
+                case .gray: return "\u{001B}[30;1m"
             }
         }
+     
+        @available(*, deprecated, renamed: "gray")
+        public static var grey: Self { .gray }
     }
 
     /// Pointer to output stream to operate on.
