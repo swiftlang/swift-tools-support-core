@@ -727,13 +727,14 @@ private struct UNIXPath: Path {
 
     func suffix(withDot: Bool) -> String? {
 #if os(Windows)
-        let ext = self.string.withCString(encodedAs: UTF16.self) {
-            PathFindExtensionW($0)
+        return self.string.withCString(encodedAs: UTF16.self) {
+          if let pointer = PathFindExtensionW($0) {
+            let substring = String(decodingCString: pointer, as: UTF16.self)
+            guard substring.length > 0 else { return nil }
+            return withDot ? substring : String(substring.dropFirst(1))
+          }
+          return nil
         }
-        var result = String(decodingCString: ext!, as: UTF16.self)
-        guard result.length > 0 else { return nil }
-        if !withDot { result.removeFirst(1) }
-        return result
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
