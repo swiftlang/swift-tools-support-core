@@ -104,6 +104,7 @@ private struct BitstreamReader {
     guard numOps > 0 else { throw Error.invalidAbbrev }
 
     var operands: [Bitstream.Abbreviation.Operand] = []
+    operands.reserveCapacity(numOps)
     for i in 0..<numOps {
       operands.append(try readAbbrevOp())
 
@@ -156,7 +157,11 @@ private struct BitstreamReader {
     let lastOperand = abbrev.operands.last!
     let lastRegularOperandIndex: Int = abbrev.operands.endIndex - (lastOperand.isPayload ? 1 : 0)
 
-    // Safety: `lastRegularOperandIndex` is always at least 1.
+    // Safety: `lastRegularOperandIndex` is always at least 1. An abbreviation
+    // is required by the format to contain at least one operand. If that last
+    // operand is a payload (and thus we subtracted one from the total number of
+    // operands above), then that must mean it is either a trailing array
+    // or trailing blob. Both of these are preceded by their length field.
     let fields = UnsafeMutableBufferPointer<UInt64>.allocate(capacity: lastRegularOperandIndex - 1)
     defer { fields.deallocate() }
 
