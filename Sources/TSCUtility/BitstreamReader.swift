@@ -25,36 +25,6 @@ extension Bitcode {
   }
 }
 
-/// A basic visitor that collects all the blocks and records in a stream.
-private struct CollectingVisitor: BitstreamVisitor {
-  var stack: [(UInt64, [BitcodeElement])] = [(BitstreamReader.fakeTopLevelBlockID, [])]
-
-  func validate(signature: Bitcode.Signature) throws {}
-
-  mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
-    stack.append((id, []))
-    return true
-  }
-
-  mutating func didExitBlock() throws {
-    guard let (id, elements) = stack.popLast() else {
-      fatalError("Unbalanced calls to shouldEnterBlock/didExitBlock")
-    }
-
-    let block = BitcodeElement.Block(id: id, elements: elements)
-    stack[stack.endIndex-1].1.append(.block(block))
-  }
-
-  mutating func visit(record: BitcodeElement.Record) throws {
-    stack[stack.endIndex-1].1.append(.record(record))
-  }
-
-  func finalizeTopLevelElements() -> [BitcodeElement] {
-    assert(stack.count == 1)
-    return stack[0].1
-  }
-}
-
 private extension Bits.Cursor {
   enum BitcodeError: Swift.Error {
     case vbrOverflow
