@@ -98,7 +98,7 @@ extension SerializedDiagnostics {
                 case .blob(let diagnosticBlob) = record.payload
           else { throw Error.malformedRecord }
 
-          text = String(data: diagnosticBlob, encoding: .utf8)
+          text = String(decoding: diagnosticBlob, as: UTF8.self)
           level = Level(rawValue: record.fields[0])
           location = SourceLocation(fields: record.fields[1...4],
                                     filenameMap: filenameMap)
@@ -116,38 +116,38 @@ extension SerializedDiagnostics {
           }
         case .flag:
           guard record.fields.count == 2,
-                case .blob(let flagBlob) = record.payload,
-                let flagText = String(data: flagBlob, encoding: .utf8)
+                case .blob(let flagBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let flagText = String(decoding: flagBlob, as: UTF8.self)
           let diagnosticID = record.fields[0]
           flagMap[diagnosticID] = flagText
 
         case .category:
           guard record.fields.count == 2,
-                case .blob(let categoryBlob) = record.payload,
-                let categoryText = String(data: categoryBlob, encoding: .utf8)
+                case .blob(let categoryBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let categoryText = String(decoding: categoryBlob, as: UTF8.self)
           let categoryID = record.fields[0]
           categoryMap[categoryID] = categoryText
 
         case .filename:
           guard record.fields.count == 4,
-                case .blob(let filenameBlob) = record.payload,
-                let filenameText = String(data: filenameBlob, encoding: .utf8)
+                case .blob(let filenameBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let filenameText = String(decoding: filenameBlob, as: UTF8.self)
           let filenameID = record.fields[0]
           // record.fields[1] and record.fields[2] are no longer used.
           filenameMap[filenameID] = filenameText
 
         case .fixit:
           guard record.fields.count == 9,
-                case .blob(let fixItBlob) = record.payload,
-                let fixItText = String(data: fixItBlob, encoding: .utf8)
+                case .blob(let fixItBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let fixItText = String(decoding: fixItBlob, as: UTF8.self)
           if let start = SourceLocation(fields: record.fields[0...3],
                                         filenameMap: filenameMap),
              let end = SourceLocation(fields: record.fields[4...7],
@@ -184,7 +184,7 @@ extension SerializedDiagnostics {
     /// Clang includes this, it is set to 0 by Swift.
     public var offset: UInt64
 
-    fileprivate init?(fields: ArraySlice<UInt64>,
+    fileprivate init?(fields: Slice<UnsafeBufferPointer<UInt64>>,
                       filenameMap: [UInt64: String]) {
       guard let filename = filenameMap[fields[fields.startIndex]] else { return nil }
       self.filename = filename

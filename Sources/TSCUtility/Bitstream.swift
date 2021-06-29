@@ -18,22 +18,28 @@ public struct Bitcode {
   public let blockInfo: [UInt64: BlockInfo]
 }
 
+/// A non-owning view of a bitcode element.
 public enum BitcodeElement {
   public struct Block {
     public var id: UInt64
     public var elements: [BitcodeElement]
   }
 
+  /// A record element.
+  ///
+  /// - Warning: A `Record` element's fields and payload only live as long as
+  ///            the `visit` function that provides them is called. To persist
+  ///            a record, always make a copy of it.
   public struct Record {
     public enum Payload {
       case none
       case array([UInt64])
       case char6String(String)
-      case blob(Data)
+      case blob(ArraySlice<UInt8>)
     }
 
     public var id: UInt64
-    public var fields: [UInt64]
+    public var fields: UnsafeBufferPointer<UInt64>
     public var payload: Payload
   }
 
