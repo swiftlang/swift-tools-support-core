@@ -176,13 +176,29 @@ private struct BitstreamReader {
       switch lastOperand {
       case .array(let element):
         let length = try cursor.readVBR(6)
-        var elements = [UInt64]()
-        for _ in 0..<length {
-          elements.append(try readSingleAbbreviatedRecordOperand(element))
-        }
         if case .char6 = element {
-          payload = .char6String(String(String.UnicodeScalarView(elements.map { UnicodeScalar(UInt8($0)) })))
+          // FIXME: Once the minimum deployment target bumps to macOS 11, use
+          // the more ergonomic stdlib API everywhere.
+          if #available(macOS 11.0, *) {
+            payload = try .char6String(String(unsafeUninitializedCapacity: Int(length)) { buffer in
+              for i in 0..<Int(length) {
+                buffer[i] = try UInt8(readSingleAbbreviatedRecordOperand(element))
+              }
+              return Int(length)
+            })
+          } else {
+            let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: Int(length))
+            defer { buffer.deallocate() }
+            for i in 0..<Int(length) {
+              buffer[i] = try UInt8(readSingleAbbreviatedRecordOperand(element))
+            }
+            payload = .char6String(String(decoding: buffer, as: UTF8.self))
+          }
         } else {
+          var elements = [UInt64]()
+          for _ in 0..<length {
+            elements.append(try readSingleAbbreviatedRecordOperand(element))
+          }
           payload = .array(elements)
         }
       case .blob:
