@@ -151,39 +151,6 @@ final class BitstreamTests: XCTestCase {
                                      "skipping block: 9"])
     }
 
-    func testStandardInit() throws {
-        let bitstreamPath = AbsolutePath(#file).parentDirectory
-            .appending(components: "Inputs", "serialized.dia")
-        let contents = try localFileSystem.readFileContents(bitstreamPath)
-        let bitcode = try Bitcode(bytes: contents)
-        XCTAssertEqual(bitcode.signature, .init(string: "DIAG"))
-        XCTAssertEqual(bitcode.elements.count, 18)
-        guard case .block(let metadataBlock) = bitcode.elements.first else {
-            XCTFail()
-            return
-        }
-        XCTAssertEqual(metadataBlock.id, 8)
-        XCTAssertEqual(metadataBlock.elements.count, 1)
-        guard case .record(let versionRecord) = metadataBlock.elements[0] else {
-            XCTFail()
-            return
-        }
-        XCTAssertEqual(versionRecord.id, 1)
-        XCTAssertEqual(versionRecord.fields, [1])
-        guard case .block(let lastBlock) = bitcode.elements.last else {
-            XCTFail()
-            return
-        }
-        XCTAssertEqual(lastBlock.id, 9)
-        XCTAssertEqual(lastBlock.elements.count, 3)
-        guard case .record(let lastRecord) = lastBlock.elements[2] else {
-            XCTFail()
-            return
-        }
-        XCTAssertEqual(lastRecord.id, 3)
-        XCTAssertEqual(lastRecord.fields, [5, 34, 13, 0, 5, 34, 26, 0])
-    }
-
     func testBufferedWriter() {
         let writer = BitstreamWriter()
 
@@ -312,13 +279,13 @@ final class BitstreamTests: XCTestCase {
             mutating func visit(record: BitcodeElement.Record) throws {
                 switch record.id {
                 case UInt64(RoundTripRecordID.version.rawValue):
-                    XCTAssertEqual(record.fields, [ 25 ]) // version
+                    XCTAssertEqual(Array(record.fields), [ 25 ]) // version
                     guard case .none = record.payload else {
                         XCTFail("Unexpected payload in metadata record!")
                         return
                     }
                 case UInt64(RoundTripRecordID.blob.rawValue):
-                    XCTAssertEqual(record.fields, [
+                    XCTAssertEqual(Array(record.fields), [
                         42,
                         43,
                         44,

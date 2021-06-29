@@ -12,35 +12,8 @@ import Foundation
 import TSCBasic
 
 extension Bitcode {
-  /// Parse a bitstream from data.
-  @available(*, deprecated, message: "Use Bitcode.init(bytes:) instead")
-  public init(data: Data) throws {
-    precondition(data.count > 4)
-    try self.init(bytes: ByteString(data))
-  }
-  
-  public init(bytes: ByteString) throws {
-    precondition(bytes.count > 4)
-    var reader = BitstreamReader(buffer: bytes)
-    let signature = try reader.readSignature()
-    var visitor = CollectingVisitor()
-    try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
-                         abbrevWidth: 2,
-                         abbrevInfo: [],
-                         visitor: &visitor)
-    self.init(signature: signature,
-              elements: visitor.finalizeTopLevelElements(),
-              blockInfo: reader.blockInfo)
-  }
-
   /// Traverse a bitstream using the specified `visitor`, which will receive
   /// callbacks when blocks and records are encountered.
-  @available(*, deprecated, message: "Use Bitcode.read(bytes:using:) instead")
-  public static func read<Visitor: BitstreamVisitor>(stream data: Data, using visitor: inout Visitor) throws {
-    precondition(data.count > 4)
-    try Self.read(bytes: ByteString(data), using: &visitor)
-  }
-
   public static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
     precondition(bytes.count > 4)
     var reader = BitstreamReader(buffer: bytes)
@@ -204,15 +177,21 @@ private struct BitstreamReader {
     }
   }
 
-  mutating func readAbbreviatedRecord(_ abbrev: Bitstream.Abbreviation) throws -> BitcodeElement.Record {
+  mutating func withAbbreviatedRecord(
+    _ abbrev: Bitstream.Abbreviation,
+    body: (BitcodeElement.Record) throws -> Void
+  ) throws {
     let code = try readSingleAbbreviatedRecordOperand(abbrev.operands.first!)
 
     let lastOperand = abbrev.operands.last!
     let lastRegularOperandIndex: Int = abbrev.operands.endIndex - (lastOperand.isPayload ? 1 : 0)
 
-    var fields = [UInt64]()
-    for op in abbrev.operands[1..<lastRegularOperandIndex] {
-      fields.append(try readSingleAbbreviatedRecordOperand(op))
+    // Safety: `lastRegularOperandIndex` is always at least 1.
+    let fields = UnsafeMutableBufferPointer<UInt64>.allocate(capacity: lastRegularOperandIndex - 1)
+    defer { fields.deallocate() }
+
+    for (idx, op) in abbrev.operands[1..<lastRegularOperandIndex].enumerated() {
+      fields[idx] = try readSingleAbbreviatedRecordOperand(op)
     }
 
     let payload: BitcodeElement.Record.Payload
@@ -234,14 +213,14 @@ private struct BitstreamReader {
       case .blob:
         let length = Int(try cursor.readVBR(6))
         try cursor.advance(toBitAlignment: 32)
-        payload = .blob(try Data(cursor.read(bytes: length)))
+        payload = .blob(try cursor.read(bytes: length))
         try cursor.advance(toBitAlignment: 32)
       default:
         fatalError()
       }
     }
 
-    return .init(id: code, fields: fields, payload: payload)
+    return try body(.init(id: code, fields: UnsafeBufferPointer(fields), payload: payload))
   }
 
   mutating func readBlockInfoBlock(abbrevWidth: Int) throws {
@@ -341,17 +320,20 @@ private struct BitstreamReader {
       case Bitstream.AbbreviationID.unabbreviatedRecord.rawValue:
         let code = try cursor.readVBR(6)
         let numOps = try cursor.readVBR(6)
-        var operands = [UInt64]()
-        for _ in 0..<numOps {
-          operands.append(try cursor.readVBR(6))
+        let operands = UnsafeMutableBufferPointer<UInt64>.allocate(capacity: Int(numOps))
+        defer { operands.deallocate() }
+        for i in 0..<Int(numOps) {
+          operands[i] = try cursor.readVBR(6)
         }
-        try visitor.visit(record: .init(id: code, fields: operands, payload: .none))
+        try visitor.visit(record: .init(id: code, fields: UnsafeBufferPointer(operands), payload: .none))
 
       case let abbrevID:
         guard Int(abbrevID) - 4 < abbrevInfo.count else {
           throw Error.noSuchAbbrev(blockID: id, abbrevID: Int(abbrevID))
         }
-        try visitor.visit(record: try readAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4]))
+        try withAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4]) { record in
+          try visitor.visit(record: record)
+        }
       }
     }
 
