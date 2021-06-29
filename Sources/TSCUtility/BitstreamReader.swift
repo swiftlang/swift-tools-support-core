@@ -148,6 +148,10 @@ private struct BitstreamReader {
     }
   }
 
+  /// Computes a non-owning view of a `BitcodeElement.Record` that is valid for
+  /// the lifetime of the call to `body`.
+  ///
+  /// - Warning: If this function throws, the `body` block will not be called.
   mutating func withAbbreviatedRecord(
     _ abbrev: Bitstream.Abbreviation,
     body: (BitcodeElement.Record) throws -> Void
