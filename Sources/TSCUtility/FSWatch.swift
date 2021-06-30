@@ -47,7 +47,7 @@ public class FSWatch {
         self.paths = paths
         self.latency = latency
 
-      #if os(OpenBSD)
+      #if os(OpenBSD) || os(Windows)
         self._watcher = NoOpWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
       #elseif canImport(Glibc)
         var ipaths: [AbsolutePath: Inotify.WatchOptions] = [:]
@@ -95,7 +95,7 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if os(OpenBSD)
+#if os(OpenBSD) || os(Windows)
 extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
 extension NoOpWatcher: _FileWatcher{}
 #elseif canImport(Glibc)
@@ -110,7 +110,7 @@ extension FSEventStream: _FileWatcher{}
 
 // MARK:- inotify
 
-#if os(OpenBSD)
+#if os(OpenBSD) || os(Windows)
 
 public protocol NoOpWatcherDelegate {
     func pathsDidReceiveEvent(_ paths: [AbsolutePath])
