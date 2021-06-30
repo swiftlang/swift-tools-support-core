@@ -29,7 +29,7 @@ final class BitstreamTests: XCTestCase {
             }
 
             mutating func visit(record: BitcodeElement.Record) throws {
-                log.append("Record (id: \(record.id), fields: \(record.fields), payload: \(record.payload)")
+                log.append("Record (id: \(record.id), fields: \(Array(record.fields)), payload: \(record.payload)")
             }
         }
 

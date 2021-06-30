@@ -47,6 +47,21 @@ public enum BitcodeElement {
   case record(Record)
 }
 
+extension BitcodeElement.Record.Payload: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case .none:
+      return "none"
+    case .array(let vals):
+      return "array(\(vals))"
+    case .char6String(let s):
+      return "char6String(\(s))"
+    case .blob(let s):
+      return "blob(\(s.count) bytes)"
+    }
+  }
+}
+
 public struct BlockInfo {
   public var name: String = ""
   public var recordNames: [UInt64: String] = [:]
