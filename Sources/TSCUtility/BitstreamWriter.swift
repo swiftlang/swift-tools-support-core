@@ -338,6 +338,7 @@ extension BitstreamWriter {
 
         fileprivate init() {
             self.values = []
+            self.values.reserveCapacity(8)
         }
 
         fileprivate init<CodeType>(recordID: CodeType)
@@ -367,6 +368,7 @@ extension BitstreamWriter {
         }
 
         public mutating func append(_ string: String) {
+            self.values.reserveCapacity(self.values.capacity + string.utf8.count)
             for byte in string.utf8 {
                 values.append(UInt32(byte))
             }

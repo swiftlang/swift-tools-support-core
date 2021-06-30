@@ -12,35 +12,8 @@ import Foundation
 import TSCBasic
 
 extension Bitcode {
-  /// Parse a bitstream from data.
-  @available(*, deprecated, message: "Use Bitcode.init(bytes:) instead")
-  public init(data: Data) throws {
-    precondition(data.count > 4)
-    try self.init(bytes: ByteString(data))
-  }
-  
-  public init(bytes: ByteString) throws {
-    precondition(bytes.count > 4)
-    var reader = BitstreamReader(buffer: bytes)
-    let signature = try reader.readSignature()
-    var visitor = CollectingVisitor()
-    try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
-                         abbrevWidth: 2,
-                         abbrevInfo: [],
-                         visitor: &visitor)
-    self.init(signature: signature,
-              elements: visitor.finalizeTopLevelElements(),
-              blockInfo: reader.blockInfo)
-  }
-
   /// Traverse a bitstream using the specified `visitor`, which will receive
   /// callbacks when blocks and records are encountered.
-  @available(*, deprecated, message: "Use Bitcode.read(bytes:using:) instead")
-  public static func read<Visitor: BitstreamVisitor>(stream data: Data, using visitor: inout Visitor) throws {
-    precondition(data.count > 4)
-    try Self.read(bytes: ByteString(data), using: &visitor)
-  }
-
   public static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
     precondition(bytes.count > 4)
     var reader = BitstreamReader(buffer: bytes)
@@ -49,36 +22,6 @@ extension Bitcode {
                          abbrevWidth: 2,
                          abbrevInfo: [],
                          visitor: &visitor)
-  }
-}
-
-/// A basic visitor that collects all the blocks and records in a stream.
-private struct CollectingVisitor: BitstreamVisitor {
-  var stack: [(UInt64, [BitcodeElement])] = [(BitstreamReader.fakeTopLevelBlockID, [])]
-
-  func validate(signature: Bitcode.Signature) throws {}
-
-  mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
-    stack.append((id, []))
-    return true
-  }
-
-  mutating func didExitBlock() throws {
-    guard let (id, elements) = stack.popLast() else {
-      fatalError("Unbalanced calls to shouldEnterBlock/didExitBlock")
-    }
-
-    let block = BitcodeElement.Block(id: id, elements: elements)
-    stack[stack.endIndex-1].1.append(.block(block))
-  }
-
-  mutating func visit(record: BitcodeElement.Record) throws {
-    stack[stack.endIndex-1].1.append(.record(record))
-  }
-
-  func finalizeTopLevelElements() -> [BitcodeElement] {
-    assert(stack.count == 1)
-    return stack[0].1
   }
 }
 
@@ -161,6 +104,7 @@ private struct BitstreamReader {
     guard numOps > 0 else { throw Error.invalidAbbrev }
 
     var operands: [Bitstream.Abbreviation.Operand] = []
+    operands.reserveCapacity(numOps)
     for i in 0..<numOps {
       operands.append(try readAbbrevOp())
 
@@ -204,15 +148,29 @@ private struct BitstreamReader {
     }
   }
 
-  mutating func readAbbreviatedRecord(_ abbrev: Bitstream.Abbreviation) throws -> BitcodeElement.Record {
+  /// Computes a non-owning view of a `BitcodeElement.Record` that is valid for
+  /// the lifetime of the call to `body`.
+  ///
+  /// - Warning: If this function throws, the `body` block will not be called.
+  mutating func withAbbreviatedRecord(
+    _ abbrev: Bitstream.Abbreviation,
+    body: (BitcodeElement.Record) throws -> Void
+  ) throws {
     let code = try readSingleAbbreviatedRecordOperand(abbrev.operands.first!)
 
     let lastOperand = abbrev.operands.last!
     let lastRegularOperandIndex: Int = abbrev.operands.endIndex - (lastOperand.isPayload ? 1 : 0)
 
-    var fields = [UInt64]()
-    for op in abbrev.operands[1..<lastRegularOperandIndex] {
-      fields.append(try readSingleAbbreviatedRecordOperand(op))
+    // Safety: `lastRegularOperandIndex` is always at least 1. An abbreviation
+    // is required by the format to contain at least one operand. If that last
+    // operand is a payload (and thus we subtracted one from the total number of
+    // operands above), then that must mean it is either a trailing array
+    // or trailing blob. Both of these are preceded by their length field.
+    let fields = UnsafeMutableBufferPointer<UInt64>.allocate(capacity: lastRegularOperandIndex - 1)
+    defer { fields.deallocate() }
+
+    for (idx, op) in abbrev.operands[1..<lastRegularOperandIndex].enumerated() {
+      fields[idx] = try readSingleAbbreviatedRecordOperand(op)
     }
 
     let payload: BitcodeElement.Record.Payload
@@ -222,26 +180,42 @@ private struct BitstreamReader {
       switch lastOperand {
       case .array(let element):
         let length = try cursor.readVBR(6)
-        var elements = [UInt64]()
-        for _ in 0..<length {
-          elements.append(try readSingleAbbreviatedRecordOperand(element))
-        }
         if case .char6 = element {
-          payload = .char6String(String(String.UnicodeScalarView(elements.map { UnicodeScalar(UInt8($0)) })))
+          // FIXME: Once the minimum deployment target bumps to macOS 11, use
+          // the more ergonomic stdlib API everywhere.
+          if #available(macOS 11.0, *) {
+            payload = try .char6String(String(unsafeUninitializedCapacity: Int(length)) { buffer in
+              for i in 0..<Int(length) {
+                buffer[i] = try UInt8(readSingleAbbreviatedRecordOperand(element))
+              }
+              return Int(length)
+            })
+          } else {
+            let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: Int(length))
+            defer { buffer.deallocate() }
+            for i in 0..<Int(length) {
+              buffer[i] = try UInt8(readSingleAbbreviatedRecordOperand(element))
+            }
+            payload = .char6String(String(decoding: buffer, as: UTF8.self))
+          }
         } else {
+          var elements = [UInt64]()
+          for _ in 0..<length {
+            elements.append(try readSingleAbbreviatedRecordOperand(element))
+          }
           payload = .array(elements)
         }
       case .blob:
         let length = Int(try cursor.readVBR(6))
         try cursor.advance(toBitAlignment: 32)
-        payload = .blob(try Data(cursor.read(bytes: length)))
+        payload = .blob(try cursor.read(bytes: length))
         try cursor.advance(toBitAlignment: 32)
       default:
         fatalError()
       }
     }
 
-    return .init(id: code, fields: fields, payload: payload)
+    return try body(.init(id: code, fields: UnsafeBufferPointer(fields), payload: payload))
   }
 
   mutating func readBlockInfoBlock(abbrevWidth: Int) throws {
@@ -341,17 +315,20 @@ private struct BitstreamReader {
       case Bitstream.AbbreviationID.unabbreviatedRecord.rawValue:
         let code = try cursor.readVBR(6)
         let numOps = try cursor.readVBR(6)
-        var operands = [UInt64]()
-        for _ in 0..<numOps {
-          operands.append(try cursor.readVBR(6))
+        let operands = UnsafeMutableBufferPointer<UInt64>.allocate(capacity: Int(numOps))
+        defer { operands.deallocate() }
+        for i in 0..<Int(numOps) {
+          operands[i] = try cursor.readVBR(6)
         }
-        try visitor.visit(record: .init(id: code, fields: operands, payload: .none))
+        try visitor.visit(record: .init(id: code, fields: UnsafeBufferPointer(operands), payload: .none))
 
       case let abbrevID:
         guard Int(abbrevID) - 4 < abbrevInfo.count else {
           throw Error.noSuchAbbrev(blockID: id, abbrevID: Int(abbrevID))
         }
-        try visitor.visit(record: try readAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4]))
+        try withAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4]) { record in
+          try visitor.visit(record: record)
+        }
       }
     }
 

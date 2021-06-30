@@ -43,15 +43,6 @@ public struct SerializedDiagnostics {
   /// Serialized diagnostics.
   public var diagnostics: [Diagnostic]
 
-  @available(*, deprecated, message: "Use SerializedDiagnostics.init(bytes:) instead")
-  public init(data: Data) throws {
-    var reader = Reader()
-    try Bitcode.read(stream: data, using: &reader)
-    guard let version = reader.versionNumber else { throw Error.noMetadataBlock }
-    self.versionNumber = version
-    self.diagnostics = reader.diagnostics
-  }
-
   public init(bytes: ByteString) throws {
     var reader = Reader()
     try Bitcode.read(bytes: bytes, using: &reader)
@@ -88,7 +79,7 @@ extension SerializedDiagnostics {
     /// Fix-its associated with the diagnostic.
     public var fixIts: [FixIt]
 
-    fileprivate init(records: [BitcodeElement.Record],
+    fileprivate init(records: [SerializedDiagnostics.OwnedRecord],
                      filenameMap: inout [UInt64: String],
                      flagMap: inout [UInt64: String],
                      categoryMap: inout [UInt64: String]) throws {
@@ -107,7 +98,7 @@ extension SerializedDiagnostics {
                 case .blob(let diagnosticBlob) = record.payload
           else { throw Error.malformedRecord }
 
-          text = String(data: diagnosticBlob, encoding: .utf8)
+          text = String(decoding: diagnosticBlob, as: UTF8.self)
           level = Level(rawValue: record.fields[0])
           location = SourceLocation(fields: record.fields[1...4],
                                     filenameMap: filenameMap)
@@ -125,38 +116,38 @@ extension SerializedDiagnostics {
           }
         case .flag:
           guard record.fields.count == 2,
-                case .blob(let flagBlob) = record.payload,
-                let flagText = String(data: flagBlob, encoding: .utf8)
+                case .blob(let flagBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let flagText = String(decoding: flagBlob, as: UTF8.self)
           let diagnosticID = record.fields[0]
           flagMap[diagnosticID] = flagText
 
         case .category:
           guard record.fields.count == 2,
-                case .blob(let categoryBlob) = record.payload,
-                let categoryText = String(data: categoryBlob, encoding: .utf8)
+                case .blob(let categoryBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let categoryText = String(decoding: categoryBlob, as: UTF8.self)
           let categoryID = record.fields[0]
           categoryMap[categoryID] = categoryText
 
         case .filename:
           guard record.fields.count == 4,
-                case .blob(let filenameBlob) = record.payload,
-                let filenameText = String(data: filenameBlob, encoding: .utf8)
+                case .blob(let filenameBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let filenameText = String(decoding: filenameBlob, as: UTF8.self)
           let filenameID = record.fields[0]
           // record.fields[1] and record.fields[2] are no longer used.
           filenameMap[filenameID] = filenameText
 
         case .fixit:
           guard record.fields.count == 9,
-                case .blob(let fixItBlob) = record.payload,
-                let fixItText = String(data: fixItBlob, encoding: .utf8)
+                case .blob(let fixItBlob) = record.payload
           else { throw Error.malformedRecord }
 
+          let fixItText = String(decoding: fixItBlob, as: UTF8.self)
           if let start = SourceLocation(fields: record.fields[0...3],
                                         filenameMap: filenameMap),
              let end = SourceLocation(fields: record.fields[4...7],
@@ -223,7 +214,7 @@ extension SerializedDiagnostics {
     var flagMap = [UInt64: String]()
     var categoryMap = [UInt64: String]()
 
-    var currentDiagnosticRecords: [BitcodeElement.Record] = []
+    var currentDiagnosticRecords: [OwnedRecord] = []
 
     func validate(signature: Bitcode.Signature) throws {
       guard signature == .init(string: "DIAG") else { throw Error.badMagic }
@@ -256,10 +247,44 @@ extension SerializedDiagnostics {
         }
         versionNumber = Int(record.fields[0])
       case .diagnostic:
-        currentDiagnosticRecords.append(record)
+        currentDiagnosticRecords.append(SerializedDiagnostics.OwnedRecord(record))
       case nil:
         throw Error.unexpectedTopLevelRecord
       }
+    }
+  }
+}
+
+extension SerializedDiagnostics {
+  struct OwnedRecord {
+    public enum Payload {
+      case none
+      case array([UInt64])
+      case char6String(String)
+      case blob([UInt8])
+
+      init(_ payload: BitcodeElement.Record.Payload) {
+        switch payload {
+        case .none:
+          self = .none
+        case .array(let a):
+          self = .array(Array(a))
+        case .char6String(let s):
+          self = .char6String(s)
+        case .blob(let b):
+          self = .blob(Array(b))
+        }
+      }
+    }
+
+    public var id: UInt64
+    public var fields: [UInt64]
+    public var payload: Payload
+
+    init(_ record: BitcodeElement.Record) {
+      self.id = record.id
+      self.fields = Array(record.fields)
+      self.payload = Payload(record.payload)
     }
   }
 }
