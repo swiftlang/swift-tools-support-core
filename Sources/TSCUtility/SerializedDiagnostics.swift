@@ -79,7 +79,7 @@ extension SerializedDiagnostics {
     /// Fix-its associated with the diagnostic.
     public var fixIts: [FixIt]
 
-    fileprivate init(records: [BitcodeElement.Record],
+    fileprivate init(records: [SerializedDiagnostics.OwnedRecord],
                      filenameMap: inout [UInt64: String],
                      flagMap: inout [UInt64: String],
                      categoryMap: inout [UInt64: String]) throws {
@@ -184,7 +184,7 @@ extension SerializedDiagnostics {
     /// Clang includes this, it is set to 0 by Swift.
     public var offset: UInt64
 
-    fileprivate init?(fields: Slice<UnsafeBufferPointer<UInt64>>,
+    fileprivate init?(fields: ArraySlice<UInt64>,
                       filenameMap: [UInt64: String]) {
       guard let filename = filenameMap[fields[fields.startIndex]] else { return nil }
       self.filename = filename
@@ -214,7 +214,7 @@ extension SerializedDiagnostics {
     var flagMap = [UInt64: String]()
     var categoryMap = [UInt64: String]()
 
-    var currentDiagnosticRecords: [BitcodeElement.Record] = []
+    var currentDiagnosticRecords: [OwnedRecord] = []
 
     func validate(signature: Bitcode.Signature) throws {
       guard signature == .init(string: "DIAG") else { throw Error.badMagic }
@@ -247,10 +247,44 @@ extension SerializedDiagnostics {
         }
         versionNumber = Int(record.fields[0])
       case .diagnostic:
-        currentDiagnosticRecords.append(record)
+        currentDiagnosticRecords.append(SerializedDiagnostics.OwnedRecord(record))
       case nil:
         throw Error.unexpectedTopLevelRecord
       }
+    }
+  }
+}
+
+extension SerializedDiagnostics {
+  struct OwnedRecord {
+    public enum Payload {
+      case none
+      case array([UInt64])
+      case char6String(String)
+      case blob([UInt8])
+
+      init(_ payload: BitcodeElement.Record.Payload) {
+        switch payload {
+        case .none:
+          self = .none
+        case .array(let a):
+          self = .array(Array(a))
+        case .char6String(let s):
+          self = .char6String(s)
+        case .blob(let b):
+          self = .blob(Array(b))
+        }
+      }
+    }
+
+    public var id: UInt64
+    public var fields: [UInt64]
+    public var payload: Payload
+
+    init(_ record: BitcodeElement.Record) {
+      self.id = record.id
+      self.fields = Array(record.fields)
+      self.payload = Payload(record.payload)
     }
   }
 }
