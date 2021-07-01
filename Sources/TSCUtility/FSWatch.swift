@@ -12,6 +12,9 @@ import TSCBasic
 import Dispatch
 import Foundation
 import TSCLibc
+#if os(Windows)
+import WinSDK
+#endif
 
 /// FSWatch is a cross-platform filesystem watching utility.
 public class FSWatch {
@@ -47,8 +50,10 @@ public class FSWatch {
         self.paths = paths
         self.latency = latency
 
-      #if os(OpenBSD) || os(Windows)
+      #if os(OpenBSD)
         self._watcher = NoOpWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
+      #elseif os(Windows)
+        self._watcher = RDCWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
       #elseif canImport(Glibc)
         var ipaths: [AbsolutePath: Inotify.WatchOptions] = [:]
 
@@ -95,9 +100,12 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if os(OpenBSD) || os(Windows)
+#if os(OpenBSD)
 extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
 extension NoOpWatcher: _FileWatcher{}
+#elseif os(Windows)
+extension FSWatch._WatcherDelegate: RDCWatcherDelegate {}
+extension RDCWatcher: _FileWatcher {}
 #elseif canImport(Glibc)
 extension FSWatch._WatcherDelegate: InotifyDelegate {}
 extension Inotify: _FileWatcher{}
@@ -110,7 +118,7 @@ extension FSEventStream: _FileWatcher{}
 
 // MARK:- inotify
 
-#if os(OpenBSD) || os(Windows)
+#if os(OpenBSD)
 
 public protocol NoOpWatcherDelegate {
     func pathsDidReceiveEvent(_ paths: [AbsolutePath])
@@ -123,6 +131,169 @@ public final class NoOpWatcher {
     public func start() throws {}
 
     public func stop() {}
+}
+
+#elseif os(Windows)
+
+public protocol RDCWatcherDelegate {
+    func pathsDidReceiveEvent(_ paths: [AbsolutePath])
+}
+
+/// Bindings for `ReadDirectoryChangesW` C APIs.
+public final class RDCWatcher {
+    class Watch {
+        var hDirectory: HANDLE
+        let path: String
+        var overlapped: OVERLAPPED
+        var terminate: HANDLE
+        var buffer: UnsafeMutableBufferPointer<DWORD>   // buffer must be DWORD-aligned
+        var thread: TSCBasic.Thread?
+
+        public init(directory handle: HANDLE, _ path: String) {
+            self.hDirectory = handle
+            self.path = path
+            self.overlapped = OVERLAPPED()
+            self.overlapped.hEvent = CreateEventW(nil, false, false, nil)
+            self.terminate = CreateEventW(nil, true, false, nil)
+
+            let EntrySize: Int =
+                    MemoryLayout<FILE_NOTIFY_INFORMATION>.stride + (Int(MAX_PATH) * MemoryLayout<WCHAR>.stride)
+            self.buffer =
+                    UnsafeMutableBufferPointer<DWORD>.allocate(capacity: EntrySize * 4 / MemoryLayout<DWORD>.stride)
+        }
+
+        deinit {
+            SetEvent(self.terminate)
+            CloseHandle(self.terminate)
+            CloseHandle(self.overlapped.hEvent)
+            CloseHandle(hDirectory)
+            self.buffer.deallocate()
+        }
+    }
+
+    /// The paths being watched.
+    private let paths: [AbsolutePath]
+
+    /// The settle period (in seconds).
+    private let settle: Double
+
+    /// The watcher delegate.
+    private let delegate: RDCWatcherDelegate?
+
+    private let watches: [Watch]
+    private let queue: DispatchQueue =
+            DispatchQueue(label: "org.swift.swiftpm.\(RDCWatcher.self).callback")
+
+    public init(paths: [AbsolutePath], latency: Double, delegate: RDCWatcherDelegate? = nil) {
+        self.paths = paths
+        self.settle = latency
+        self.delegate = delegate
+
+        self.watches = paths.map {
+            $0.pathString.withCString(encodedAs: UTF16.self) {
+                let dwDesiredAccess: DWORD = DWORD(FILE_LIST_DIRECTORY)
+                let dwShareMode: DWORD = DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+                let dwCreationDisposition: DWORD = DWORD(OPEN_EXISTING)
+                let dwFlags: DWORD = DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED)
+
+                let handle: HANDLE =
+                        CreateFileW($0, dwDesiredAccess, dwShareMode, nil,
+                                    dwCreationDisposition, dwFlags, nil)
+                assert(!(handle == INVALID_HANDLE_VALUE))
+
+                let dwSize: DWORD = GetFinalPathNameByHandleW(handle, nil, 0, 0)
+                let path: String = String(decodingCString: Array<WCHAR>(unsafeUninitializedCapacity: Int(dwSize) + 1) {
+                    let dwSize: DWORD = GetFinalPathNameByHandleW(handle, $0.baseAddress, DWORD($0.count), 0)
+                    assert(dwSize == $0.count)
+                    $1 = Int(dwSize)
+                }, as: UTF16.self)
+
+                return Watch(directory: handle, path)
+            }
+        }
+    }
+
+    public func start() throws {
+        // TODO(compnerd) can we compress the threads to a single worker thread
+        self.watches.forEach { watch in
+            watch.thread = Thread { [delegate = self.delegate, queue = self.queue, weak watch] in
+                guard let watch = watch else { return }
+
+                while true {
+                    let dwNotifyFilter: DWORD = DWORD(FILE_NOTIFY_CHANGE_FILE_NAME)
+                                              | DWORD(FILE_NOTIFY_CHANGE_DIR_NAME)
+                                              | DWORD(FILE_NOTIFY_CHANGE_SIZE)
+                                              | DWORD(FILE_NOTIFY_CHANGE_LAST_WRITE)
+                                              | DWORD(FILE_NOTIFY_CHANGE_CREATION)
+                    var dwBytesReturned: DWORD = 0
+                    if !ReadDirectoryChangesW(watch.hDirectory, &watch.buffer,
+                                              DWORD(watch.buffer.count * MemoryLayout<DWORD>.stride),
+                                              true, dwNotifyFilter, &dwBytesReturned,
+                                              &watch.overlapped, nil) {
+                        return
+                    }
+
+                    var handles: (HANDLE?, HANDLE?) = (watch.terminate, watch.overlapped.hEvent)
+                    switch WaitForMultipleObjects(2, &handles.0, false, INFINITE) {
+                        case WAIT_OBJECT_0 + 1:
+                            break
+                        case DWORD(WAIT_TIMEOUT):  // Spurious Wakeup?
+                            continue
+                        case WAIT_FAILED:   // Failure
+                            fallthrough
+                        case WAIT_OBJECT_0: // Terminate Request
+                            fallthrough
+                        default:
+                            CloseHandle(watch.hDirectory)
+                            watch.hDirectory = INVALID_HANDLE_VALUE
+                            return
+                    }
+
+                    if !GetOverlappedResult(watch.hDirectory, &watch.overlapped, &dwBytesReturned, false) {
+                        queue.async {
+                            delegate?.pathsDidReceiveEvent([AbsolutePath(watch.path)])
+                        }
+                        return
+                    }
+
+                    // There was a buffer underrun on the kernel side.  We may
+                    // have lost events, please re-synchronize.
+                    if dwBytesReturned == 0 {
+                        return
+                    }
+
+                    var paths: [AbsolutePath] = []
+                    watch.buffer.withMemoryRebound(to: FILE_NOTIFY_INFORMATION.self) {
+                        let pNotify: UnsafeMutablePointer<FILE_NOTIFY_INFORMATION>? =
+                                $0.baseAddress
+                        while var pNotify = pNotify {
+                            // FIXME(compnerd) do we care what type of event was received?
+                            let file: String =
+                                    String(utf16CodeUnitsNoCopy: &pNotify.pointee.FileName,
+                                           count: Int(pNotify.pointee.FileNameLength) / MemoryLayout<WCHAR>.stride,
+                                           freeWhenDone: false)
+                            paths.append(AbsolutePath(file))
+
+                            pNotify = (UnsafeMutableRawPointer(pNotify) + Int(pNotify.pointee.NextEntryOffset))
+                                            .assumingMemoryBound(to: FILE_NOTIFY_INFORMATION.self)
+                        }
+                    }
+
+                    queue.async {
+                        delegate?.pathsDidReceiveEvent(paths)
+                    }
+                }
+            }
+            watch.thread?.start()
+        }
+    }
+
+    public func stop() {
+        self.watches.forEach {
+            SetEvent($0.terminate)
+            $0.thread?.join()
+        }
+    }
 }
 
 #elseif canImport(Glibc)
