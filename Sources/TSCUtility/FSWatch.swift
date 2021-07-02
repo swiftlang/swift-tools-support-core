@@ -95,7 +95,7 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if os(OpenBSD) || os(Windows)
+#if os(OpenBSD) || os(Windows) || os(iOS)
 extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
 extension NoOpWatcher: _FileWatcher{}
 #elseif canImport(Glibc)
@@ -110,7 +110,7 @@ extension FSEventStream: _FileWatcher{}
 
 // MARK:- inotify
 
-#if os(OpenBSD) || os(Windows)
+#if os(OpenBSD) || os(Windows) || os(iOS)
 
 public protocol NoOpWatcherDelegate {
     func pathsDidReceiveEvent(_ paths: [AbsolutePath])
