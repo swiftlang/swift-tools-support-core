@@ -183,7 +183,7 @@ private struct BitstreamReader {
         if case .char6 = element {
           // FIXME: Once the minimum deployment target bumps to macOS 11, use
           // the more ergonomic stdlib API everywhere.
-          if #available(macOS 11.0, *) {
+          if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
             payload = try .char6String(String(unsafeUninitializedCapacity: Int(length)) { buffer in
               for i in 0..<Int(length) {
                 buffer[i] = try UInt8(readSingleAbbreviatedRecordOperand(element))
