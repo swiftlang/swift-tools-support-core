@@ -16,13 +16,18 @@ class TripleTests : XCTestCase {
         let linux = try? Triple("x86_64-unknown-linux-gnu")
         XCTAssertNotNil(linux)
         XCTAssertEqual(linux!.os, .linux)
-        XCTAssertNil(linux!.version)
+        XCTAssertNil(linux!.osVersion)
 
         let macos = try? Triple("x86_64-apple-macosx10.15")
         XCTAssertNotNil(macos!)
-        XCTAssertEqual(macos!.version, "10.15")
+        XCTAssertEqual(macos!.osVersion, "10.15")
         let newVersion = "10.12"
         let tripleString = macos!.tripleString(forPlatformVersion: newVersion)
         XCTAssertEqual(tripleString, "x86_64-apple-macosx10.12")
+
+        let android = try? Triple("aarch64-unknown-linux-android24")
+        XCTAssertNotNil(android)
+        XCTAssertEqual(android!.os, .linux)
+        XCTAssertEqual(android!.abiVersion, "24")
     }
 }

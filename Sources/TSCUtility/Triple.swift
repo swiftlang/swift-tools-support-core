@@ -27,7 +27,8 @@ public struct Triple: Encodable, Equatable {
     public let vendor: Vendor
     public let os: OS
     public let abi: ABI
-    public let version: String?
+    public let osVersion: String?
+    public let abiVersion: String?
 
     public enum Error: Swift.Error {
         case badFormat
@@ -84,16 +85,18 @@ public struct Triple: Encodable, Equatable {
             throw Error.unknownOS
         }
 
-        let version = Triple.parseVersion(components[2])
+        let osVersion = Triple.parseVersion(components[2])
 
         let abi = components.count > 3 ? Triple.parseABI(components[3]) : nil
+        let abiVersion = components.count > 3 ? Triple.parseVersion(components[3]) : nil
 
         self.tripleString = string
         self.arch = arch
         self.vendor = vendor
         self.os = os
-        self.version = version
+        self.osVersion = osVersion
         self.abi = abi ?? .unknown
+        self.abiVersion = abiVersion
     }
 
     fileprivate static func parseOS(_ string: String) -> OS? {
@@ -145,7 +148,7 @@ public struct Triple: Encodable, Equatable {
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        return String(self.tripleString.dropLast(self.version?.count ?? 0)) + version
+        return String(self.tripleString.dropLast(self.osVersion?.count ?? 0)) + version
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx")
