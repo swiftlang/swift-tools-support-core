@@ -44,7 +44,7 @@ class VersionTests: XCTestCase {
             Version(89, 144, 233, prereleaseIdentifiers: [], buildMetadataIdentifiers: ["377"])
         )
     }
-    
+
     func testVersionThrowingInitialization() {
 
         // MARK: Well-formed version core
@@ -64,7 +64,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '3'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "3 5")) { error in
             // checking for version core identifier count comes before checking for alpha-numerical characters
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["3 5"]) = error else {
@@ -73,7 +73,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '3 5'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "5.8")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["5", "8"]) = error else {
                 XCTFail()
@@ -81,7 +81,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '5.8'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "-5.8.13")) { error in
             // the version core is considered empty because of the leading '-'
             // everything after the first '-' is considered as the pre-release information (until the first '+', which doesn't exist in this version string)
@@ -92,7 +92,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core ''")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "8.-13.21")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["8", ""]) = error else {
                 XCTFail()
@@ -100,7 +100,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '8.'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "13.21.-34")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["13", "21", ""]) = error else {
                 XCTFail()
@@ -108,7 +108,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "empty identifiers in version core '13.21.'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: ("-0.0.0" as String))) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount([""]) = error else {
                 XCTFail()
@@ -116,7 +116,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core ''")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "0.-0.0")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["0", ""]) = error else {
                 XCTFail()
@@ -124,7 +124,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '0.'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "0.0.O")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["0", "0", "O"]) = error else {
                 XCTFail()
@@ -132,7 +132,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifier 'O'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "1.l1.O")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["1", "l1", "O"]) = error else {
                 XCTFail()
@@ -140,7 +140,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifiers 'l1', 'O'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "21.34.55.89")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["21", "34", "55", "89"]) = error else {
                 XCTFail()
@@ -148,7 +148,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "more than 3 identifiers in version core '21.34.55.89'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "6 x 9 = 42")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["6 x 9 = 42"]) = error else {
                 XCTFail()
@@ -156,7 +156,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '6 x 9 = 42'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "forty two")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["forty two"]) = error else {
                 XCTFail()
@@ -164,7 +164,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core 'forty two'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "一点二点三")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("一点二点三") = error else {
                 XCTFail()
@@ -172,23 +172,23 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string '一点二点三'")
         }
-        
+
         // MARK: Well-formed version core, well-formed pre-release identifiers
-        
+
         XCTAssertNoThrow(try Version(versionString: "0.0.0-pre-alpha"))
         XCTAssertEqual(try! Version(versionString: "0.0.0-pre-alpha"), Version(0, 0, 0, prereleaseIdentifiers: ["pre-alpha"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "55.89.144-beta.1"))
         XCTAssertEqual(try! Version(versionString: "55.89.144-beta.1"), Version(55, 89, 144, prereleaseIdentifiers: ["beta", "1"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "89.144.233-a.whole..lot.of.pre-release.identifiers"))
         XCTAssertEqual(try! Version(versionString: "89.144.233-a.whole..lot.of.pre-release.identifiers"), Version(89, 144, 233, prereleaseIdentifiers: ["a", "whole", "", "lot", "of", "pre-release", "identifiers"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "144.233.377-"))
         XCTAssertEqual(try! Version(versionString: "144.233.377-"), Version(144, 233, 377, prereleaseIdentifiers: [""]))
-        
+
         // MARK: Well-formed version core, malformed pre-release identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "233.377.610-hello world")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalPrereleaseIdentifiers(["hello world"]) = error else {
                 XCTFail()
@@ -196,7 +196,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in pre-release identifier 'hello world'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "1.2.3-测试版")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("1.2.3-测试版") = error else {
                 XCTFail()
@@ -204,9 +204,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string '1.2.3-测试版'")
         }
-        
+
         // MARK: Malformed version core, well-formed pre-release identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "987-Hello.world--------")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["987"]) = error else {
                 XCTFail()
@@ -214,7 +214,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '987'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "987.1597-half-life.3")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["987", "1597"]) = error else {
                 XCTFail()
@@ -222,7 +222,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '987.1597'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "1597.2584.4181.6765-a.whole.lot.of.pre-release.identifiers")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["1597", "2584", "4181", "6765"]) = error else {
                 XCTFail()
@@ -230,7 +230,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "more than 3 identifiers in version core '1597.2584.4181.6765'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "6 x 9 = 42-")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["6 x 9 = 42"]) = error else {
                 XCTFail()
@@ -238,7 +238,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '6 x 9 = 42'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "forty-two")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["forty"]) = error else {
                 XCTFail()
@@ -246,7 +246,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core 'forty'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "l.2.3")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["l", "2", "3"]) = error else {
                 XCTFail()
@@ -254,7 +254,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifier 'l'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "l.b.3")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["l", "b", "3"]) = error else {
                 XCTFail()
@@ -262,7 +262,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifiers 'l', 'b'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "l.2.З")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("l.2.З") = error else {
                 XCTFail()
@@ -270,7 +270,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string 'l.2.З'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "一点二点三-beta")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("一点二点三-beta") = error else {
                 XCTFail()
@@ -278,23 +278,23 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string '一点二点三-beta'")
         }
-        
+
         // MARK: Well-formed version core, well-formed build metadata identifiers
-        
+
         XCTAssertNoThrow(try Version(versionString: "0.0.0+some-metadata"))
         XCTAssertEqual(try! Version(versionString: "0.0.0+some-metadata"), Version(0, 0, 0, buildMetadataIdentifiers: ["some-metadata"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "4181.6765.10946+more.meta..more.data"))
         XCTAssertEqual(try! Version(versionString: "4181.6765.10946+more.meta..more.data"), Version(4181, 6765, 10946, buildMetadataIdentifiers: ["more", "meta", "", "more", "data"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "6765.10946.17711+-a-very--long---build-----metadata--------identifier-------------with---------------------many----------------------------------hyphens-------------------------------------------------------"))
         XCTAssertEqual(try! Version(versionString: "6765.10946.17711+-a-very--long---build-----metadata--------identifier-------------with---------------------many----------------------------------hyphens-------------------------------------------------------"), Version(6765, 10946, 17711, buildMetadataIdentifiers: ["-a-very--long---build-----metadata--------identifier-------------with---------------------many----------------------------------hyphens-------------------------------------------------------"]))
-        
+
         XCTAssertNoThrow(try Version(versionString: "10946.17711.28657+"))
         XCTAssertEqual(try! Version(versionString: "10946.17711.28657+"), Version(10946, 17711, 28657, buildMetadataIdentifiers: [""]))
-        
+
         // MARK: Well-formed version core, malformed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "17711.28657.46368+hello world.hello-.-world")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalBuildMetadataIdentifiers(["hello world", "hello-", "-world"]) = error else {
                 XCTFail()
@@ -302,7 +302,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in build metadata identifier 'hello world'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "28657.46368.75025+hello+world.hello world")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalBuildMetadataIdentifiers(["hello+world", "hello world"]) = error else {
                 XCTFail()
@@ -310,9 +310,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in build metadata identifiers 'hello+world', 'hello world'")
         }
-        
+
         // MARK: Malformed version core, well-formed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "121393+Hello.world--------")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["121393"]) = error else {
                 XCTFail()
@@ -320,7 +320,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '121393'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "121393.196418+half-life.3")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["121393", "196418"]) = error else {
                 XCTFail()
@@ -328,7 +328,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '121393.196418'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "196418.317811.514229.832040+a.whole.lot.of.build.metadata.identifiers")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["196418", "317811", "514229", "832040"]) = error else {
                 XCTFail()
@@ -336,7 +336,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "more than 3 identifiers in version core '196418.317811.514229.832040'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "196418.317811.514229.83204O+a.whole.lot.of.build.metadata.identifiers")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["196418", "317811", "514229", "83204O"]) = error else {
                 XCTFail()
@@ -344,7 +344,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "more than 3 identifiers in version core '196418.317811.514229.83204O'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "196418.317811.83204O+a.whole.lot.of.build.metadata.identifiers")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["196418", "317811", "83204O"]) = error else {
                 XCTFail()
@@ -352,7 +352,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifier '83204O'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "abc.def.ghi+a.whole.lot.of.build.metadata.identifiers")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["abc", "def", "ghi"]) = error else {
                 XCTFail()
@@ -360,7 +360,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifiers 'abc', 'def', 'ghi'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "6 x 9 = 42+")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["6 x 9 = 42"]) = error else {
                 XCTFail()
@@ -368,7 +368,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '6 x 9 = 42'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "forty two+a-very-long-build-metadata-identifier-with-many-hyphens")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["forty two"]) = error else {
                 XCTFail()
@@ -376,7 +376,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core 'forty two'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "一.二.三+build.metadata")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("一.二.三+build.metadata") = error else {
                 XCTFail()
@@ -384,14 +384,14 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string '一.二.三+build.metadata'")
         }
-        
+
         // MARK: Well-formed version core, well-formed pre-release identifiers, well-formed build metadata identifiers
-        
+
         XCTAssertNoThrow(try Version(versionString: "0.0.0-beta.-42+42-42.42"))
         XCTAssertEqual(try! Version(versionString: "0.0.0-beta.-42+42-42.42"), Version(0, 0, 0, prereleaseIdentifiers: ["beta", "-42"], buildMetadataIdentifiers: ["42-42", "42"]))
-        
+
         // MARK: Well-formed version core, well-formed pre-release identifiers, malformed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "514229.832040.1346269-beta1+  ")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalBuildMetadataIdentifiers(["  "]) = error else {
                 XCTFail()
@@ -399,9 +399,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in build metadata identifier '  '")
         }
-        
+
         // MARK: Well-formed version core, malformed pre-release identifiers, well-formed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "832040.1346269.2178309-beta 1.-+-")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalPrereleaseIdentifiers(["beta 1", "-"]) = error else {
                 XCTFail()
@@ -409,9 +409,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in pre-release identifier 'beta 1'")
         }
-        
+
         // MARK: Well-formed version core, malformed pre-release identifiers, malformed build metadata identifiers
-        
+
         // pre-release is diagnosed before build metadata is
         XCTAssertThrowsError(try Version(versionString: "1346269.2178309.3524578-beta 1++")) { error in
             guard let error = error as? VersionError, case .nonAlphaNumerHyphenalPrereleaseIdentifiers(["beta 1"]) = error else {
@@ -420,9 +420,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "characters other than alpha-numerics and hyphens in pre-release identifier 'beta 1'")
         }
-        
+
         // MARK: malformed version core, well-formed pre-release identifiers, well-formed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: " 832040.1346269.3524578-beta1+abc")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers([" 832040", "1346269", "3524578"]) = error else {
                 XCTFail()
@@ -430,9 +430,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifier ' 832040'")
         }
-        
+
         // MARK: malformed version core, well-formed pre-release identifiers, malformed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "l346269.3524578.5702887-beta1+😀")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("l346269.3524578.5702887-beta1+😀") = error else {
                 XCTFail()
@@ -440,7 +440,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string 'l346269.3524578.5702887-beta1+😀'")
         }
-        
+
         // version core is diagnosed before build metadata is
         XCTAssertThrowsError(try Version(versionString: "l346269.abc.OOO-beta1+++.+.+")) { error in
             guard let error = error as? VersionError, case .nonNumericalOrEmptyVersionCoreIdentifiers(["l346269", "abc", "OOO"]) = error else {
@@ -449,9 +449,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifiers 'l346269', 'abc', 'OOO'")
         }
-        
+
         // MARK: malformed version core, malformed pre-release identifiers, well-formed build metadata identifiers
-        
+
         XCTAssertNil(Version("352A578.5702887.9227465-beta!@#$%^&*1+asdfghjkl123456789" as String))
         // version core is diagnosed before pre-release is
         XCTAssertThrowsError(try Version(versionString: "352A578.5702887.9227465-beta!@#$%^&*1+asdfghjkl123456789")) { error in
@@ -461,9 +461,9 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-numerical characters in version core identifier '352A578'")
         }
-        
+
         // MARK: malformed version core, malformed pre-release identifiers, malformed build metadata identifiers
-        
+
         XCTAssertThrowsError(try Version(versionString: "5702887.9227465-bètá1+±")) { error in
             guard let error = error as? VersionError, case .nonASCIIVersionString("5702887.9227465-bètá1+±") = error else {
                 XCTFail()
@@ -471,7 +471,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "non-ASCII characters in version string '5702887.9227465-bètá1+±'")
         }
-        
+
         XCTAssertThrowsError(try Version(versionString: "5702887.9227465-bet@.1!+met@.d@t@")) { error in
             guard let error = error as? VersionError, case .invalidVersionCoreIdentifiersCount(["5702887", "9227465"]) = error else {
                 XCTFail()
@@ -479,7 +479,7 @@ class VersionTests: XCTestCase {
             }
             XCTAssertEqual(error.description, "fewer than 3 identifiers in version core '5702887.9227465'")
         }
-        
+
     }
 
     func testVersionComparison() {
@@ -778,7 +778,7 @@ class VersionTests: XCTestCase {
         XCTAssert(!(Version(1,0,0) < Version(1,0,0)))
         XCTAssert(!(Version(2,0,0) < Version(1,0,0)))
     }
-    
+
     func testAdditionalVersionEquality() {
         let versions: [Version] = ["1.2.3", "0.0.0",
             "0.0.0-alpha+yol", "0.0.0-alpha.1+pol",
@@ -1008,7 +1008,7 @@ class VersionTests: XCTestCase {
         XCTAssertEqual("4181.6765.10946+more.meta..more.data" as Version, Version(4181, 6765, 10946, buildMetadataIdentifiers: ["more", "meta", "", "more", "data"]))
         XCTAssertEqual("6765.10946.17711+-a-very--long---build-----metadata--------identifier-------------with---------------------many----------------------------------hyphens-------------------------------------------------------" as Version, Version(6765, 10946, 17711, buildMetadataIdentifiers: ["-a-very--long---build-----metadata--------identifier-------------with---------------------many----------------------------------hyphens-------------------------------------------------------"]))
         XCTAssertEqual("10946.17711.28657+" as Version, Version(10946, 17711, 28657, buildMetadataIdentifiers: [""]))
-        
+
     }
 
     func testAdditionalInitializationFromString() {

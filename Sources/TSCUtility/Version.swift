@@ -57,7 +57,7 @@ public enum VersionError: Error, CustomStringConvertible {
     case nonAlphaNumerHyphenalPrereleaseIdentifiers(_ identifiers: [String])
     /// Some or all of the build metadata identifiers contain characters other than alpha-numerics and hyphens.
     case nonAlphaNumerHyphenalBuildMetadataIdentifiers(_ identifiers: [String])
-    
+
     public var description: String {
         switch self {
         case let .nonASCIIVersionString(versionString):
@@ -99,18 +99,18 @@ extension Version {
         guard versionString.allSatisfy(\.isASCII) else {
             throw VersionError.nonASCIIVersionString(versionString)
         }
-        
+
         let metadataDelimiterIndex = versionString.firstIndex(of: "+")
         // SemVer 2.0.0 requires that pre-release identifiers come before build metadata identifiers
         let prereleaseDelimiterIndex = versionString[..<(metadataDelimiterIndex ?? versionString.endIndex)].firstIndex(of: "-")
-        
+
         let versionCore = versionString[..<(prereleaseDelimiterIndex ?? metadataDelimiterIndex ?? versionString.endIndex)]
         let versionCoreIdentifiers = versionCore.split(separator: ".", omittingEmptySubsequences: false)
 
         guard versionCoreIdentifiers.count == 3 else {
             throw VersionError.invalidVersionCoreIdentifiersCount(versionCoreIdentifiers.map { String($0) })
         }
-        
+
         guard
             // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
             // Converting each identifier from a substring to an integer doubles as checking if the identifiers have non-numeric characters.
@@ -120,11 +120,11 @@ extension Version {
         else {
             throw VersionError.nonNumericalOrEmptyVersionCoreIdentifiers(versionCoreIdentifiers.map { String($0) })
         }
-        
+
         self.major = major
         self.minor = minor
         self.patch = patch
-        
+
         if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
             let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
@@ -150,17 +150,17 @@ extension Version {
 }
 
 extension Version: Comparable, Hashable {
-    
+
     func isEqualWithoutPrerelease(_ other: Version) -> Bool {
         return major == other.major && minor == other.minor && patch == other.patch
     }
-    
+
     // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/apple/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
     @inlinable
     public static func == (lhs: Version, rhs: Version) -> Bool {
         !(lhs < rhs) && !(lhs > rhs)
     }
-    
+
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
@@ -174,7 +174,7 @@ extension Version: Comparable, Hashable {
         }
 
         guard rhs.prereleaseIdentifiers.count > 0 else {
-            return true // Prerelease lhs < non-prerelease rhs 
+            return true // Prerelease lhs < non-prerelease rhs
         }
 
         let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)
@@ -198,7 +198,7 @@ extension Version: Comparable, Hashable {
 
         return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
-    
+
     // Custom `Equatable` conformance leads to custom `Hashable` conformance.
     // [SR-11588](https://bugs.swift.org/browse/SR-11588)
     public func hash(into hasher: inout Hasher) {
