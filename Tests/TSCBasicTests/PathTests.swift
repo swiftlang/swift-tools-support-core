@@ -289,13 +289,26 @@ class PathTests: XCTestCase {
         XCTAssertTrue(AbsolutePath("/2.1") >= AbsolutePath("/2"));
     }
 
-    func testContains() {
-        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f").contains(AbsolutePath("/a/b/c/d")))
-        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f.swift").contains(AbsolutePath("/a/b/c")))
-        XCTAssertTrue(AbsolutePath("/").contains(AbsolutePath("/")))
-        XCTAssertTrue(AbsolutePath("/foo/bar").contains(AbsolutePath("/")))
-        XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/foo/bar/baz")))
-        XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/bar")))
+    func testAncestry() {
+        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f").isDescendantOfOrEqual(to: AbsolutePath("/a/b/c/d")))
+        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f.swift").isDescendantOfOrEqual(to: AbsolutePath("/a/b/c")))
+        XCTAssertTrue(AbsolutePath("/").isDescendantOfOrEqual(to: AbsolutePath("/")))
+        XCTAssertTrue(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/")))
+        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/foo/bar/baz")))
+        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/bar")))
+
+        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendant(of: AbsolutePath("/foo/bar")))
+        XCTAssertTrue(AbsolutePath("/foo/bar").isDescendant(of: AbsolutePath("/foo")))
+
+        XCTAssertTrue(AbsolutePath("/a/b/c/d").isAncestorOfOrEqual(to: AbsolutePath("/a/b/c/d/e/f")))
+        XCTAssertTrue(AbsolutePath("/a/b/c").isAncestorOfOrEqual(to: AbsolutePath("/a/b/c/d/e/f.swift")))
+        XCTAssertTrue(AbsolutePath("/").isAncestorOfOrEqual(to: AbsolutePath("/")))
+        XCTAssertTrue(AbsolutePath("/").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
+        XCTAssertFalse(AbsolutePath("/foo/bar/baz").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
+        XCTAssertFalse(AbsolutePath("/bar").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
+
+        XCTAssertFalse(AbsolutePath("/foo/bar").isAncestor(of: AbsolutePath("/foo/bar")))
+        XCTAssertTrue(AbsolutePath("/foo").isAncestor(of: AbsolutePath("/foo/bar")))
     }
 
     func testAbsolutePathValidation() {
