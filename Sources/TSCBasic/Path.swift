@@ -911,10 +911,42 @@ extension AbsolutePath {
     ///
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
+    @available(*, deprecated, renamed: "isDescendantOfOrEqual(to:)")
     public func contains(_ other: AbsolutePath) -> Bool {
-        return self.components.starts(with: other.components)
+        return isDescendantOfOrEqual(to: other)
     }
 
+    /// Returns true if the path is an ancestor of the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isAncestor(of descendant: AbsolutePath) -> Bool {
+        return descendant.components.dropLast().starts(with: self.components)
+    }
+
+    /// Returns true if the path is an ancestor of or equal to the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isAncestorOfOrEqual(to descendant: AbsolutePath) -> Bool {
+        return descendant.components.starts(with: self.components)
+    }
+
+    /// Returns true if the path is a descendant of the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isDescendant(of ancestor: AbsolutePath) -> Bool {
+        return self.components.dropLast().starts(with: ancestor.components)
+    }
+
+    /// Returns true if the path is a descendant of or equal to the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isDescendantOfOrEqual(to ancestor: AbsolutePath) -> Bool {
+        return self.components.starts(with: ancestor.components)
+    }
 }
 
 extension PathValidationError: CustomNSError {

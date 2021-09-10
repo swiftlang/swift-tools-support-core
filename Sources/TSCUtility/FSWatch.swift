@@ -100,7 +100,7 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if os(OpenBSD)
+#if os(OpenBSD) || os(iOS)
 extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
 extension NoOpWatcher: _FileWatcher{}
 #elseif os(Windows)
@@ -118,7 +118,7 @@ extension FSEventStream: _FileWatcher{}
 
 // MARK:- inotify
 
-#if os(OpenBSD)
+#if os(OpenBSD) || os(iOS)
 
 public protocol NoOpWatcherDelegate {
     func pathsDidReceiveEvent(_ paths: [AbsolutePath])
@@ -404,10 +404,10 @@ public final class Inotify {
     private var wds: [Int32: AbsolutePath] = [:]
 
     /// The queue on which we read the events.
-    private let readQueue = DispatchQueue(label: "org.swift.swiftpm.\(Inotify.self).read)")
+    private let readQueue = DispatchQueue(label: "org.swift.swiftpm.\(Inotify.self).read")
 
     /// Callback queue for the delegate.
-    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.\(Inotify.self).callback)")
+    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.\(Inotify.self).callback")
 
     /// Condition for handling event reporting.
     private var reportCondition = Condition()
@@ -796,7 +796,7 @@ public final class FSEventStream {
     private var runLoop: CFRunLoop?
 
     /// Callback queue for the delegate.
-    fileprivate let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.\(FSEventStream.self).callback)")
+    fileprivate let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.\(FSEventStream.self).callback")
 
     public init(
         paths: [AbsolutePath],

@@ -29,6 +29,9 @@ let package = Package(
     ],
     products: [
         .library(
+            name: "TSCBasic",
+            targets: ["TSCBasic"]),
+        .library(
             name: "SwiftToolsSupport",
             type: .dynamic,
             targets: ["TSCBasic", "TSCUtility"]),

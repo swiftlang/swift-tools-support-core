@@ -66,6 +66,12 @@ public extension WritableByteStream {
 // Public alias to the old name to not introduce API compatibility.
 public typealias OutputByteStream = WritableByteStream
 
+#if os(Android)
+public typealias FILEPointer = OpaquePointer
+#else
+public typealias FILEPointer = UnsafeMutablePointer<FILE>
+#endif
+
 extension WritableByteStream {
     /// Write a sequence of bytes to the buffer.
     public func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
@@ -670,7 +676,7 @@ public class FileOutputByteStream: _WritableByteStreamBase {
 public final class LocalFileOutputByteStream: FileOutputByteStream {
 
     /// The pointer to the file.
-    let filePointer: UnsafeMutablePointer<FILE>
+    let filePointer: FILEPointer
 
     /// Set to an error value if there were any IO error during writing.
     private var error: FileSystemError?
@@ -682,7 +688,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     private let path: AbsolutePath?
 
     /// Instantiate using the file pointer.
-    public init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
+    public init(filePointer: FILEPointer, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
         self.path = nil
