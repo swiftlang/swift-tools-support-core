@@ -2,11 +2,16 @@ import Foundation
 import TSCBasic
 
 /// Supplies `Authorization` header, typically to be appended to `URLRequest`
+
+// deprecated 9/2021
+@available(*, deprecated)
 public protocol AuthorizationProviding {
     /// Optional `Authorization` header, likely added to `URLRequest`
     func authorization(for url: Foundation.URL) -> String?
 }
 
+// deprecated 9/2021
+@available(*, deprecated)
 extension AuthorizationProviding {
     public func authorization(for url: Foundation.URL) -> String? {
         return nil
@@ -17,9 +22,9 @@ extension AuthorizationProviding {
  Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
  which is only available in macOS 10.13+, iOS 11+, etc at this time.
  */
-@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 /// Container of parsed netrc connection settings
-public struct Netrc: AuthorizationProviding {
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
+public struct Netrc {
     /// Representation of `machine` connection settings & `default` connection settings.
     /// If `default` connection settings present, they will be last element.
     public let machines: [Machine]
@@ -62,7 +67,7 @@ public struct Netrc: AuthorizationProviding {
         
         let machines: [Machine] = matches.compactMap {
             return Machine(for: $0, string: content, variant: "lp") ??
-                Machine(for: $0, string: content, variant: "pl")
+            Machine(for: $0, string: content, variant: "pl")
         }
         
         if let defIndex = machines.firstIndex(where: { $0.isDefault }) {
@@ -87,6 +92,11 @@ public struct Netrc: AuthorizationProviding {
         return trimmedCommentsText
     }
 }
+
+// deprecated 9/2021
+@available(*, deprecated)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
+extension Netrc: AuthorizationProviding {}
 
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public extension Netrc {
@@ -117,10 +127,10 @@ public extension Netrc {
         
         init?(for match: NSTextCheckingResult, string: String, variant: String = "") {
             guard let name = RegexUtil.Token.machine.capture(in: match, string: string) ?? RegexUtil.Token.default.capture(in: match, string: string),
-                let login = RegexUtil.Token.login.capture(prefix: variant, in: match, string: string),
-                let password = RegexUtil.Token.password.capture(prefix: variant, in: match, string: string) else {
-                    return nil
-            }
+                  let login = RegexUtil.Token.login.capture(prefix: variant, in: match, string: string),
+                  let password = RegexUtil.Token.password.capture(prefix: variant, in: match, string: string) else {
+                      return nil
+                  }
             self = Machine(name: name, login: login, password: password)
         }
     }

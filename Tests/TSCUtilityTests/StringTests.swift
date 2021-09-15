@@ -57,6 +57,7 @@ class StringTests: XCTestCase {
 }
 
 class URLTests: XCTestCase {
+    @available(*, deprecated)
     func testSchema() {
         XCTAssertEqual(TSCUtility.URL.scheme("http://github.com/foo/bar"), "http")
         XCTAssertEqual(TSCUtility.URL.scheme("https://github.com/foo/bar"), "https")

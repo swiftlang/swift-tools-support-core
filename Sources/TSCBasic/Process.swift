@@ -119,8 +119,7 @@ public struct ProcessResult: CustomStringConvertible {
 /// Process allows spawning new subprocesses and working with them.
 ///
 /// Note: This class is thread safe.
-public final class Process: ObjectIdentifierProtocol {
-
+public final class Process {
     /// Errors when attempting to invoke a process
     public enum Error: Swift.Error {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
@@ -834,6 +833,16 @@ extension Process {
 
     public convenience init(args: String..., environment: [String: String] = ProcessEnv.vars, outputRedirection: OutputRedirection = .collect) {
         self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
+    }
+}
+
+extension Process: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Process, rhs: Process) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

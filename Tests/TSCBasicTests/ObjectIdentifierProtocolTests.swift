@@ -12,6 +12,7 @@ import XCTest
 
 import TSCBasic
 
+@available(*, deprecated)
 final class Person {
     let name: String
     init(_ name: String) {
@@ -19,8 +20,10 @@ final class Person {
     }
 }
 
+@available(*, deprecated)
 extension Person: ObjectIdentifierProtocol {}
 
+@available(*, deprecated)
 class ObjectIdentifierProtocolTests: XCTestCase {
 
     func testBasics() {
