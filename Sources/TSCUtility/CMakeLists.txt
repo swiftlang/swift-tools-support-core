@@ -17,7 +17,6 @@ add_library(TSCUtility
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
-  Downloader.swift
   FSWatch.swift
   FloatingPointExtensions.swift
   Git.swift
