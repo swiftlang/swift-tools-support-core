@@ -617,11 +617,15 @@ private struct UNIXPath: Path {
 
     init(normalizingRelativePath path: String) {
       #if os(Windows)
-        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
-        _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
-            PathCanonicalizeW(&buffer, $0)
+        if path.isEmpty || path == "." {
+            self.init(string: ".")
+        } else {
+            var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+            _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
+                PathCanonicalizeW(&buffer, $0)
+            }
+            self.init(string: String(decodingCString: buffer, as: UTF16.self))
         }
-        self.init(string: String(decodingCString: buffer, as: UTF16.self))
       #else
         precondition(path.first != "/")
 
