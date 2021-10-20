@@ -11,19 +11,19 @@
 import TSCLibc
 import TSCBasic
 
-/// Interrupt signal handling global variables
-private var wasInterrupted = false
-private var wasInterruptedLock = Lock()
-#if os(Windows)
-private var signalWatchingPipe: [HANDLE] = [INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE]
-#else
-private var signalWatchingPipe: [Int32] = [0, 0]
-private var oldAction = sigaction()
-#endif
-
 /// This class can be used by command line tools to install a handler which
 /// should be called when a interrupt signal is delivered to the process.
+@available(*, deprecated, message: "use DispatchSource instead")
 public final class InterruptHandler {
+    /// Interrupt signal handling global variables
+    private static var wasInterrupted = false
+    private static var wasInterruptedLock = Lock()
+    #if os(Windows)
+    private static var signalWatchingPipe: [HANDLE] = [INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE]
+    #else
+    private static var signalWatchingPipe: [Int32] = [0, 0]
+    private static var oldAction = sigaction()
+    #endif
 
     /// The thread which waits to be notified when a signal is received.
     let thread: Thread
@@ -35,20 +35,27 @@ public final class InterruptHandler {
 
     /// Start watching for interrupt signal and call the handler whenever the signal is received.
     public init(_ handler: @escaping () -> Void) throws {
+        // Swift reserves the right to lazily-initialize globals & statics
+        // force initialize the statics so they as signal-safe
+        _ = Self.wasInterrupted
+        _ = Self.wasInterruptedLock
+        _ = Self.signalWatchingPipe
+        _ = Self.oldAction
+
         // Create a signal handler.
-        signalHandler = { _ in
+        self.signalHandler = { _ in
             // Turn on the interrupt bool.
-            wasInterruptedLock.withLock {
-                wasInterrupted = true
+            InterruptHandler.wasInterruptedLock.withLock {
+                InterruptHandler.wasInterrupted = true
             }
             // Write on pipe to notify the watching thread.
             var byte: UInt8 = 0
           #if os(Windows)
             var bytesWritten: DWORD = 0
-            WriteFile(signalWatchingPipe[1], &byte, 1, &bytesWritten, nil)
+            WriteFile(InterruptHandler.signalWatchingPipe[1], &byte, 1, &bytesWritten, nil)
             return true
           #else
-            write(signalWatchingPipe[1], &byte, 1)
+            write(InterruptHandler.signalWatchingPipe[1], &byte, 1)
           #endif
         }
       #if os(Windows)
@@ -57,25 +64,25 @@ public final class InterruptHandler {
         var readPipe: HANDLE?
         var writePipe: HANDLE?
         let rv = CreatePipe(&readPipe, &writePipe, nil, 1)
-        signalWatchingPipe = [readPipe!, writePipe!]
+        Self.signalWatchingPipe = [readPipe!, writePipe!]
         guard rv else {
             throw SystemError.pipe(Int32(GetLastError()))
         }
       #else
         var action = sigaction()
       #if canImport(Darwin) || os(OpenBSD)
-        action.__sigaction_u.__sa_handler = signalHandler
+        action.__sigaction_u.__sa_handler = self.signalHandler
       #elseif os(Android)
-        action.sa_handler = signalHandler
+        action.sa_handler = self.signalHandler
       #else
         action.__sigaction_handler = unsafeBitCast(
-            signalHandler,
+            self.signalHandler,
             to: sigaction.__Unnamed_union___sigaction_handler.self)
       #endif
         // Install the new handler.
-        sigaction(SIGINT, &action, &oldAction)
+        sigaction(SIGINT, &action, &Self.oldAction)
         // Create pipe.
-        let rv = TSCLibc.pipe(&signalWatchingPipe)
+        let rv = TSCLibc.pipe(&Self.signalWatchingPipe)
         guard rv == 0 else {
             throw SystemError.pipe(rv)
         }
@@ -88,16 +95,16 @@ public final class InterruptHandler {
                 var buf: Int8 = 0
               #if os(Windows)
                 var n: DWORD = 0
-                ReadFile(signalWatchingPipe[1], &buf, 1, &n, nil)
+                ReadFile(Self.signalWatchingPipe[1], &buf, 1, &n, nil)
               #else
-                let n = read(signalWatchingPipe[0], &buf, 1)
+                let n = read(Self.signalWatchingPipe[0], &buf, 1)
               #endif
                 // Pipe closed, nothing to do.
                 if n == 0 { break }
                 // Read the value of wasInterrupted and set it to false.
-                let wasInt = wasInterruptedLock.withLock { () -> Bool in
-                    let oldValue = wasInterrupted
-                    wasInterrupted = false
+                let wasInt = Self.wasInterruptedLock.withLock { () -> Bool in
+                    let oldValue = Self.wasInterrupted
+                    Self.wasInterrupted = false
                     return oldValue
                 }
                 // Terminate all processes if was interrupted.
@@ -106,9 +113,9 @@ public final class InterruptHandler {
                 }
             }
           #if os(Windows)
-            CloseHandle(signalWatchingPipe[0])
+            CloseHandle(Self.signalWatchingPipe[0])
           #else
-            close(signalWatchingPipe[0])
+            close(Self.signalWatchingPipe[0])
           #endif
         }
         thread.start()
@@ -116,12 +123,12 @@ public final class InterruptHandler {
 
     deinit {
       #if os(Windows)
-        SetConsoleCtrlHandler(signalHandler, false)
+        SetConsoleCtrlHandler(self.signalHandler, false)
         CloseHandle(signalWatchingPipe[1])
       #else
         // Restore the old action and close the write end of pipe.
-        sigaction(SIGINT, &oldAction, nil)
-        close(signalWatchingPipe[1])
+        sigaction(SIGINT, &Self.oldAction, nil)
+        close(Self.signalWatchingPipe[1])
       #endif
         thread.join()
     }
