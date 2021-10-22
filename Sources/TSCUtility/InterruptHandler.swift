@@ -40,7 +40,9 @@ public final class InterruptHandler {
         _ = Self.wasInterrupted
         _ = Self.wasInterruptedLock
         _ = Self.signalWatchingPipe
+#if !os(Windows)
         _ = Self.oldAction
+#endif
 
         // Create a signal handler.
         self.signalHandler = { _ in
@@ -124,7 +126,7 @@ public final class InterruptHandler {
     deinit {
       #if os(Windows)
         SetConsoleCtrlHandler(self.signalHandler, false)
-        CloseHandle(signalWatchingPipe[1])
+        CloseHandle(Self.signalWatchingPipe[1])
       #else
         // Restore the old action and close the write end of pipe.
         sigaction(SIGINT, &Self.oldAction, nil)
