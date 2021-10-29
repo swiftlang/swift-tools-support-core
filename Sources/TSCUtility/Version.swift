@@ -137,7 +137,7 @@ extension Version {
         if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
             let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
-            guard prereleaseIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else {
+            guard prereleaseIdentifiers.allSatisfy( { $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) } ) else {
                 throw VersionError.nonAlphaNumerHyphenalPrereleaseIdentifiers(prereleaseIdentifiers.map { String($0) })
             }
             self.prereleaseIdentifiers = prereleaseIdentifiers.map { String($0) }
@@ -148,7 +148,7 @@ extension Version {
         if let metadataDelimiterIndex = metadataDelimiterIndex {
             let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
             let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
-            guard buildMetadataIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else {
+            guard buildMetadataIdentifiers.allSatisfy( { $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) } ) else {
                 throw VersionError.nonAlphaNumerHyphenalBuildMetadataIdentifiers(buildMetadataIdentifiers.map { String($0) })
             }
             self.buildMetadataIdentifiers = buildMetadataIdentifiers.map { String($0) }

@@ -30,17 +30,17 @@ class miscTests: XCTestCase {
 
     func testVersion() throws {
         // Valid.
-        XCTAssertEqual(Version(string: "0.9.21-alpha.beta+1011"),
+        XCTAssertEqual(Version("0.9.21-alpha.beta+1011"),
             Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifiers: ["1011"]))
-        XCTAssertEqual(Version(string: "0.9.21+1011"),
+        XCTAssertEqual(Version("0.9.21+1011"),
             Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifiers: ["1011"]))
-        XCTAssertEqual(Version(string: "01.002.0003"), Version(1,2,3))
-        XCTAssertEqual(Version(string: "0.9.21"), Version(0,9,21))
+        XCTAssertEqual(Version("01.002.0003"), Version(1,2,3))
+        XCTAssertEqual(Version("0.9.21"), Version(0,9,21))
 
         // Invalid.
         let invalidVersions = ["foo", "1", "1.0", "1.0.", "1.0.0."]
         for v in invalidVersions {
-            XCTAssertTrue(Version(string: v) == nil)
+            XCTAssertTrue(Version(v) == nil)
         }
     }
 }
