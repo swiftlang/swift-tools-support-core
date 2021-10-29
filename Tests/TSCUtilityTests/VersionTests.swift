@@ -1454,15 +1454,15 @@ class VersionTests: XCTestCase {
             "-1.2.3", "1.-2.3", "1.2.-3", ".1.2.3", "v.1.2.3", "1.2..3", "v1.2.3",
         ]
         for str in badStrings {
-            XCTAssertNil(Version(string: str))
+            XCTAssertNil(Version(str))
         }
 
-        XCTAssertEqual(Version(1,2,3), Version(string: "1.2.3"))
-        XCTAssertEqual(Version(1,2,3), Version(string: "01.002.0003"))
-        XCTAssertEqual(Version(0,9,21), Version(string: "0.9.21"))
+        XCTAssertEqual(Version(1,2,3), Version("1.2.3"))
+        XCTAssertEqual(Version(1,2,3), Version("01.002.0003"))
+        XCTAssertEqual(Version(0,9,21), Version("0.9.21"))
         XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifiers: ["1011"]),
-            Version(string: "0.9.21-alpha.beta+1011"))
-        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifiers: ["1011"]), Version(string: "0.9.21+1011"))
+            Version("0.9.21-alpha.beta+1011"))
+        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifiers: ["1011"]), Version("0.9.21+1011"))
     }
 
     func testRange() {
