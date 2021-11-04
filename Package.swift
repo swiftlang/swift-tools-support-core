@@ -21,6 +21,8 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DE
     macOSPlatform = .macOS(.v10_10)
 }
 
+let CMakeFiles = ["cmake_install.cmake", "CMakeLists.txt", "CMakeFiles"]
+
 let package = Package(
     name: "swift-tools-support-core",
     platforms: [
@@ -51,19 +53,23 @@ let package = Package(
         .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "TSCclibc",
-            dependencies: []),
+            dependencies: [],
+            exclude: CMakeFiles),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "TSCLibc",
-            dependencies: []),
+            dependencies: [],
+            exclude: CMakeFiles),
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
-            dependencies: ["TSCLibc", "TSCclibc"]),
+            dependencies: ["TSCLibc", "TSCclibc"],
+            exclude: CMakeFiles + ["README.md"]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
-            dependencies: ["TSCBasic", "TSCclibc"]),
+            dependencies: ["TSCBasic", "TSCclibc"],
+            exclude: CMakeFiles),
         
         // MARK: Additional Test Dependencies
         
@@ -77,7 +83,8 @@ let package = Package(
         
         .testTarget(
             name: "TSCBasicTests",
-            dependencies: ["TSCTestSupport", "TSCclibc"]),
+            dependencies: ["TSCTestSupport", "TSCclibc"],
+            exclude: ["processInputs", "Inputs"]),
         .testTarget(
             name: "TSCBasicPerformanceTests",
             dependencies: ["TSCBasic", "TSCTestSupport"]),
@@ -86,7 +93,8 @@ let package = Package(
             dependencies: ["TSCTestSupport"]),
         .testTarget(
             name: "TSCUtilityTests",
-            dependencies: ["TSCUtility", "TSCTestSupport"]),
+            dependencies: ["TSCUtility", "TSCTestSupport"],
+            exclude: ["pkgconfigInputs", "Inputs"]),
     ]
 )
 
