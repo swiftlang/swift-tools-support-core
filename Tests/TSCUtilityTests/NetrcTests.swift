@@ -1,7 +1,7 @@
 import XCTest
 import TSCUtility
 
-@available(macOS 10.13, *)
+@available(macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
 /// which is only available in macOS 10.13+ at this time.
 class NetrcTests: XCTestCase {
