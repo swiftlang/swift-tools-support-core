@@ -25,7 +25,6 @@ let package = Package(
     name: "swift-tools-support-core",
     platforms: [
         macOSPlatform,
-        .iOS(.v13)
     ],
     products: [
         .library(
