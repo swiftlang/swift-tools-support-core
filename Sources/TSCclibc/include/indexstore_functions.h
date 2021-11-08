@@ -168,6 +168,7 @@ typedef enum {
   INDEXSTORE_SYMBOL_PROPERTY_GKINSPECTABLE                    = 1 << 6,
   INDEXSTORE_SYMBOL_PROPERTY_LOCAL                            = 1 << 7,
   INDEXSTORE_SYMBOL_PROPERTY_PROTOCOL_INTERFACE               = 1 << 8,
+  INDEXSTORE_SYMBOL_PROPERTY_SWIFT_ASYNC                      = 1 << 16,
 } indexstore_symbol_property_t;
 
 typedef enum {
