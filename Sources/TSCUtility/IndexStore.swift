@@ -19,7 +19,7 @@ public final class IndexStore {
             public let isAsync: Bool
 
             public static func < (lhs: IndexStore.TestCaseClass.TestMethod, rhs: IndexStore.TestCaseClass.TestMethod) -> Bool {
-                return lhs.name < rhs.name
+                return (lhs.name, (lhs.isAsync ? 1 : 0)) < (rhs.name, (rhs.isAsync ? 1 : 0))
             }
         }
 
