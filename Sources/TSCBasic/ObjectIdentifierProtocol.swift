@@ -11,8 +11,10 @@
 /// A protocol which implements Hashable protocol using ObjectIdentifier.
 ///
 /// Classes can conform to this protocol to auto-conform to Hashable and Equatable.
+@available(*, deprecated, message: "user Identifiable instead")
 public protocol ObjectIdentifierProtocol: AnyObject, Hashable {}
 
+@available(*, deprecated)
 extension ObjectIdentifierProtocol {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(ObjectIdentifier(self))
