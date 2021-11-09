@@ -14,17 +14,12 @@ import TSCBasic
 public final class IndexStore {
 
     public struct TestCaseClass {
-        public enum TestMethod: Hashable, Comparable {
-            case standard(String)
-            case async(String)
+        public struct TestMethod: Hashable, Comparable {
+            public let name: String
+            public let isAsync: Bool
 
-            public var name: String {
-                switch self {
-                case .standard(let name):
-                    return name
-                case .async(let name):
-                    return name
-                }
+            public static func < (lhs: IndexStore.TestCaseClass.TestMethod, rhs: IndexStore.TestCaseClass.TestMethod) -> Bool {
+                return lhs.name < rhs.name
             }
         }
 
@@ -158,7 +153,7 @@ private final class IndexStoreImpl {
             if !className.instance.isEmpty {
                 let methodName = fn.symbol_get_name(sym).str
                 let isAsync = symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_SWIFT_ASYNC.rawValue) != 0
-                builder.instance.add(klass: className.instance, method: isAsync ? .async(methodName) : .standard(methodName))
+                builder.instance.add(klass: className.instance, method: TestCaseClass.TestMethod(name: methodName, isAsync: isAsync))
             }
 
             return true
