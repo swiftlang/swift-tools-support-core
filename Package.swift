@@ -50,19 +50,23 @@ let package = Package(
         .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "TSCclibc",
-            dependencies: []),
+            dependencies: [],
+            exclude: ["CMakeLists.txt"]),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "TSCLibc",
-            dependencies: []),
+            dependencies: [],
+            exclude: ["CMakeLists.txt"]),
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
-            dependencies: ["TSCLibc", "TSCclibc"]),
+            dependencies: ["TSCLibc", "TSCclibc"],
+            exclude: ["CMakeLists.txt", "README.md"]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
-            dependencies: ["TSCBasic", "TSCclibc"]),
+            dependencies: ["TSCBasic", "TSCclibc"],
+            exclude: ["CMakeLists.txt"]),
         
         // MARK: Additional Test Dependencies
         
@@ -76,7 +80,8 @@ let package = Package(
         
         .testTarget(
             name: "TSCBasicTests",
-            dependencies: ["TSCTestSupport", "TSCclibc"]),
+            dependencies: ["TSCTestSupport", "TSCclibc"],
+            exclude: ["Inputs", "processInputs"]),
         .testTarget(
             name: "TSCBasicPerformanceTests",
             dependencies: ["TSCBasic", "TSCTestSupport"]),
@@ -85,7 +90,8 @@ let package = Package(
             dependencies: ["TSCTestSupport"]),
         .testTarget(
             name: "TSCUtilityTests",
-            dependencies: ["TSCUtility", "TSCTestSupport"]),
+            dependencies: ["TSCUtility", "TSCTestSupport"],
+            exclude: ["Inputs", "pkgconfigInputs"]),
     ]
 )
 
