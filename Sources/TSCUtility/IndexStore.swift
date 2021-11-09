@@ -102,8 +102,8 @@ private final class IndexStoreImpl {
         class TestCaseBuilder {
             var classToMethods: [String: Set<TestCaseClass.TestMethod>] = [:]
 
-            func add(klass: String, method: TestCaseClass.TestMethod) {
-                classToMethods[klass, default: []].insert(method)
+            func add(className: String, method: TestCaseClass.TestMethod) {
+                classToMethods[className, default: []].insert(method)
             }
 
             func build() -> [TestCaseClass] {
@@ -153,7 +153,7 @@ private final class IndexStoreImpl {
             if !className.instance.isEmpty {
                 let methodName = fn.symbol_get_name(sym).str
                 let isAsync = symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_SWIFT_ASYNC.rawValue) != 0
-                builder.instance.add(klass: className.instance, method: TestCaseClass.TestMethod(name: methodName, isAsync: isAsync))
+                builder.instance.add(className: className.instance, method: TestCaseClass.TestMethod(name: methodName, isAsync: isAsync))
             }
 
             return true
