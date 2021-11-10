@@ -14,9 +14,19 @@ import TSCBasic
 public final class IndexStore {
 
     public struct TestCaseClass {
+        public struct TestMethod: Hashable, Comparable {
+            public let name: String
+            public let isAsync: Bool
+
+            public static func < (lhs: IndexStore.TestCaseClass.TestMethod, rhs: IndexStore.TestCaseClass.TestMethod) -> Bool {
+                return (lhs.name, (lhs.isAsync ? 1 : 0)) < (rhs.name, (rhs.isAsync ? 1 : 0))
+            }
+        }
+
         public var name: String
         public var module: String
-        public var methods: [String]
+        public var testMethods: [TestMethod]
+        @available(*, deprecated, message: "use testMethods instead") public var methods: [String]
     }
 
     fileprivate var impl: IndexStoreImpl { _impl as! IndexStoreImpl }
@@ -90,15 +100,16 @@ private final class IndexStoreImpl {
         let recordReader = try api.call{ fn.record_reader_create(store, record, &$0) }
 
         class TestCaseBuilder {
-            var classToMethods: [String: Set<String>] = [:]
+            var classToMethods: [String: Set<TestCaseClass.TestMethod>] = [:]
 
-            func add(klass: String, method: String) {
-                classToMethods[klass, default: []].insert(method)
+            func add(className: String, method: TestCaseClass.TestMethod) {
+                classToMethods[className, default: []].insert(method)
             }
 
             func build() -> [TestCaseClass] {
                 return classToMethods.map {
-                    TestCaseClass(name: $0.key, module: "", methods: $0.value.sorted())
+                    let testMethods = Array($0.value).sorted()
+                    return TestCaseClass(name: $0.key, module: "", testMethods: testMethods, methods: testMethods.map(\.name))
                 }
             }
         }
@@ -112,9 +123,9 @@ private final class IndexStoreImpl {
 
             // Get the symbol.
             let sym = fn.occurrence_get_symbol(occ)
-
+            let symbolProperties = fn.symbol_get_properties(sym)
             // We only care about symbols that are marked unit tests and are instance methods.
-            if fn.symbol_get_properties(sym) != UInt64(INDEXSTORE_SYMBOL_PROPERTY_UNITTEST.rawValue) {
+            if symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_UNITTEST.rawValue) == 0 {
                 return true
             }
             if fn.symbol_get_kind(sym) != INDEXSTORE_SYMBOL_KIND_INSTANCEMETHOD {
@@ -140,8 +151,9 @@ private final class IndexStoreImpl {
             }
 
             if !className.instance.isEmpty {
-                let testMethod = fn.symbol_get_name(sym).str
-                builder.instance.add(klass: className.instance, method: testMethod)
+                let methodName = fn.symbol_get_name(sym).str
+                let isAsync = symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_SWIFT_ASYNC.rawValue) != 0
+                builder.instance.add(className: className.instance, method: TestCaseClass.TestMethod(name: methodName, isAsync: isAsync))
             }
 
             return true
