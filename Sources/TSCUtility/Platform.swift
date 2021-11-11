@@ -85,7 +85,7 @@ public enum Platform: Equatable {
             // Compute the directories.
             directories.append(AbsolutePath("/private/var/tmp"))
             (try? TSCBasic.determineTempDirectory()).map{ directories.append($0) }
-            #if os(macOS)
+            #if canImport(Darwin)
             getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
             getConfstr(_CS_DARWIN_USER_CACHE_DIR).map({ directories.append($0) })
             #endif
@@ -95,7 +95,7 @@ public enum Platform: Equatable {
     }
 
 
-    #if os(macOS)
+    #if canImport(Darwin)
     /// Returns the value of given path variable using `getconf` utility.
     ///
     /// - Note: This method returns `nil` if the value is an invalid path.

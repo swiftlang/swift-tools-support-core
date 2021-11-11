@@ -15,7 +15,7 @@ import TSCTestSupport
 
 class SHA256PerfTests: XCTestCasePerf {
     func test20MBDigest_X1000() {
-      #if os(macOS)
+      #if canImport(Darwin)
         let sha256 = SHA256()
         let byte = "f"
         let stream = BufferedOutputByteStream()

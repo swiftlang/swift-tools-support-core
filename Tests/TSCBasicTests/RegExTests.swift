@@ -15,7 +15,7 @@ class RegExTests: XCTestCase {
     
     func testErrors() {
         // https://bugs.swift.org/browse/SR-5557
-      #if os(macOS)
+      #if canImport(Darwin)
         XCTAssertThrowsError(try RegEx(pattern: "("))
       #endif
     }

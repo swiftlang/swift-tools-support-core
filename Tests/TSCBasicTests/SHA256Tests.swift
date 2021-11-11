@@ -44,8 +44,8 @@ class SHA256Tests: XCTestCase {
         XCTAssertEqual(digest, "907422e2f24d749d0add2b504ccae8ad1aa392477591905880fb2dc494e33d63")
     }
 
-  #if os(macOS)
-    @available(macOS 10.15, *)
+  #if canImport(Darwin)
+    @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
     func testCryptoKitSHA256() {
         let sha = CryptoKitSHA256()
         XCTAssertEqual(
