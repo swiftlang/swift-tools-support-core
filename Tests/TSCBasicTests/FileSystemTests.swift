@@ -695,7 +695,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testSetAttribute() throws {
-      #if os(macOS) || os(Linux) || os(Android)
+      #if canImport(Darwin) || os(Linux) || os(Android)
         try testWithTemporaryDirectory { tmpdir in
             let fs = TSCBasic.localFileSystem
 

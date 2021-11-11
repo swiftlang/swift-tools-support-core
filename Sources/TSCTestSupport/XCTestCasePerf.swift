@@ -18,7 +18,7 @@ import TSCBasic
 /// This is useful because we always want to be able to compile the perf tests
 /// even if they are not run locally.
 open class XCTestCasePerf: XCTestCase {
-  #if os(macOS)
+  #if canImport(Darwin)
     override open class var defaultTestSuite: XCTestSuite {
         if ProcessEnv.vars.keys.contains("TSC_ENABLE_PERF_TESTS") {
             return super.defaultTestSuite

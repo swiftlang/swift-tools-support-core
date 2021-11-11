@@ -174,7 +174,7 @@ public struct SHA256: HashAlgorithm {
 }
 
 /// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
-@available(macOS 10.15, iOS 13, *)
+@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
 public struct CryptoKitSHA256: HashAlgorithm {
     public init() {
     }

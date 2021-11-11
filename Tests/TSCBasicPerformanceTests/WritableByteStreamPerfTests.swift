@@ -45,7 +45,7 @@ struct ByteSequenceIterator: IteratorProtocol {
 class OutputByteStreamPerfTests: XCTestCasePerf {
 
     func test1MBOfSequence_X10() {
-      #if os(macOS)
+      #if canImport(Darwin)
         let sequence = ByteSequence()
         measure {
             for _ in 0..<10 {
@@ -60,7 +60,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOfByte_X10() {
-      #if os(macOS)
+      #if canImport(Darwin)
         let byte = UInt8(0)
         measure {
             for _ in 0..<10 {
@@ -75,7 +75,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOfCharacters_X1() {
-      #if os(macOS)
+      #if canImport(Darwin)
         measure {
             for _ in 0..<1 {
                 let stream = BufferedOutputByteStream()
@@ -89,7 +89,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOf16ByteArrays_X100() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test writing 1MB worth of 16 byte strings.
         let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
         
@@ -107,7 +107,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     
     // This should give same performance as 16ByteArrays_X100.
     func test1MBOf16ByteArraySlice_X100() {
-      #if os(macOS)
+      #if canImport(Darwin)
         let bytes32 = [UInt8](repeating: 0, count: 1 << 5)
         // Test writing 1MB worth of 16 byte strings.
         let bytes16 = bytes32.suffix(from: bytes32.count/2)
@@ -125,7 +125,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOf1KByteArrays_X1000() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test writing 1MB worth of 1K byte strings.
         let bytes1k = [UInt8](repeating: 0, count: 1 << 10)
         
@@ -142,7 +142,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOf16ByteStrings_X10() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test writing 1MB worth of 16 byte strings.
         let string16 = String(repeating: "X", count: 1 << 4)
         
@@ -159,7 +159,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func test1MBOf1KByteStrings_X100() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test writing 1MB worth of 1K byte strings.
         let bytes1k = String(repeating: "X", count: 1 << 10)
         
@@ -176,7 +176,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
     
     func test1MBOfJSONEncoded16ByteStrings_X10() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test writing 1MB worth of JSON encoded 16 byte strings.
         let string16 = String(repeating: "X", count: 1 << 4)
         
@@ -193,7 +193,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
     
     func testFormattedJSONOutput() {
-      #if os(macOS)
+      #if canImport(Darwin)
         // Test the writing of JSON formatted output using stream operators.
         struct Thing {
             var value: String
@@ -218,7 +218,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     }
 
     func testJSONToString_X100() {
-      #if os(macOS)
+      #if canImport(Darwin)
         let foo = JSON.dictionary([
             "foo": .string("bar"),
             "bar": .int(2),

@@ -465,7 +465,7 @@ public final class Process {
 
         try _process?.run()
         return stdinPipe.fileHandleForWriting
-    #else
+    #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
       #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var attributes: posix_spawnattr_t? = nil
@@ -481,7 +481,7 @@ public final class Process {
         posix_spawnattr_setsigmask(&attributes, &noSignals)
 
         // Reset all signals to default behavior.
-      #if os(macOS)
+      #if canImport(Darwin)
         var mostSignals = sigset_t()
         sigfillset(&mostSignals)
         sigdelset(&mostSignals, SIGKILL)
@@ -521,7 +521,7 @@ public final class Process {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         if let workingDirectory = workingDirectory?.pathString {
-          #if os(macOS)
+          #if canImport(Darwin)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
             // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
             // exists here to make the compiler happy.
@@ -669,6 +669,8 @@ public final class Process {
         }
 
         return stdinStream
+    #else
+        preconditionFailure("Process spawning is not available")
     #endif // POSIX implementation
     }
 
@@ -849,7 +851,7 @@ extension Process: Hashable {
 // MARK: - Private helpers
 
 #if !os(Windows)
-#if os(macOS)
+#if canImport(Darwin)
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t

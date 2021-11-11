@@ -14,7 +14,7 @@ import class Foundation.ProcessInfo
 import TSCBasic
 import TSCUtility
 
-#if os(macOS)
+#if canImport(Darwin)
 import class Foundation.Bundle
 #endif
 
@@ -33,7 +33,7 @@ public protocol Product {
 extension Product {
     /// Path to currently built binary.
     public var path: AbsolutePath {
-      #if os(macOS)
+      #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return AbsolutePath(bundle.bundlePath).parentDirectory.appending(self.exec)
         }

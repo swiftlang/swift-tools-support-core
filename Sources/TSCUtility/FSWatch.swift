@@ -100,7 +100,7 @@ private protocol _FileWatcher {
     func stop()
 }
 
-#if os(OpenBSD) || os(iOS)
+#if os(OpenBSD) || (!os(macOS) && canImport(Darwin))
 extension FSWatch._WatcherDelegate: NoOpWatcherDelegate {}
 extension NoOpWatcher: _FileWatcher{}
 #elseif os(Windows)
@@ -118,7 +118,7 @@ extension FSEventStream: _FileWatcher{}
 
 // MARK:- inotify
 
-#if os(OpenBSD) || os(iOS)
+#if os(OpenBSD) || (!os(macOS) && canImport(Darwin))
 
 public protocol NoOpWatcherDelegate {
     func pathsDidReceiveEvent(_ paths: [AbsolutePath])
