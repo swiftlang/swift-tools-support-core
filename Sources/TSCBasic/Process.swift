@@ -180,10 +180,10 @@ public final class Process {
     // process execution mutable state
     private enum State {
         case idle
-        case readingOutputThread(stdout: Thread, stderr: Thread?)
         case readingOutputPipe(sync: DispatchGroup)
         case outputReady(stdout: Result<[UInt8], Swift.Error>, stderr: Result<[UInt8], Swift.Error>)
         case complete(ProcessResult)
+        case failed(Swift.Error)
     }
 
     /// Typealias for process id type.
@@ -230,6 +230,7 @@ public final class Process {
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = Lock()
+    private static let stateQueue = DispatchQueue(label: "ProcessStateQueue")
 
     /// The result of the process execution. Available after process is terminated.
     /// This will block while the process is awaiting result
@@ -456,7 +457,7 @@ public final class Process {
             self.state = .readingOutputPipe(sync: sync)
         }
 
-        group.notify(queue: .global()) {
+        group.notify(queue: Self.stateQueue) {
             self.stateLock.withLock {
                 self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
             }
@@ -596,6 +597,7 @@ public final class Process {
         // Close the local read end of the input pipe.
         try close(fd: stdinPipe[0])
 
+        let group = DispatchGroup()
         if !outputRedirection.redirectsOutput {
             // no stdout or stderr in this case
             self.stateLock.withLock {
@@ -609,8 +611,9 @@ public final class Process {
 
             // Close the local write end of the output pipe.
             try close(fd: outputPipe[1])
-
+            
             // Create a thread and start reading the output on it.
+            group.enter()
             let stdoutThread = Thread { [weak self] in
                 if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
                     pendingLock.withLock {
@@ -622,11 +625,13 @@ public final class Process {
                             pending = readResult
                         }
                     }
-                } else if let stderrResult = (pendingLock.withLock { pending }) {
+                    group.leave()
+               } else if let stderrResult = (pendingLock.withLock { pending }) {
                     // TODO: this is more of an error
                     self?.stateLock.withLock {
                         self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
                     }
+                    group.leave()
                 }
             }
 
@@ -637,6 +642,7 @@ public final class Process {
                 try close(fd: stderrPipe[1])
 
                 // Create a thread and start reading the stderr output on it.
+                group.enter()
                 stderrThread = Thread { [weak self] in
                     if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
                         pendingLock.withLock {
@@ -648,11 +654,13 @@ public final class Process {
                                 pending = readResult
                             }
                         }
+                        group.leave()
                     } else if let stdoutResult = (pendingLock.withLock { pending }) {
                         // TODO: this is more of an error
                         self?.stateLock.withLock {
                             self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
                         }
+                        group.leave()
                     }
                 }
             } else {
@@ -660,10 +668,12 @@ public final class Process {
                     pending = .success([])  // no stderr in this case
                 }
             }
+            
             // first set state then start reading threads
             self.stateLock.withLock {
-                self.state = .readingOutputThread(stdout: stdoutThread, stderr: stderrThread)
+                self.state = .readingOutputPipe(sync: group)
             }
+            
             stdoutThread.start()
             stderrThread?.start()
         }
@@ -677,6 +687,24 @@ public final class Process {
     /// Blocks the calling process until the subprocess finishes execution.
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
+        let group = DispatchGroup()
+        group.enter()
+        var processResult : ProcessResult?
+        var processError : Swift.Error?
+        self.waitUntilExit() { result, error in
+            processResult = result
+            processError = error
+            group.leave()
+        }
+        group.wait()
+        if let error = processError {
+            throw error
+        }
+        return processResult.unsafelyUnwrapped
+    }
+
+    /// Executes the process I/O state machine, calling completion block when finished.
+    private func waitUntilExit(_ completion: @escaping (ProcessResult?, Swift.Error?) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -684,17 +712,15 @@ public final class Process {
             preconditionFailure("The process is not yet launched.")
         case .complete(let result):
             defer { self.stateLock.unlock() }
-            return result
-        case .readingOutputThread(let stdoutThread, let stderrThread):
-            self.stateLock.unlock() // unlock early since output read thread need to change state
-            // If we're reading output, make sure that is finished.
-            stdoutThread.join()
-            stderrThread?.join()
-            return try self.waitUntilExit()
+            completion(result, nil)
+        case .failed(let error):
+            defer { self.stateLock.unlock() }
+            completion(nil, error)
         case .readingOutputPipe(let sync):
-            self.stateLock.unlock() // unlock early since output read thread need to change state
-            sync.wait()
-            return try self.waitUntilExit()
+            defer { self.stateLock.unlock() }
+            sync.notify(queue: Self.stateQueue) {
+                self.waitUntilExit(completion)
+            }
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
@@ -710,7 +736,7 @@ public final class Process {
                 result = waitpid(processID, &exitStatusCode, 0)
             }
             if result == -1 {
-                throw SystemError.waitpid(errno)
+                self.state = .failed(SystemError.waitpid(errno))
             }
           #endif
 
@@ -723,7 +749,9 @@ public final class Process {
                 stderrOutput: stderrResult
             )
             self.state = .complete(executionResult)
-            return executionResult
+            Self.stateQueue.async {
+                self.waitUntilExit(completion)
+            }
         }
     }
 
@@ -790,6 +818,20 @@ public final class Process {
 }
 
 extension Process {
+    /// Execute a subprocess and calls completion block when it finishes execution
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    /// - Returns: The process result.
+    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
+                             completion: @escaping (ProcessResult?, Swift.Error?) -> Void) throws {
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+        try process.launch()
+        process.waitUntilExit(completion)
+    }
+
     /// Execute a subprocess and block until it finishes execution
     ///
     /// - Parameters:
