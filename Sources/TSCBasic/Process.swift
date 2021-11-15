@@ -689,22 +689,22 @@ public final class Process {
     public func waitUntilExit() throws -> ProcessResult {
         let group = DispatchGroup()
         group.enter()
-        var processResult : ProcessResult?
-        var processError : Swift.Error?
-        self.waitUntilExit() { result, error in
+        var processResult : Result<ProcessResult, Swift.Error>?
+        self.waitUntilExit() { result in
             processResult = result
-            processError = error
             group.leave()
         }
         group.wait()
-        if let error = processError {
+        switch processResult! {
+        case .failure(let error):
             throw error
+        case .success(let result):
+            return result
         }
-        return processResult.unsafelyUnwrapped
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (ProcessResult?, Swift.Error?) -> Void) {
+    private func waitUntilExit(_ completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -712,10 +712,10 @@ public final class Process {
             preconditionFailure("The process is not yet launched.")
         case .complete(let result):
             defer { self.stateLock.unlock() }
-            completion(result, nil)
+            completion(.success(result))
         case .failed(let error):
             defer { self.stateLock.unlock() }
-            completion(nil, error)
+            completion(.failure(error))
         case .readingOutputPipe(let sync):
             defer { self.stateLock.unlock() }
             sync.notify(queue: Self.stateQueue) {
@@ -826,7 +826,7 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process result.
     static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
-                             completion: @escaping (ProcessResult?, Swift.Error?) -> Void) throws {
+                             completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) throws {
         let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         process.waitUntilExit(completion)
