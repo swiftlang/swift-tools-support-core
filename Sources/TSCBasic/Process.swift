@@ -826,10 +826,14 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process result.
     static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
-                             completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) throws {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
-        try process.launch()
-        process.waitUntilExit(completion)
+                             completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+        do {
+            let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+            try process.launch()
+            process.waitUntilExit(completion)
+        } catch {
+            completion(.failure(error))
+        }
     }
 
     /// Execute a subprocess and block until it finishes execution
