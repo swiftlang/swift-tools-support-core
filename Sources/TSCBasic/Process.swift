@@ -180,7 +180,7 @@ public final class Process {
     // process execution mutable state
     private enum State {
         case idle
-        case readingOutputPipe(sync: DispatchGroup)
+        case readingOutput(sync: DispatchGroup)
         case outputReady(stdout: Result<[UInt8], Swift.Error>, stderr: Result<[UInt8], Swift.Error>)
         case complete(ProcessResult)
         case failed(Swift.Error)
@@ -455,7 +455,7 @@ public final class Process {
         let sync = DispatchGroup()
         sync.enter()
         self.stateLock.withLock {
-            self.state = .readingOutputPipe(sync: sync)
+            self.state = .readingOutput(sync: sync)
         }
 
         group.notify(queue: Self.stateQueue) {
@@ -672,7 +672,7 @@ public final class Process {
             
             // first set state then start reading threads
             self.stateLock.withLock {
-                self.state = .readingOutputPipe(sync: group)
+                self.state = .readingOutput(sync: group)
             }
             
             stdoutThread.start()
@@ -717,7 +717,7 @@ public final class Process {
         case .failed(let error):
             defer { self.stateLock.unlock() }
             completion(.failure(error))
-        case .readingOutputPipe(let sync):
+        case .readingOutput(let sync):
             defer { self.stateLock.unlock() }
             sync.notify(queue: Self.stateQueue) {
                 self.waitUntilExit(completion)
