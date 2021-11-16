@@ -396,13 +396,14 @@ public final class Process {
         }
 
     #if os(Windows)
-        _process = Foundation.Process()
-        _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
-        _process?.executableURL = executablePath.asURL
-        _process?.environment = environment
+        let process = Foundation.Process()
+        _process = process
+        process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        process.executableURL = executablePath.asURL
+        process.environment = environment
 
         let stdinPipe = Pipe()
-        _process?.standardInput = stdinPipe
+        process.standardInput = stdinPipe
 
         let group = DispatchGroup()
 
@@ -446,8 +447,8 @@ public final class Process {
                 }
             }
 
-            _process?.standardOutput = stdoutPipe
-            _process?.standardError = stderrPipe
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
         }
 
         // first set state then start reading threads
@@ -464,7 +465,7 @@ public final class Process {
             sync.leave()
         }
 
-        try _process?.run()
+        try process.run()
         return stdinPipe.fileHandleForWriting
     #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
