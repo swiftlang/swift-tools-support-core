@@ -230,7 +230,8 @@ public final class Process {
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = Lock()
-    private static let stateQueue = DispatchQueue(label: "ProcessStateQueue")
+    private static let sharedCompletionQueue = DispatchQueue(label: "Process.sharedCompletionQueue")
+    private var completionQueue = Process.sharedCompletionQueue
 
     /// The result of the process execution. Available after process is terminated.
     /// This will block while the process is awaiting result
@@ -458,7 +459,7 @@ public final class Process {
             self.state = .readingOutput(sync: sync)
         }
 
-        group.notify(queue: Self.stateQueue) {
+        group.notify(queue: self.completionQueue) {
             self.stateLock.withLock {
                 self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
             }
@@ -719,7 +720,7 @@ public final class Process {
             completion(.failure(error))
         case .readingOutput(let sync):
             self.stateLock.unlock()
-            sync.notify(queue: Self.stateQueue) {
+            sync.notify(queue: self.completionQueue) {
                 self.waitUntilExit(completion)
             }
         case .outputReady(let stdoutResult, let stderrResult):
@@ -750,7 +751,7 @@ public final class Process {
                 stderrOutput: stderrResult
             )
             self.state = .complete(executionResult)
-            Self.stateQueue.async {
+            self.completionQueue.async {
                 self.waitUntilExit(completion)
             }
         }
@@ -827,9 +828,10 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process result.
     static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
-                             completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+                             queue: DispatchQueue? = nil, completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
         do {
             let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+            process.completionQueue = queue ?? Self.sharedCompletionQueue
             try process.launch()
             process.waitUntilExit(completion)
         } catch {
