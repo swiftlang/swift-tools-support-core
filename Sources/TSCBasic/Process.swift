@@ -697,12 +697,7 @@ public final class Process {
             group.leave()
         }
         group.wait()
-        switch processResult! {
-        case .failure(let error):
-            throw error
-        case .success(let result):
-            return result
-        }
+        return try processResult.unsafelyUnwrapped.get()
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
