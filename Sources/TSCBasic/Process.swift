@@ -712,13 +712,13 @@ public final class Process {
             defer { self.stateLock.unlock() }
             preconditionFailure("The process is not yet launched.")
         case .complete(let result):
-            defer { self.stateLock.unlock() }
+            self.stateLock.unlock()
             completion(.success(result))
         case .failed(let error):
-            defer { self.stateLock.unlock() }
+            self.stateLock.unlock()
             completion(.failure(error))
         case .readingOutput(let sync):
-            defer { self.stateLock.unlock() }
+            self.stateLock.unlock()
             sync.notify(queue: Self.stateQueue) {
                 self.waitUntilExit(completion)
             }
