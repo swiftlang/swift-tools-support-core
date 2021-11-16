@@ -56,6 +56,33 @@ class ProcessTests: XCTestCase {
         }
     }
 
+    func testPopenAsync() throws {
+        #if os(Windows)
+        let args = ["where.exe", "where"]
+        let answer = "C:\\Windows\\System32\\where.exe"
+        #else
+        let args = ["whoami"]
+        let answer = NSUserName()
+        #endif
+        var whereResult : Result<ProcessResult, Error>?
+        let group = DispatchGroup()
+        group.enter()
+        Process.popen(arguments: args) { result in
+            whereResult = result
+            group.leave()
+        }
+        group.wait()
+        switch whereResult {
+        case .success(let processResult):
+            let output = try processResult.utf8Output()
+            XCTAssertTrue(output.hasPrefix(answer))
+        case .failure(let error):
+            XCTFail("error = \(error)")
+        case nil:
+            XCTFail()
+        }
+    }
+
     func testCheckNonZeroExit() throws {
         do {
             let output = try Process.checkNonZeroExit(args: "echo", "hello")
