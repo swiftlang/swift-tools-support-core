@@ -230,7 +230,7 @@ public final class Process {
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = Lock()
-    private static let sharedCompletionQueue = DispatchQueue(label: "Process.sharedCompletionQueue")
+    private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
     private var completionQueue = Process.sharedCompletionQueue
 
     /// The result of the process execution. Available after process is terminated.
