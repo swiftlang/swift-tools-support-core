@@ -613,7 +613,7 @@ public final class Process {
 
             // Close the local write end of the output pipe.
             try close(fd: outputPipe[1])
-            
+
             // Create a thread and start reading the output on it.
             group.enter()
             let stdoutThread = Thread { [weak self] in
@@ -628,7 +628,7 @@ public final class Process {
                         }
                     }
                     group.leave()
-               } else if let stderrResult = (pendingLock.withLock { pending }) {
+                } else if let stderrResult = (pendingLock.withLock { pending }) {
                     // TODO: this is more of an error
                     self?.stateLock.withLock {
                         self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
