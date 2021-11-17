@@ -180,10 +180,10 @@ public final class Process {
     // process execution mutable state
     private enum State {
         case idle
-        case readingOutputThread(stdout: Thread, stderr: Thread?)
-        case readingOutputPipe(sync: DispatchGroup)
+        case readingOutput(sync: DispatchGroup)
         case outputReady(stdout: Result<[UInt8], Swift.Error>, stderr: Result<[UInt8], Swift.Error>)
         case complete(ProcessResult)
+        case failed(Swift.Error)
     }
 
     /// Typealias for process id type.
@@ -230,6 +230,8 @@ public final class Process {
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = Lock()
+    private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
+    private var completionQueue = Process.sharedCompletionQueue
 
     /// The result of the process execution. Available after process is terminated.
     /// This will block while the process is awaiting result
@@ -395,13 +397,14 @@ public final class Process {
         }
 
     #if os(Windows)
-        _process = Foundation.Process()
-        _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
-        _process?.executableURL = executablePath.asURL
-        _process?.environment = environment
+        let process = Foundation.Process()
+        _process = process
+        process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        process.executableURL = executablePath.asURL
+        process.environment = environment
 
         let stdinPipe = Pipe()
-        _process?.standardInput = stdinPipe
+        process.standardInput = stdinPipe
 
         let group = DispatchGroup()
 
@@ -445,25 +448,25 @@ public final class Process {
                 }
             }
 
-            _process?.standardOutput = stdoutPipe
-            _process?.standardError = stderrPipe
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
         }
 
         // first set state then start reading threads
         let sync = DispatchGroup()
         sync.enter()
         self.stateLock.withLock {
-            self.state = .readingOutputPipe(sync: sync)
+            self.state = .readingOutput(sync: sync)
         }
 
-        group.notify(queue: .global()) {
+        group.notify(queue: self.completionQueue) {
             self.stateLock.withLock {
                 self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
             }
             sync.leave()
         }
 
-        try _process?.run()
+        try process.run()
         return stdinPipe.fileHandleForWriting
     #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
@@ -596,6 +599,7 @@ public final class Process {
         // Close the local read end of the input pipe.
         try close(fd: stdinPipe[0])
 
+        let group = DispatchGroup()
         if !outputRedirection.redirectsOutput {
             // no stdout or stderr in this case
             self.stateLock.withLock {
@@ -611,6 +615,7 @@ public final class Process {
             try close(fd: outputPipe[1])
 
             // Create a thread and start reading the output on it.
+            group.enter()
             let stdoutThread = Thread { [weak self] in
                 if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
                     pendingLock.withLock {
@@ -622,11 +627,13 @@ public final class Process {
                             pending = readResult
                         }
                     }
+                    group.leave()
                 } else if let stderrResult = (pendingLock.withLock { pending }) {
                     // TODO: this is more of an error
                     self?.stateLock.withLock {
                         self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
                     }
+                    group.leave()
                 }
             }
 
@@ -637,6 +644,7 @@ public final class Process {
                 try close(fd: stderrPipe[1])
 
                 // Create a thread and start reading the stderr output on it.
+                group.enter()
                 stderrThread = Thread { [weak self] in
                     if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
                         pendingLock.withLock {
@@ -648,11 +656,13 @@ public final class Process {
                                 pending = readResult
                             }
                         }
+                        group.leave()
                     } else if let stdoutResult = (pendingLock.withLock { pending }) {
                         // TODO: this is more of an error
                         self?.stateLock.withLock {
                             self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
                         }
+                        group.leave()
                     }
                 }
             } else {
@@ -660,10 +670,12 @@ public final class Process {
                     pending = .success([])  // no stderr in this case
                 }
             }
+            
             // first set state then start reading threads
             self.stateLock.withLock {
-                self.state = .readingOutputThread(stdout: stdoutThread, stderr: stderrThread)
+                self.state = .readingOutput(sync: group)
             }
+            
             stdoutThread.start()
             stderrThread?.start()
         }
@@ -677,24 +689,35 @@ public final class Process {
     /// Blocks the calling process until the subprocess finishes execution.
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
+        let group = DispatchGroup()
+        group.enter()
+        var processResult : Result<ProcessResult, Swift.Error>?
+        self.waitUntilExit() { result in
+            processResult = result
+            group.leave()
+        }
+        group.wait()
+        return try processResult.unsafelyUnwrapped.get()
+    }
+
+    /// Executes the process I/O state machine, calling completion block when finished.
+    private func waitUntilExit(_ completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
             defer { self.stateLock.unlock() }
             preconditionFailure("The process is not yet launched.")
         case .complete(let result):
-            defer { self.stateLock.unlock() }
-            return result
-        case .readingOutputThread(let stdoutThread, let stderrThread):
-            self.stateLock.unlock() // unlock early since output read thread need to change state
-            // If we're reading output, make sure that is finished.
-            stdoutThread.join()
-            stderrThread?.join()
-            return try self.waitUntilExit()
-        case .readingOutputPipe(let sync):
-            self.stateLock.unlock() // unlock early since output read thread need to change state
-            sync.wait()
-            return try self.waitUntilExit()
+            self.stateLock.unlock()
+            completion(.success(result))
+        case .failed(let error):
+            self.stateLock.unlock()
+            completion(.failure(error))
+        case .readingOutput(let sync):
+            self.stateLock.unlock()
+            sync.notify(queue: self.completionQueue) {
+                self.waitUntilExit(completion)
+            }
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
@@ -710,7 +733,7 @@ public final class Process {
                 result = waitpid(processID, &exitStatusCode, 0)
             }
             if result == -1 {
-                throw SystemError.waitpid(errno)
+                self.state = .failed(SystemError.waitpid(errno))
             }
           #endif
 
@@ -723,7 +746,9 @@ public final class Process {
                 stderrOutput: stderrResult
             )
             self.state = .complete(executionResult)
-            return executionResult
+            self.completionQueue.async {
+                self.waitUntilExit(completion)
+            }
         }
     }
 
@@ -790,6 +815,25 @@ public final class Process {
 }
 
 extension Process {
+    /// Execute a subprocess and calls completion block when it finishes execution
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    /// - Returns: The process result.
+    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
+                             queue: DispatchQueue? = nil, completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+        do {
+            let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+            process.completionQueue = queue ?? Self.sharedCompletionQueue
+            try process.launch()
+            process.waitUntilExit(completion)
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
     /// Execute a subprocess and block until it finishes execution
     ///
     /// - Parameters:

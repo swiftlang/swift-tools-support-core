@@ -121,6 +121,38 @@ extension TemporaryFile: CustomStringConvertible {
 }
 
 /// Creates a temporary file and evaluates a closure with the temporary file as an argument.
+/// The temporary file will live on disk while the closure is evaluated and will be deleted when
+/// the cleanup block is called.
+///
+/// This function is basically a wrapper over posix's mkstemps() function to create disposable files.
+///
+/// - Parameters:
+///     - dir: If specified the temporary file will be created in this directory otherwise environment variables
+///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
+///            set, dir will be set to `/tmp/`.
+///     - prefix: The prefix to the temporary file name.
+///     - suffix: The suffix to the temporary file name.
+///     - body: A closure to execute that receives the TemporaryFile as an argument.
+///             If `body` has a return value, that value is also used as the
+///             return value for the `withTemporaryFile` function.
+///             The cleanup block should be called when the temporary file is no longer needed.
+///
+/// - Throws: TempFileError and rethrows all errors from `body`.
+public func withTemporaryFile<Result>(
+  dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", _ body: (TemporaryFile, @escaping (TemporaryFile) -> Void) throws -> Result
+) throws -> Result {
+    return try body(TemporaryFile(dir: dir, prefix: prefix, suffix: suffix)) { tempFile in
+#if os(Windows)
+        _ = tempFile.path.pathString.withCString(encodedAs: UTF16.self) {
+          _wunlink($0)
+        }
+#else
+        unlink(tempFile.path.pathString)
+#endif
+    }
+}
+
+/// Creates a temporary file and evaluates a closure with the temporary file as an argument.
 /// The temporary file will live on disk while the closure is evaluated and will be deleted afterwards.
 ///
 /// This function is basically a wrapper over posix's mkstemps() function to create disposable files.
@@ -133,26 +165,17 @@ extension TemporaryFile: CustomStringConvertible {
 ///     - suffix: The suffix to the temporary file name.
 ///     - deleteOnClose: Whether the file should get deleted after the call of `body`
 ///     - body: A closure to execute that receives the TemporaryFile as an argument.
-///             If `body` has a return value, that value is also used as the
-///             return value for the `withTemporaryFile` function.
+///            If `body` has a return value, that value is also used as the
+///            return value for the `withTemporaryFile` function.
 ///
 /// - Throws: TempFileError and rethrows all errors from `body`.
 public func withTemporaryFile<Result>(
   dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", deleteOnClose: Bool = true, _ body: (TemporaryFile) throws -> Result
 ) throws -> Result {
-    let tempFile = try TemporaryFile(dir: dir, prefix: prefix, suffix: suffix)
-    defer {
-        if deleteOnClose {
-#if os(Windows)
-            _ = tempFile.path.pathString.withCString(encodedAs: UTF16.self) {
-              _wunlink($0)
-            }
-#else
-            unlink(tempFile.path.pathString)
-#endif
-        }
+    try withTemporaryFile(dir: dir, prefix: prefix, suffix: suffix) { tempFile, cleanup in
+        defer { if (deleteOnClose) { cleanup(tempFile) } }
+        return try body(tempFile)
     }
-    return try body(tempFile)
 }
 
 // FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
@@ -204,6 +227,43 @@ extension MakeDirectoryError: CustomNSError {
 }
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
+/// The temporary directory will live on disk while the closure is evaluated and will be deleted when
+/// the cleanup closure is called. This allows the temporary directory to have an arbitrary lifetime.
+///
+/// This function is basically a wrapper over posix's mkdtemp() function.
+///
+/// - Parameters:
+///     - dir: If specified the temporary directory will be created in this directory otherwise environment
+///            variables TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env
+///            variables are set, dir will be set to `/tmp/`.
+///     - prefix: The prefix to the temporary file name.
+///     - body: A closure to execute that receives the absolute path of the directory as an argument.
+///           If `body` has a return value, that value is also used as the
+///           return value for the `withTemporaryDirectory` function.
+///           The cleanup block should be called when the temporary directory is no longer needed.
+///
+/// - Throws: MakeDirectoryError and rethrows all errors from `body`.
+public func withTemporaryDirectory<Result>(
+    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) throws -> Result
+) throws -> Result {
+    // Construct path to the temporary directory.
+    let templatePath = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
+
+    // Convert templatePath to a C style string terminating with null char to be an valid input
+    // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
+    // which will be the actual path to the temporary directory.
+    var template = [UInt8](templatePath.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
+
+    if TSCLibc.mkdtemp(&template) == nil {
+        throw MakeDirectoryError(errno: errno)
+    }
+
+    return try body(AbsolutePath(String(cString: template))) { path in
+        _ = try? FileManager.default.removeItem(atPath: path.pathString)
+    }
+}
+
+/// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted afterwards.
 ///
 /// This function is basically a wrapper over posix's mkdtemp() function.
@@ -222,25 +282,9 @@ extension MakeDirectoryError: CustomNSError {
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false , _ body: (AbsolutePath) throws -> Result
 ) throws -> Result {
-    // Construct path to the temporary directory.
-    let templatePath = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
-
-    // Convert templatePath to a C style string terminating with null char to be an valid input
-    // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
-    // which will be the actual path to the temporary directory.
-    var template = [UInt8](templatePath.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
-
-    if TSCLibc.mkdtemp(&template) == nil {
-        throw MakeDirectoryError(errno: errno)
+    try withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
+        defer { if removeTreeOnDeinit { cleanup(path) } }
+        return try body(path)
     }
-
-    let path = AbsolutePath(String(cString: template))
-
-    defer {
-        if removeTreeOnDeinit {
-            _ = try? FileManager.default.removeItem(atPath: path.pathString)
-        }
-    }
-    return try body(path)
 }
 

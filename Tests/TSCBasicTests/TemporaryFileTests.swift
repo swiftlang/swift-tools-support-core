@@ -143,11 +143,13 @@ class TemporaryFileTests: XCTestCase {
         // sequence of creating and destroying TemporaryFile objects. I don't
         // believe that this is guaranteed by POSIX, but it is true on all
         // platforms I know of.
+        #if !os(Windows)
         let initialFD = try Int(withTemporaryFile { return $0.fileHandle.fileDescriptor })
         for _ in 0..<10 {
             _ = try withTemporaryFile { return $0.fileHandle }
         }
         let endFD = try Int(withTemporaryFile { return $0.fileHandle.fileDescriptor })
         XCTAssertEqual(initialFD, endFD)
+        #endif
     }
 }
