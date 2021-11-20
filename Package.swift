@@ -2,10 +2,10 @@
 
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2019 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -46,9 +46,9 @@ let package = Package(
     ],
     dependencies: [],
     targets: [
-        
+
         // MARK: Tools support core targets
-        
+
         .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "TSCclibc",
@@ -62,24 +62,28 @@ let package = Package(
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
-            dependencies: ["TSCLibc", "TSCclibc"],
+            dependencies: [
+              "TSCLibc",
+              "TSCclibc",
+              .product(name: "SystemPackage", package: "swift-system"),
+            ],
             exclude: CMakeFiles + ["README.md"]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
             dependencies: ["TSCBasic", "TSCclibc"],
             exclude: CMakeFiles),
-        
+
         // MARK: Additional Test Dependencies
-        
+
         .target(
             /** Generic test support library */
             name: "TSCTestSupport",
             dependencies: ["TSCBasic", "TSCUtility"]),
-        
-        
+
+
         // MARK: Tools support core tests
-        
+
         .testTarget(
             name: "TSCBasicTests",
             dependencies: ["TSCTestSupport", "TSCclibc"],
@@ -96,6 +100,19 @@ let package = Package(
             exclude: ["pkgconfigInputs", "Inputs"]),
     ]
 )
+
+/// When not using local dependencies, the branch to use for llbuild and TSC repositories.
+ let relatedDependenciesBranch = "main"
+
+ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+     package.dependencies += [
+         .package(url: "https://github.com/apple/swift-system.git", from: "1.0.0"),
+     ]
+ } else {
+     package.dependencies += [
+         .package(path: "../swift-system"),
+     ]
+ }
 
 // FIXME: conditionalise these flags since SwiftPM 5.3 and earlier will crash
 // for platforms they don't know about.
