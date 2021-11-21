@@ -92,6 +92,20 @@ class ProcessTests: XCTestCase {
             XCTFail()
         }
     }
+    
+    @available(macOS 12.0, *)
+    func testPopenAsyncAwait() async throws {
+        #if os(Windows)
+        let args = ["where.exe", "where"]
+        let answer = "C:\\Windows\\System32\\where.exe"
+        #else
+        let args = ["whoami"]
+        let answer = NSUserName()
+        #endif
+        let processResult = try await Process.popen(arguments: args)
+        let output = try processResult.utf8Output()
+        XCTAssertTrue(output.hasPrefix(answer))
+    }
 
     func testCheckNonZeroExit() throws {
         do {
