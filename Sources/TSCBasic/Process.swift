@@ -845,6 +845,20 @@ extension Process {
         }
     }
 
+    /// Execute a subprocess using async await
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    /// - Returns: The process result.
+    /// - Throws: Any errors that cause the execution to fail.
+    @available(macOS 12.0, *)
+    static public func popen(arguments: [String], environment: [String : String] = ProcessEnv.vars) async throws -> ProcessResult {
+        try await withUnsafeThrowingContinuation {
+            Self.popen(arguments: arguments, environment: environment, completion: $0.resume)
+        }
+    }
+
     /// Execute a subprocess and block until it finishes execution
     ///
     /// - Parameters:
