@@ -918,6 +918,10 @@ class VersionTests: XCTestCase {
         XCTAssertEqual(try? Version(versionString: "1.2", usesLenientParsing: false), nil)
     }
 
+    // Don't refactor out either `XCTAssertGreaterThan` or `XCTAssertFalse(<)`.
+    // The latter may seem redundant, but it tests a different thing.
+    // `XCTAssertGreaterThan` asserts that the "true" path of `>` works, which implies that the "true" path of `<` works. However, it doesn't tests the "false" path.
+    // `XCTAssertFalse(<)` asserts that the "false" path of `<` works.
     func testVersionComparison() {
 
         // MARK: version core vs. version core
@@ -925,12 +929,19 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(2, 1, 1), Version(1, 2, 3))
         XCTAssertGreaterThan(Version(1, 3, 1), Version(1, 2, 3))
         XCTAssertGreaterThan(Version(1, 2, 4), Version(1, 2, 3))
+        
+        XCTAssertFalse(Version(2, 1, 1) < Version(1, 2, 3))
+        XCTAssertFalse(Version(1, 3, 1) < Version(1, 2, 3))
+        XCTAssertFalse(Version(1, 2, 4) < Version(1, 2, 3))
 
         // MARK: version core vs. version core + pre-release
 
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: [""]))
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
 
         // MARK: version core + pre-release vs. version core + pre-release
 
@@ -973,6 +984,10 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(2, 2, 3, prereleaseIdentifiers: [""]), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
         XCTAssertGreaterThan(Version(1, 3, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
         XCTAssertGreaterThan(Version(1, 2, 4, prereleaseIdentifiers: ["223"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        
+        XCTAssertFalse(Version(2, 2, 3, prereleaseIdentifiers: [""]) < Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 3, 3, prereleaseIdentifiers: ["alpha"]) < Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertFalse(Version(1, 2, 4, prereleaseIdentifiers: ["223"]) < Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
 
         // MARK: version core + build metadata vs. version core + build metadata
 
@@ -1001,6 +1016,11 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha", "beta"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha-"]))
+        
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["alpha"], buildMetadataIdentifiers: ["alpha"]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]))
 
         // MARK: version core + pre-release vs. version core + pre-release + build metadata
 
@@ -1129,11 +1149,14 @@ class VersionTests: XCTestCase {
             XCTAssertGreaterThan(v2, v1)
             XCTAssertGreaterThanOrEqual(v2, v1)
             XCTAssertNotEqual(v1, v2)
+            XCTAssertFalse(v2 < v1)
 
             XCTAssertLessThanOrEqual(v1, v1)
             XCTAssertGreaterThanOrEqual(v1, v1)
+            XCTAssertFalse(v1 < v1)
             XCTAssertLessThanOrEqual(v2, v2)
             XCTAssertGreaterThanOrEqual(v2, v2)
+            XCTAssertFalse(v2 < v2)
         }
 
         do {
@@ -1144,11 +1167,14 @@ class VersionTests: XCTestCase {
             XCTAssertGreaterThan(v4, v3)
             XCTAssertGreaterThanOrEqual(v4, v3)
             XCTAssertNotEqual(v3, v4)
+            XCTAssertFalse(v4 < v3)
 
             XCTAssertLessThanOrEqual(v3, v3)
             XCTAssertGreaterThanOrEqual(v3, v3)
+            XCTAssertFalse(v3 < v3)
             XCTAssertLessThanOrEqual(v4, v4)
             XCTAssertGreaterThanOrEqual(v4, v4)
+            XCTAssertFalse(v4 < v4)
         }
 
         do {
@@ -1159,11 +1185,14 @@ class VersionTests: XCTestCase {
             XCTAssertGreaterThan(v6, v5)
             XCTAssertGreaterThanOrEqual(v6, v5)
             XCTAssertNotEqual(v5, v6)
+            XCTAssertFalse(v6 < v5)
 
             XCTAssertLessThanOrEqual(v5, v5)
             XCTAssertGreaterThanOrEqual(v5, v5)
+            XCTAssertFalse(v5 < v5)
             XCTAssertLessThanOrEqual(v6, v6)
             XCTAssertGreaterThanOrEqual(v6, v6)
+            XCTAssertFalse(v6 < v6)
         }
 
         do {
@@ -1175,11 +1204,14 @@ class VersionTests: XCTestCase {
             XCTAssertGreaterThan(v8, v7)
             XCTAssertGreaterThanOrEqual(v8, v7)
             XCTAssertNotEqual(v7, v8)
+            XCTAssertFalse(v8 < v7)
 
             XCTAssertLessThanOrEqual(v7, v7)
             XCTAssertGreaterThanOrEqual(v7, v7)
+            XCTAssertFalse(v7 < v7)
             XCTAssertLessThanOrEqual(v8, v8)
             XCTAssertGreaterThanOrEqual(v8, v8)
+            XCTAssertFalse(v8 < v8)
         }
 
         do {
@@ -1196,11 +1228,14 @@ class VersionTests: XCTestCase {
                 XCTAssertGreaterThan(v2, v1)
                 XCTAssertGreaterThanOrEqual(v2, v1)
                 XCTAssertNotEqual(v1, v2)
+                XCTAssertFalse(v2 < v1)
 
                 XCTAssertLessThanOrEqual(v1, v1)
                 XCTAssertGreaterThanOrEqual(v1, v1)
+                XCTAssertFalse(v1 < v1)
                 XCTAssertLessThanOrEqual(v2, v2)
                 XCTAssertGreaterThanOrEqual(v2, v2)
+                XCTAssertFalse(v2 < v2)
 
                 v1 = v2
             }
