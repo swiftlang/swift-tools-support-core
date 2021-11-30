@@ -141,6 +141,20 @@ public func withTemporaryFile<Result>(
     }
 }
 
+public func withTemporaryFile<Result>(
+  dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", _ body: (TemporaryFile, @escaping (TemporaryFile) -> Void) async throws -> Result
+) async throws -> Result {
+    return try await body(TemporaryFile(dir: dir, prefix: prefix, suffix: suffix)) { tempFile in
+#if os(Windows)
+        _ = tempFile.path.pathString.withCString(encodedAs: UTF16.self) {
+          _wunlink($0)
+        }
+#else
+        unlink(tempFile.path.pathString)
+#endif
+    }
+}
+
 /// Creates a temporary file and evaluates a closure with the temporary file as an argument.
 /// The temporary file will live on disk while the closure is evaluated and will be deleted afterwards.
 ///
@@ -166,6 +180,16 @@ public func withTemporaryFile<Result>(
         return try body(tempFile)
     }
 }
+
+public func withTemporaryFile<Result>(
+  dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", deleteOnClose: Bool = true, _ body: (TemporaryFile) async throws -> Result
+) async throws -> Result {
+    try await withTemporaryFile(dir: dir, prefix: prefix, suffix: suffix) { tempFile, cleanup in
+        defer { if (deleteOnClose) { cleanup(tempFile) } }
+        return try await body(tempFile)
+    }
+}
+
 
 // FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
 //
@@ -252,6 +276,26 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
+public func withTemporaryDirectory<Result>(
+    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
+) async throws -> Result {
+    // Construct path to the temporary directory.
+    let templatePath = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
+
+    // Convert templatePath to a C style string terminating with null char to be an valid input
+    // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
+    // which will be the actual path to the temporary directory.
+    var template = [UInt8](templatePath.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
+
+    if TSCLibc.mkdtemp(&template) == nil {
+        throw MakeDirectoryError(errno: errno)
+    }
+
+    return try await body(AbsolutePath(String(cString: template))) { path in
+        _ = try? FileManager.default.removeItem(atPath: path.pathString)
+    }
+}
+
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted afterwards.
 ///
@@ -277,3 +321,11 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
+public func withTemporaryDirectory<Result>(
+    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false , _ body: (AbsolutePath) async throws -> Result
+) async throws -> Result {
+    try await withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
+        defer { if removeTreeOnDeinit { cleanup(path) } }
+        return try await body(path)
+    }
+}
