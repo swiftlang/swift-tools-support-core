@@ -1016,9 +1016,5 @@ extension FileHandle: WritableByteStream {
     public func flush() {
         synchronizeFile()
     }
-
-    public func close() throws {
-        closeFile()
-    }
 }
 #endif
