@@ -14,6 +14,8 @@ import TSCTestSupport
 
 @testable import TSCUtility
 
+/// // deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {
         XCTAssertTrue(try PkgConfig(name: "harfbuzz", additionalSearchPaths: [AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs")], diagnostics: DiagnosticsEngine(), brewPrefix: nil).diagnostics.diagnostics.contains { diagnostic in
