@@ -11,6 +11,8 @@
 import TSCBasic
 import Foundation
 
+// deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     case couldNotFindConfigFile(name: String)
     case parsingError(String)
@@ -28,6 +30,8 @@ public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     }
 }
 
+// deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 public struct PCFileFinder {
     /// DiagnosticsEngine to emit warnings
     let diagnostics: DiagnosticsEngine
@@ -105,6 +109,8 @@ public struct PCFileFinder {
 }
 
 /// Informations to track circular dependencies and other PkgConfig issues
+// deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 public class LoadingContext {
     public init() {
         pkgConfigStack = [String]()
@@ -114,6 +120,8 @@ public class LoadingContext {
 }
 
 /// Information on an individual `pkg-config` supported package.
+/// // deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 public struct PkgConfig {
     /// The name of the package.
     public let name: String
@@ -218,6 +226,8 @@ public struct PkgConfig {
 /// Parser for the `pkg-config` `.pc` file format.
 ///
 /// See: https://www.freedesktop.org/wiki/Software/pkg-config/
+// deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 public struct PkgConfigParser {
     public let pcFile: AbsolutePath
     private let fileSystem: FileSystem
