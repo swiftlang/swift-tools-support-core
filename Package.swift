@@ -21,7 +21,7 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DE
     macOSPlatform = .macOS(.v10_10)
 }
 
-let CMakeFiles = ["cmake_install.cmake", "CMakeLists.txt", "CMakeFiles"]
+let CMakeFiles = ["CMakeLists.txt"]
 
 let package = Package(
     name: "swift-tools-support-core",
