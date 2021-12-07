@@ -224,6 +224,11 @@ public func lookupExecutablePath(
     guard let value = value, !value.isEmpty else {
         return nil
     }
+#if os(Windows)
+    let isPath = value.contains(":") || value.contains("\\") || value.contains("/")
+#else
+    let isPath = value.contains("/")
+#endif
 
     var paths: [AbsolutePath] = []
 
@@ -237,9 +242,14 @@ public func lookupExecutablePath(
     }
 
     // Ensure the value is not a path.
-    if !value.contains("/") {
+    if !isPath {
         // Try to locate in search paths.
         paths.append(contentsOf: searchPaths.map({ $0.appending(component: value) }))
+#if os(Windows)
+        if !value.contains(".") {
+            paths.append(contentsOf: searchPaths.map({ $0.appending(component: value + executableFileSuffix) }))
+        }
+#endif
     }
 
     return paths.first(where: { localFileSystem.isExecutableFile($0) })
