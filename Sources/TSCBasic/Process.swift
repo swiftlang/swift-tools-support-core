@@ -701,7 +701,7 @@ public final class Process {
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+    public func waitUntilExit(_ completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
