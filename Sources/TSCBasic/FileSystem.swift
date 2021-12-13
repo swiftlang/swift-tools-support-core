@@ -11,6 +11,7 @@
 import TSCLibc
 import Foundation
 import Dispatch
+import SystemPackage
 
 public struct FileSystemError: Error, Equatable {
     public enum Kind: Equatable {
@@ -175,7 +176,7 @@ public protocol FileSystem: AnyObject {
 
     /// Get the home directory of current user
     var homeDirectory: AbsolutePath { get }
-    
+
     /// Get the caches directory of current user
     var cachesDirectory: AbsolutePath? { get }
 
@@ -346,7 +347,7 @@ private class LocalFileSystem: FileSystem {
     var homeDirectory: AbsolutePath {
         return AbsolutePath(NSHomeDirectory())
     }
-    
+
     var cachesDirectory: AbsolutePath? {
         return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
     }
@@ -515,7 +516,7 @@ private class LocalFileSystem: FileSystem {
 //
 /// Concrete FileSystem implementation which simulates an empty disk.
 public class InMemoryFileSystem: FileSystem {
-    
+
     /// Private internal representation of a file system node.
     /// Not threadsafe.
     private class Node {
@@ -551,7 +552,7 @@ public class InMemoryFileSystem: FileSystem {
             }
         }
     }
-    
+
     /// Private internal representation the contents of a directory.
     /// Not threadsafe.
     private class DirectoryContents {
@@ -573,7 +574,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// The root node of the filesytem.
     private var root: Node
-    
+
     /// Protects `root` and everything underneath it.
     /// FIXME: Using a single lock for this is a performance problem, but in
     /// reality, the only practical use for InMemoryFileSystem is for unit
@@ -583,7 +584,7 @@ public class InMemoryFileSystem: FileSystem {
     private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
-    
+
     /// Exclusive file system lock vended to clients through `withLock()`.
     // Used to ensure that DispatchQueues are releassed when they are no longer in use.
     private struct WeakReference<Value: AnyObject> {
@@ -717,7 +718,7 @@ public class InMemoryFileSystem: FileSystem {
         // FIXME: Maybe we should allow setting this when creating the fs.
         return AbsolutePath("/home/user")
     }
-    
+
     public var cachesDirectory: AbsolutePath? {
         return self.homeDirectory.appending(component: "caches")
     }
@@ -735,7 +736,7 @@ public class InMemoryFileSystem: FileSystem {
             return [String](contents.entries.keys)
         }
     }
-    
+
     /// Not threadsafe.
     private func _createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Ignore if client passes root.
@@ -882,7 +883,7 @@ public class InMemoryFileSystem: FileSystem {
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         // FIXME: We don't have these semantics in InMemoryFileSystem.
     }
-    
+
     /// Private implementation of core copying function.
     /// Not threadsafe.
     private func _copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
@@ -1023,7 +1024,7 @@ public class RerootedFileSystemView: FileSystem {
     public var homeDirectory: AbsolutePath {
         fatalError("homeDirectory on RerootedFileSystemView is not supported.")
     }
-    
+
     public var cachesDirectory: AbsolutePath? {
         fatalError("cachesDirectory on RerootedFileSystemView is not supported.")
     }
