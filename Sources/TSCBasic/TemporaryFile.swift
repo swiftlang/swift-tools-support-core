@@ -141,6 +141,7 @@ public func withTemporaryFile<Result>(
     }
 }
 
+@available(macOS 12.0, *)
 public func withTemporaryFile<Result>(
   dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", _ body: (TemporaryFile, @escaping (TemporaryFile) -> Void) async throws -> Result
 ) async throws -> Result {
@@ -181,6 +182,7 @@ public func withTemporaryFile<Result>(
     }
 }
 
+@available(macOS 12.0, *)
 public func withTemporaryFile<Result>(
   dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", deleteOnClose: Bool = true, _ body: (TemporaryFile) async throws -> Result
 ) async throws -> Result {
@@ -276,6 +278,7 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
+@available(macOS 12.0, *)
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) async throws -> Result {
@@ -321,6 +324,7 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
+@available(macOS 12.0, *)
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false , _ body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
