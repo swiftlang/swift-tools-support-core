@@ -34,7 +34,10 @@ public struct ProcessResult: CustomStringConvertible {
     public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
-#if !os(Windows)
+#if os(Windows)
+        /// The process was terminated abnormally.
+        case abnormal(exception: UInt32)
+#else
         /// The process was terminated due to a signal.
         case signalled(signal: Int32)
 #endif
@@ -64,12 +67,17 @@ public struct ProcessResult: CustomStringConvertible {
         arguments: [String],
         environment: [String: String],
         exitStatusCode: Int32,
+        normal: Bool,
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         let exitStatus: ExitStatus
       #if os(Windows)
-        exitStatus = .terminated(code: exitStatusCode)
+        if normal {
+            exitStatus = .terminated(code: exitStatusCode)
+        } else {
+            exitStatus = .abnormal(exception: UInt32(exitStatusCode))
+        }
       #else
         if WIFSIGNALED(exitStatusCode) {
             exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
@@ -726,6 +734,7 @@ public final class Process {
             let p = _process!
             p.waitUntilExit()
             let exitStatusCode = p.terminationStatus
+            let normalExit = p.terminationReason == .exit
           #else
             var exitStatusCode: Int32 = 0
             var result = waitpid(processID, &exitStatusCode, 0)
@@ -735,6 +744,7 @@ public final class Process {
             if result == -1 {
                 self.state = .failed(SystemError.waitpid(errno))
             }
+            let normalExit = !WIFSIGNALED(result)
           #endif
 
             // Construct the result.
@@ -742,6 +752,7 @@ public final class Process {
                 arguments: arguments,
                 environment: environment,
                 exitStatusCode: exitStatusCode,
+                normal: normalExit,
                 output: stdoutResult,
                 stderrOutput: stderrResult
             )
@@ -970,7 +981,10 @@ extension ProcessResult.Error: CustomStringConvertible {
             switch result.exitStatus {
             case .terminated(let code):
                 stream <<< "terminated(\(code)): "
-#if !os(Windows)
+#if os(Windows)
+            case .abnormal(let exception):
+                stream <<< "abnormal(\(exception)): "
+#else
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
 #endif
