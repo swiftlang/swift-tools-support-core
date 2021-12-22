@@ -194,7 +194,7 @@ struct InternalSHA256: HashAlgorithm {
     }
 }
 
-/// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
+#if canImport(CryptoKit)
 @available(*, deprecated, message: "use SHA256 which abstract over platform differences")
 @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
 public struct CryptoKitSHA256: HashAlgorithm {
@@ -205,7 +205,7 @@ public struct CryptoKitSHA256: HashAlgorithm {
     }
 }
 
-#if canImport(CryptoKit)
+/// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
 @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
 struct _CryptoKitSHA256: HashAlgorithm {
     public init() {
