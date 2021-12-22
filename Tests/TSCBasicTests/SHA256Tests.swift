@@ -8,9 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+@testable import TSCBasic
 import XCTest
-
-import TSCBasic
 
 class SHA256Tests: XCTestCase {
 
@@ -47,11 +46,20 @@ class SHA256Tests: XCTestCase {
   #if canImport(Darwin)
     @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
     func testCryptoKitSHA256() {
-        let sha = CryptoKitSHA256()
+        let sha = _CryptoKitSHA256()
         XCTAssertEqual(
             sha.hash(ByteString("The quick brown fox jumps over the lazy dog")).hexadecimalRepresentation,
             "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"
         )
     }
   #endif
+
+    @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+    func testInternalSHA256() {
+        let sha = InternalSHA256()
+        XCTAssertEqual(
+            sha.hash(ByteString("The quick brown fox jumps over the lazy dog")).hexadecimalRepresentation,
+            "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"
+        )
+    }
 }
