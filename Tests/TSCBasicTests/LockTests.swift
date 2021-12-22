@@ -38,7 +38,7 @@ class LockTests: XCTestCase {
                 let N = 10
                 let threads = (1...N).map { idx in
                     return Thread {
-                        let lock = FileLock(name: "TestLock", cachePath: tempDirPath)
+                        let lock = FileLock(at: tempDirPath.appending(component: "TestLock"))
                         try! lock.withLock {
                             // Get thr current contents of the file if any.
                             let currentData: Int
@@ -71,7 +71,7 @@ class LockTests: XCTestCase {
 
             let writerThreads = (0..<100).map { _ in
                 return Thread {
-                    let lock = FileLock(name: "foo", cachePath: tempDir)
+                    let lock = FileLock(at: tempDir.appending(component: "foo"))
                     try! lock.withLock(type: .exclusive) {
                         // Get the current contents of the file if any.
                         let valueA = Int(try localFileSystem.readFileContents(fileA).description)!
@@ -90,7 +90,7 @@ class LockTests: XCTestCase {
 
             let readerThreads = (0..<20).map { _ in
                 return Thread {
-                    let lock = FileLock(name: "foo", cachePath: tempDir)
+                    let lock = FileLock(at: tempDir.appending(component: "foo"))
                     try! lock.withLock(type: .shared) {
                         try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
 
@@ -110,5 +110,61 @@ class LockTests: XCTestCase {
             try XCTAssertEqual(localFileSystem.readFileContents(fileB), "100")
         }
     }
-
+    
+    func testFileLockLocation() throws {
+        do {
+            let fileName = UUID().uuidString
+            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            try localFileSystem.withLock(on: fileToLock, type: .exclusive) {}
+            
+            // lock file expected at temp when lockFilesDirectory set to nil
+            // which is the case when going through localFileSystem
+            let lockFile = try localFileSystem.getDirectoryContents(localFileSystem.tempDirectory)
+                .first(where: { $0.contains(fileName) })
+            XCTAssertNotNil(lockFile, "expected lock file at \(localFileSystem.tempDirectory)")
+        }
+        
+        do {
+            let fileName = UUID().uuidString
+            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: nil, body: {})
+            
+            // lock file expected at temp when lockFilesDirectory set to nil
+            let lockFile = try localFileSystem.getDirectoryContents(localFileSystem.tempDirectory)
+                .first(where: { $0.contains(fileName) })
+            XCTAssertNotNil(lockFile, "expected lock file at \(localFileSystem.tempDirectory)")
+        }
+        
+        do {
+            try withTemporaryDirectory { tempDir in
+                let fileName = UUID().uuidString
+                let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+                try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: tempDir, body: {})
+                
+                // lock file expected at specified directory when lockFilesDirectory is set to a valid directory
+                let lockFile = try localFileSystem.getDirectoryContents(tempDir)
+                    .first(where: { $0.contains(fileName) })
+                XCTAssertNotNil(lockFile, "expected lock file at \(tempDir)")
+            }
+        }
+        
+        do {
+            let fileName = UUID().uuidString
+            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            let lockFilesDirectory = localFileSystem.homeDirectory.appending(component: UUID().uuidString)
+            XCTAssertThrows(FileSystemError(.noEntry, lockFilesDirectory)) {
+                try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: lockFilesDirectory, body: {})
+            }
+        }
+        
+        do {
+            let fileName = UUID().uuidString
+            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            let lockFilesDirectory = localFileSystem.homeDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.writeFileContents(lockFilesDirectory, bytes: [])
+            XCTAssertThrows(FileSystemError(.notDirectory, lockFilesDirectory)) {
+                try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: lockFilesDirectory, body: {})
+            }
+        }
+    }
 }
