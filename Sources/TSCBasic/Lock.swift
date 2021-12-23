@@ -44,9 +44,9 @@ extension ProcessLockError: CustomNSError {
         return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
-/// Provides functionality to aquire a lock on a file via POSIX's flock() method.
+/// Provides functionality to acquire a lock on a file via POSIX's flock() method.
 /// It can be used for things like serializing concurrent mutations on a shared resource
-/// by mutiple instances of a process. The `FileLock` is not thread-safe.
+/// by multiple instances of a process. The `FileLock` is not thread-safe.
 public final class FileLock {
 
     public enum LockType {
@@ -64,15 +64,19 @@ public final class FileLock {
     /// Path to the lock file.
     private let lockFile: AbsolutePath
 
-    /// Create an instance of process lock with a name and the path where
-    /// the lock file can be created.
+    /// Create an instance of FileLock at the path specified
     ///
-    /// Note: The cache path should be a valid directory.
-    public init(name: String, cachePath: AbsolutePath) {
-        self.lockFile = cachePath.appending(component: name + ".lock")
+    /// Note: The parent directory path should be a valid directory.
+    public init(at lockFile: AbsolutePath) {
+        self.lockFile = lockFile
     }
 
-    /// Try to aquire a lock. This method will block until lock the already aquired by other process.
+    @available(*, deprecated, message: "use init(at:) instead")
+    public convenience init(name: String, cachePath: AbsolutePath) {
+        self.init(at: cachePath.appending(component: name + ".lock"))
+    }
+
+    /// Try to acquire a lock. This method will block until lock the already aquired by other process.
     ///
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock(type: LockType = .exclusive) throws {
@@ -162,5 +166,25 @@ public final class FileLock {
         try lock(type: type)
         defer { unlock() }
         return try body()
+    }
+    
+    public static func withLock<T>(fileToLock: AbsolutePath, lockFilesDirectory: AbsolutePath? = nil, type: LockType = .exclusive, body: () throws -> T) throws -> T {
+        // unless specified, we use the tempDirectory to store lock files
+        let lockFilesDirectory = lockFilesDirectory ?? localFileSystem.tempDirectory
+        if !localFileSystem.exists(lockFilesDirectory) {
+            throw FileSystemError(.noEntry, lockFilesDirectory)
+        }
+        if !localFileSystem.isDirectory(lockFilesDirectory) {
+            throw FileSystemError(.notDirectory, lockFilesDirectory)
+        }
+        // use the parent path to generate unique filename in temp
+        var lockFileName = (resolveSymlinks(fileToLock.parentDirectory).appending(component: fileToLock.basename)).components.joined(separator: "_")
+        if lockFileName.hasPrefix(AbsolutePath.root.pathString) {
+            lockFileName = String(lockFileName.dropFirst(AbsolutePath.root.pathString.count))
+        }
+        let lockFilePath = lockFilesDirectory.appending(component: lockFileName + ".lock")
+        
+        let lock = FileLock(at: lockFilePath)
+        return try lock.withLock(type: type, body)
     }
 }
