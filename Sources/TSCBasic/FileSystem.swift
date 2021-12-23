@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCLibc
 import Foundation
@@ -180,6 +180,9 @@ public protocol FileSystem: AnyObject {
     /// Get the caches directory of current user
     var cachesDirectory: AbsolutePath? { get }
 
+    /// Get the temp directory
+    var tempDirectory: AbsolutePath { get }
+
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
 
@@ -352,10 +355,18 @@ private class LocalFileSystem: FileSystem {
         return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
     }
 
+    var tempDirectory: AbsolutePath {
+        let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+        if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
+            return path
+        }
+        return AbsolutePath(NSTemporaryDirectory())
+    }
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-      #if canImport(Darwin)
+#if canImport(Darwin)
         return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
-      #else
+#else
         do {
             return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
         } catch let error as NSError {
@@ -367,7 +378,7 @@ private class LocalFileSystem: FileSystem {
             }
             throw error
         }
-      #endif
+#endif
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -478,10 +489,10 @@ private class LocalFileSystem: FileSystem {
         guard isDirectory(path) else { return }
 
         guard let traverse = FileManager.default.enumerator(
-                at: URL(fileURLWithPath: path.pathString),
-                includingPropertiesForKeys: nil) else {
-            throw FileSystemError(.noEntry, path)
-        }
+            at: URL(fileURLWithPath: path.pathString),
+            includingPropertiesForKeys: nil) else {
+                throw FileSystemError(.noEntry, path)
+            }
 
         if !options.contains(.recursive) {
             traverse.skipDescendants()
@@ -507,8 +518,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let lock = FileLock(name: path.basename, cachePath: path.parentDirectory)
-        return try lock.withLock(type: type, body)
+        try FileLock.withLock(fileToLock: path, type: type, body: body)
     }
 }
 
@@ -529,7 +539,7 @@ public class InMemoryFileSystem: FileSystem {
 
         /// Creates deep copy of the object.
         func copy() -> Node {
-           return Node(contents.copy())
+            return Node(contents.copy())
         }
     }
 
@@ -723,6 +733,10 @@ public class InMemoryFileSystem: FileSystem {
         return self.homeDirectory.appending(component: "caches")
     }
 
+    public var tempDirectory: AbsolutePath {
+        return AbsolutePath("/tmp")
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try lock.withLock {
             guard let node = try getNode(path) else {
@@ -872,9 +886,9 @@ public class InMemoryFileSystem: FileSystem {
             // Ignore root and get the parent node's content if its a directory.
             guard !path.isRoot,
                   let parent = try? getNode(path.parentDirectory),
-                case .directory(let contents) = parent.contents else {
-                return
-            }
+                  case .directory(let contents) = parent.contents else {
+                      return
+                  }
             // Set it to nil to release the contents.
             contents.entries[path.basename] = nil
         }
@@ -936,7 +950,7 @@ public class InMemoryFileSystem: FileSystem {
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         let resolvedPath: AbsolutePath = try lock.withLock {
             if case let .symlink(destination) = try getNode(path)?.contents {
-                return  AbsolutePath(destination, relativeTo: path.parentDirectory)
+                return AbsolutePath(destination, relativeTo: path.parentDirectory)
             } else {
                 return path
             }
@@ -1027,6 +1041,10 @@ public class RerootedFileSystemView: FileSystem {
 
     public var cachesDirectory: AbsolutePath? {
         fatalError("cachesDirectory on RerootedFileSystemView is not supported.")
+    }
+
+    public var tempDirectory: AbsolutePath {
+        fatalError("tempDirectory on RerootedFileSystemView is not supported.")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
