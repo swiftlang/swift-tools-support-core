@@ -67,6 +67,12 @@ public struct FileSystemError: Error, Equatable {
         /// This is thrown when copying or moving a file or directory but the destination
         /// path already contains a file or folder.
         case alreadyExistsAtDestination
+
+        /// If an unspecified error occurs when trying to change directories.
+        case couldNotChangeDirectory
+
+        /// If a mismatch is detected in byte count when writing to a file.
+        case mismatchedByteCount(expected: Int, actual: Int)
     }
 
     /// The kind of the error being raised.
@@ -99,7 +105,7 @@ public extension FileSystemError {
         case TSCLibc.ENOTDIR:
             self.init(.notDirectory, path)
         default:
-            self.init(.unknownOSError, path)
+            self.init(.ioError(code: errno), path)
         }
     }
 }
@@ -343,7 +349,7 @@ private class LocalFileSystem: FileSystem {
         }
 
         guard FileManager.default.changeCurrentDirectoryPath(path.pathString) else {
-            throw FileSystemError(.unknownOSError, path)
+            throw FileSystemError(.couldNotChangeDirectory, path)
         }
     }
 
@@ -440,7 +446,7 @@ private class LocalFileSystem: FileSystem {
                 throw FileSystemError(.ioError(code: errno), path)
             }
             if n != contents.count {
-                throw FileSystemError(.unknownOSError, path)
+                throw FileSystemError(.mismatchedByteCount(expected: contents.count, actual: n), path)
             }
             break
         }
