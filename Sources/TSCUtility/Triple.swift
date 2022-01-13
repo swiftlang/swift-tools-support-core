@@ -161,20 +161,39 @@ public struct Triple: Encodable, Equatable {
 
     /// Determine the versioned host triple using the Swift compiler.
     public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) -> Triple {
+        // Call the compiler to get the target info JSON.
+        let compilerOutput: String
         do {
             let result = try Process.popen(args: swiftCompiler.pathString, "-print-target-info")
-            let output = try result.utf8Output().spm_chomp()
-            let targetInfo = try JSON(string: output)
-            let tripleString: String = try targetInfo.get("target").get("triple")
-            return try Triple(tripleString)
+            compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
             // FIXME: Remove the macOS special-casing once the latest version of Xcode comes with
             // a Swift compiler that supports -print-target-info.
-          #if os(macOS)
-            return .macOS
-          #else
-            fatalError("could not determine host triple: \(error)")
-          #endif
+            #if os(macOS)
+                return .macOS
+            #else
+                fatalError("Failed to get target info (\(error))")
+            #endif
+        }
+        // Parse the compiler's JSON output.
+        let parsedTargetInfo: JSON
+        do {
+            parsedTargetInfo = try JSON(string: compilerOutput)
+        } catch {
+            fatalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
+        }
+        // Get the triple string from the parsed JSON.
+        let tripleString: String
+        do {
+            tripleString = try parsedTargetInfo.get("target").get("triple")
+        } catch {
+            fatalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
+        }
+        // Parse the triple string.
+        do {
+            return try Triple(tripleString)
+        } catch {
+            fatalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
         }
     }
 }
