@@ -767,12 +767,13 @@ class FileSystemTests: XCTestCase {
             let lockFile = tempDir.appending(component: "lockfile")
 
             try _testFileSystemFileLock(fileSystem: localFileSystem, fileA: fileA, fileB: fileB, lockFile: lockFile)
-
+#if !os(Windows)
             // Test some long and edge case paths. We arrange to split between the C and the Cedilla if NAME_MAX is 255.
             let longEdgeCase1 = tempDir.appending(component: String(repeating: "Façade!  ", count: Int(NAME_MAX)).decomposedStringWithCanonicalMapping)
             try localFileSystem.withLock(on: longEdgeCase1, type: .exclusive, {})
             let longEdgeCase2 = tempDir.appending(component: String(repeating: "🏁", count: Int(NAME_MAX)).decomposedStringWithCanonicalMapping)
             try localFileSystem.withLock(on: longEdgeCase2, type: .exclusive, {})
+#endif
         }
     }
 

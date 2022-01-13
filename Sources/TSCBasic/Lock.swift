@@ -182,6 +182,7 @@ public final class FileLock {
         if lockFileName.hasPrefix(AbsolutePath.root.pathString) {
             lockFileName = String(lockFileName.dropFirst(AbsolutePath.root.pathString.count))
         }
+#if !os(Windows)
         // back off until it occupies at most `NAME_MAX` UTF-8 bytes but without splitting scalars
         // (we might split clusters but it's not worth the effort to keep them together as long as we get a valid file name)
         var lockFileUTF8 = lockFileName.utf8.suffix(Int(NAME_MAX))
@@ -191,6 +192,7 @@ public final class FileLock {
         }
         // we will never end up with nil since we have ASCII characters at the end
         lockFileName = String(lockFileUTF8) ?? lockFileName
+#endif
         let lockFilePath = lockFilesDirectory.appending(component: lockFileName)
 
         let lock = FileLock(at: lockFilePath)
