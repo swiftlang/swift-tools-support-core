@@ -768,10 +768,10 @@ class FileSystemTests: XCTestCase {
 
             try _testFileSystemFileLock(fileSystem: localFileSystem, fileA: fileA, fileB: fileB, lockFile: lockFile)
 
-            // Test some long and edge case paths. We arrange to split between the C and the Cedilla if NAME_MAX is 255.
-            let longEdgeCase1 = tempDir.appending(component: String(repeating: "Façade!  ", count: Int(NAME_MAX)).decomposedStringWithCanonicalMapping)
+            // Test some long and edge case paths. We arrange to split between the C and the Cedilla by repeating 255 times.
+            let longEdgeCase1 = tempDir.appending(component: String(repeating: "Façade!  ", count: 255).decomposedStringWithCanonicalMapping)
             try localFileSystem.withLock(on: longEdgeCase1, type: .exclusive, {})
-            let longEdgeCase2 = tempDir.appending(component: String(repeating: "🏁", count: Int(NAME_MAX)).decomposedStringWithCanonicalMapping)
+            let longEdgeCase2 = tempDir.appending(component: String(repeating: "🏁", count: 255).decomposedStringWithCanonicalMapping)
             try localFileSystem.withLock(on: longEdgeCase2, type: .exclusive, {})
         }
     }
