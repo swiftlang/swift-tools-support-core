@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -178,12 +178,33 @@ public final class FileLock {
             throw FileSystemError(.notDirectory, lockFilesDirectory)
         }
         // use the parent path to generate unique filename in temp
-        var lockFileName = (resolveSymlinks(fileToLock.parentDirectory).appending(component: fileToLock.basename)).components.joined(separator: "_")
+        var lockFileName = (resolveSymlinks(fileToLock.parentDirectory)
+                                .appending(component: fileToLock.basename))
+                                .components.joined(separator: "_")
+                                .replacingOccurrences(of: ":", with: "_") + ".lock"
+#if os(Windows)
+        // NTFS has an ARC limit of 255 codepoints
+        var lockFileUTF16 = lockFileName.utf16.suffix(255)
+        while String(lockFileUTF16) == nil {
+            lockFileUTF16 = lockFileUTF16.dropFirst()
+        }
+        lockFileName = String(lockFileUTF16) ?? lockFileName
+#else
         if lockFileName.hasPrefix(AbsolutePath.root.pathString) {
             lockFileName = String(lockFileName.dropFirst(AbsolutePath.root.pathString.count))
         }
-        let lockFilePath = lockFilesDirectory.appending(component: lockFileName + ".lock")
-        
+        // back off until it occupies at most `NAME_MAX` UTF-8 bytes but without splitting scalars
+        // (we might split clusters but it's not worth the effort to keep them together as long as we get a valid file name)
+        var lockFileUTF8 = lockFileName.utf8.suffix(Int(NAME_MAX))
+        while String(lockFileUTF8) == nil {
+            // in practice this will only be a few iterations
+            lockFileUTF8 = lockFileUTF8.dropFirst()
+        }
+        // we will never end up with nil since we have ASCII characters at the end
+        lockFileName = String(lockFileUTF8) ?? lockFileName
+#endif
+        let lockFilePath = lockFilesDirectory.appending(component: lockFileName)
+
         let lock = FileLock(at: lockFilePath)
         return try lock.withLock(type: type, body)
     }
