@@ -162,8 +162,8 @@ public func exec(path: String, args: [String]) throws -> Never {
     guard execv(path, cArgs.cArray) != -1 else {
         throw SystemError.exec(errno, path: path, args: args)
     }
-    fatalError("unreachable")
   #endif
+    fatalError("unreachable")
 }
 
 @_disfavoredOverload
