@@ -163,6 +163,8 @@ public func exec(path: String, args: [String]) throws -> Never {
         throw SystemError.exec(errno, path: path, args: args)
     }
     fatalError("unreachable")
+  #else
+    fatalError("not implemented")
   #endif
 }
 
