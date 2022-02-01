@@ -25,6 +25,8 @@ import subprocess
 import sys
 import errno
 
+g_macos_deployment_target = '10.10'
+
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
@@ -70,6 +72,11 @@ def main():
         This script will build a TSC using CMake.
         """)
     subparsers = parser.add_subparsers(dest='command')
+
+    # clean
+    parser_clean = subparsers.add_parser("clean", help="cleans build artifacts")
+    parser_clean.set_defaults(func=clean)
+    add_global_args(parser_clean)
 
     # build
     parser_build = subparsers.add_parser("build", help="builds TSC using CMake")
@@ -120,6 +127,7 @@ def parse_global_args(args):
     """Parses and cleans arguments necessary for all actions."""
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    args.swift_collections_source_dir = os.path.join(args.project_root, "..", "swift-collections")
 
     if platform.system() == 'Darwin':
         args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
@@ -133,6 +141,7 @@ def parse_build_args(args):
     args.swiftc_path = get_swiftc_path(args)
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
+    args.target_dir = os.path.join(args.build_dir, get_build_target(args))
 
 def get_swiftc_path(args):
     """Returns the path to the Swift compiler."""
@@ -180,13 +189,37 @@ def get_ninja_path(args):
     else:
         return call_output(["which", "ninja"], verbose=args.verbose)
 
+def get_build_target(args, cross_compile=False):
+    """Returns the target-triple of the current machine or for cross-compilation."""
+    try:
+        command = [args.swiftc_path, '-print-target-info']
+        if cross_compile:
+            cross_compile_json = json.load(open(args.cross_compile_config))
+            command += ['-target', cross_compile_json["target"]]
+        target_info_json = subprocess.check_output(command,
+                               stderr=subprocess.PIPE, universal_newlines=True).strip()
+        args.target_info = json.loads(target_info_json)
+        return args.target_info["target"]["unversionedTriple"]
+    except Exception as e:
+        # Temporary fallback for Darwin.
+        if platform.system() == 'Darwin':
+            return 'x86_64-apple-macosx'
+        else:
+            error(str(e))
+
 # -----------------------------------------------------------
 # Actions
 # -----------------------------------------------------------
 
 def build(args):
     parse_build_args(args)
+    build_swift_collections(args)
     build_tsc(args)
+
+def clean(args):
+    parse_global_args(args)
+
+    call(["rm", "-rf", args.build_dir], verbose=args.verbose)
 
 # -----------------------------------------------------------
 # Build functions
@@ -222,11 +255,27 @@ def build_with_cmake(args, cmake_args, source_path, build_dir):
 
     call(ninja_cmd, cwd=build_dir, verbose=args.verbose)
 
-def build_tsc(args):
+def build_swift_collections(args):
+    note("Building swift-collections")
+    args.swift_collections_build_dir = os.path.join(args.target_dir, "swift-collections")
+
     cmake_flags = []
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx10.10")
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+
+    build_with_cmake(args, cmake_flags, args.swift_collections_source_dir, args.swift_collections_build_dir)
+
+
+def build_tsc(args):
+    note("Building TSC")
+
+    cmake_flags = [
+        "-DSwiftCollections_DIR=" + os.path.join(args.swift_collections_build_dir, "cmake/modules"),
+    ]
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.project_root, args.build_dir)
 
