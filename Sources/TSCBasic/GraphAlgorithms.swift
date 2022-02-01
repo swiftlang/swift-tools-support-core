@@ -1,12 +1,14 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
+
+import OrderedCollections
 
 public enum GraphError: Error {
     /// A cycle was detected in the input.
@@ -69,7 +71,7 @@ public func topologicalSort<T: Hashable>(
 
         // Otherwise, visit each adjacent node.
         for succ in try successors(node) {
-            guard stack.append(succ) else {
+            guard stack.append(succ).inserted else {
                 // If the successor is already in this current stack, we have found a cycle.
                 //
                 // FIXME: We could easily include information on the cycle we found here.
@@ -120,7 +122,7 @@ public func findCycle<T: Hashable>(
     // FIXME: Convert to stack.
     func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
         // If this node is already in the current path then we have found a cycle.
-        if !path.append(node) {
+        if !path.append(node).inserted {
             let index = path.firstIndex(of: node)!
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }
