@@ -162,6 +162,12 @@ public protocol FileSystem: AnyObject {
     /// Check whether the given path is accessible and is a symbolic link.
     func isSymlink(_ path: AbsolutePath) -> Bool
 
+    /// Check whether the given path is accessible and readable.
+    func isReadable(_ path: AbsolutePath) -> Bool
+
+    /// Check whether the given path is accessible and writable.
+    func isWritable(_ path: AbsolutePath) -> Bool
+
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
     //
@@ -319,6 +325,14 @@ private class LocalFileSystem: FileSystem {
     func isSymlink(_ path: AbsolutePath) -> Bool {
         let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
         return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
+    }
+
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        FileManager.default.isReadableFile(atPath: path.pathString)
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
+        FileManager.default.isWritableFile(atPath: path.pathString)
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
@@ -715,6 +729,14 @@ public class InMemoryFileSystem: FileSystem {
         }
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        self.exists(path)
+    }
+
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // FIXME: Always return false until in-memory implementation
         // gets permission semantics.
@@ -1026,6 +1048,14 @@ public class RerootedFileSystemView: FileSystem {
 
     public func isSymlink(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
+    }
+
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isReadable(formUnderlyingPath(path))
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isWritable(formUnderlyingPath(path))
     }
 
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {

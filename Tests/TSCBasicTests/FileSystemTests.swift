@@ -183,6 +183,74 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+    func testLocalReadableWritable() throws {
+        try testWithTemporaryDirectory { tmpdir in
+            let fs = localFileSystem
+
+            // directory
+
+            do {
+                let directory = tmpdir.appending(component: "directory")
+                try fs.createDirectory(directory, recursive: true)
+
+                // should be readable and writable by default
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+
+                // set to non-readable non-writable.
+                _ = try Process.popen(args: "chmod", "-r-w", directory.pathString)
+                XCTAssertFalse(fs.isReadable(directory))
+                XCTAssertFalse(fs.isWritable(directory))
+
+                // set to readable non-writable.
+                _ = try Process.popen(args: "chmod", "+r-w", directory.pathString)
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertFalse(fs.isWritable(directory))
+
+                // set to non-readable writable.
+                _ = try Process.popen(args: "chmod", "-r+w", directory.pathString)
+                XCTAssertFalse(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+
+                // set to readable and writable.
+                _ = try Process.popen(args: "chmod", "+r+w", directory.pathString)
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+            }
+
+            // file
+
+            do {
+                let file = tmpdir.appending(component: "file")
+                try fs.writeFileContents(file, bytes: "")
+
+                // should be readable and writable by default
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+
+                // set to non-readable non-writable.
+                _ = try Process.popen(args: "chmod", "-r-w", file.pathString)
+                XCTAssertFalse(fs.isReadable(file))
+                XCTAssertFalse(fs.isWritable(file))
+
+                // set to readable non-writable.
+                _ = try Process.popen(args: "chmod", "+r-w", file.pathString)
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertFalse(fs.isWritable(file))
+
+                // set to non-readable writable.
+                _ = try Process.popen(args: "chmod", "-r+w", file.pathString)
+                XCTAssertFalse(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+
+                // set to readable and writable.
+                _ = try Process.popen(args: "chmod", "+r+w", file.pathString)
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+            }
+        }
+    }
+
     func testLocalCreateDirectory() throws {
         let fs = TSCBasic.localFileSystem
 
