@@ -23,6 +23,8 @@ extension AuthorizationProviding {
  which is only available in macOS 10.13+, iOS 11+, etc at this time.
  */
 /// Container of parsed netrc connection settings
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public struct Netrc {
     /// Representation of `machine` connection settings & `default` connection settings.
@@ -98,6 +100,8 @@ public struct Netrc {
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 extension Netrc: AuthorizationProviding {}
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public extension Netrc {
     enum Error: Swift.Error {
@@ -136,6 +140,8 @@ public extension Netrc {
     }
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 extension Netrc.Error: CustomNSError {
     public var errorUserInfo: [String : Any] {
@@ -143,6 +149,8 @@ extension Netrc.Error: CustomNSError {
     }
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 @available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 fileprivate enum RegexUtil {
     @frozen fileprivate enum Token: String, CaseIterable {
