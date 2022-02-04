@@ -101,6 +101,8 @@ extension Product {
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
 
+        environment["DYLD_LIBRARY_PATH"] = nil
+
         var completeArgs = [path.pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
