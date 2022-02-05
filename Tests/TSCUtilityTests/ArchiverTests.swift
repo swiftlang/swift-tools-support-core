@@ -13,6 +13,8 @@ import TSCBasic
 import TSCUtility
 import TSCTestSupport
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 class ArchiverTests: XCTestCase {
     // MARK: - ZipArchiver Tests
 

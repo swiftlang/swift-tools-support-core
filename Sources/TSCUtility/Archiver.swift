@@ -12,6 +12,8 @@ import TSCBasic
 import Dispatch
 
 /// The `Archiver` protocol abstracts away the different operations surrounding archives.
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 public protocol Archiver {
 
     /// A set of extensions the current archiver supports.
@@ -31,6 +33,8 @@ public protocol Archiver {
 }
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 public struct ZipArchiver: Archiver {
     public var supportedExtensions: Set<String> { ["zip"] }
 
