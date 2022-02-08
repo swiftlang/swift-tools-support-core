@@ -205,10 +205,20 @@ public final class Process {
     public typealias OutputClosure = ([UInt8]) -> Void
 
     /// Global default setting for verbose.
-    public static var verbose = false
+    @available(*, deprecated)
+    public static var verbose: Bool {
+        Self.loggingHandler != nil
+    }
+
+    public static var loggingHandler: ((String) -> Void)? = nil
 
     /// If true, prints the subprocess arguments before launching it.
-    public let verbose: Bool
+    @available(*, deprecated)
+    public var verbose: Bool {
+        self.loggingHandler != nil
+    }
+
+    private let loggingHandler: ((String) -> Void)?
 
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
@@ -286,24 +296,50 @@ public final class Process {
     ///     will be inherited.
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
-    ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///   - loggingHandler: Handler for logging messages
+    ///
     @available(macOS 10.15, *)
     public init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
-        verbose: Bool = Process.verbose,
-        startNewProcessGroup: Bool = true
+        startNewProcessGroup: Bool = true,
+        loggingHandler: ((String) -> Void)? = Process.loggingHandler
     ) {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
-        self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
+        self.loggingHandler = loggingHandler
+    }
+
+    // deprecated 2/2022
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use version without verbosity flag")
+    @available(macOS 10.15, *)
+    public convenience init(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        workingDirectory: AbsolutePath,
+        outputRedirection: OutputRedirection = .collect,
+        verbose: Bool,
+        startNewProcessGroup: Bool = true
+    ) {
+        self.init(
+            arguments: arguments,
+            environment: environment,
+            workingDirectory: workingDirectory,
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: verbose ? { message in
+                stdoutStream <<< message <<< "\n"
+                stdoutStream.flush()
+            } : nil
+        )
     }
 
     /// Create a new process instance.
@@ -320,15 +356,36 @@ public final class Process {
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
-        verbose: Bool = Process.verbose,
-        startNewProcessGroup: Bool = true
+        startNewProcessGroup: Bool = true,
+        loggingHandler: ((String) -> Void)? = Process.loggingHandler
     ) {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = nil
         self.outputRedirection = outputRedirection
-        self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
+        self.loggingHandler = loggingHandler
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, message: "user version without verbosity flag")
+    public convenience init(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        outputRedirection: OutputRedirection = .collect,
+        verbose: Bool = Process.verbose,
+        startNewProcessGroup: Bool = true
+    ) {
+        self.init(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: verbose ? { message in
+                stdoutStream <<< message <<< "\n"
+                stdoutStream.flush()
+            } : nil
+        )
     }
 
     /// Returns the path of the the given program if found in the search paths.
@@ -393,9 +450,10 @@ public final class Process {
         }
 
         // Print the arguments if we are verbose.
-        if self.verbose {
-            stdoutStream <<< arguments.map({ $0.spm_shellEscaped() }).joined(separator: " ") <<< "\n"
-            stdoutStream.flush()
+        if let loggingHandler = self.loggingHandler {
+            loggingHandler(arguments.map({ $0.spm_shellEscaped() }).joined(separator: " "))
+            //stdoutStream <<< arguments.map({ $0.spm_shellEscaped() }).joined(separator: " ") <<< "\n"
+            //stdoutStream.flush()
         }
 
         // Look for executable.
