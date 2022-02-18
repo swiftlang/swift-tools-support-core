@@ -204,21 +204,64 @@ public final class Process {
     /// Typealias for stdout/stderr output closure.
     public typealias OutputClosure = ([UInt8]) -> Void
 
-    /// Global default setting for verbose.
+    /// Typealias for logging handling closure
+    public typealias LoggingHandler = (String) -> Void
+
+    private static var _loggingHandler: LoggingHandler?
+    private static let loggingHandlerLock = Lock()
+
+    /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
+    public static var loggingHandler: LoggingHandler? {
+        get {
+            Self.loggingHandlerLock.withLock {
+                self._loggingHandler
+            }
+        } set {
+            Self.loggingHandlerLock.withLock {
+                self._loggingHandler = newValue
+            }
+        }
+    }
+
+    // deprecated 2/2022, remove once client migrate to logging handler
     @available(*, deprecated)
     public static var verbose: Bool {
-        Self.loggingHandler != nil
+        get {
+            Self.loggingHandler != nil
+        } set {
+            Self.loggingHandler = newValue ? Self.logToStdout: .none
+        }
     }
 
-    public static var loggingHandler: ((String) -> Void)? = nil
+    private var _loggingHandler: LoggingHandler?
 
-    /// If true, prints the subprocess arguments before launching it.
+    // the log and setter are only required to backward support verbose setter.
+    // remove and make loggingHandler a let property once verbose is deprecated
+    private let loggingHandlerLock = Lock()
+    public private(set) var loggingHandler: LoggingHandler? {
+        get {
+            self.loggingHandlerLock.withLock {
+                self._loggingHandler
+            }
+        }
+        set {
+            self.loggingHandlerLock.withLock {
+                self._loggingHandler = newValue
+            }
+        }
+    }
+
+    // deprecated 2/2022, remove once client migrate to logging handler
+    // also simplify loggingHandler (see above) once this is removed
     @available(*, deprecated)
     public var verbose: Bool {
-        self.loggingHandler != nil
+        get {
+            self.loggingHandler != nil
+        }
+        set {
+            self.loggingHandler = newValue ? Self.logToStdout : .none
+        }
     }
-
-    private let loggingHandler: ((String) -> Void)?
 
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
@@ -248,6 +291,7 @@ public final class Process {
     // process execution mutable state
     private var state: State = .idle
     private let stateLock = Lock()
+
     private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
     private var completionQueue = Process.sharedCompletionQueue
 
@@ -307,14 +351,14 @@ public final class Process {
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
-        loggingHandler: ((String) -> Void)? = Process.loggingHandler
+        loggingHandler: LoggingHandler? = .none
     ) {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
-        self.loggingHandler = loggingHandler
+        self.loggingHandler = loggingHandler ?? Process.loggingHandler
     }
 
     // deprecated 2/2022
@@ -352,19 +396,20 @@ public final class Process {
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///   - loggingHandler: Handler for logging messages
     public init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
-        loggingHandler: ((String) -> Void)? = Process.loggingHandler
+        loggingHandler: LoggingHandler? = .none
     ) {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = nil
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
-        self.loggingHandler = loggingHandler
+        self.loggingHandler = loggingHandler ?? Process.loggingHandler
     }
 
     @_disfavoredOverload
@@ -381,10 +426,21 @@ public final class Process {
             environment: environment,
             outputRedirection: outputRedirection,
             startNewProcessGroup: startNewProcessGroup,
-            loggingHandler: verbose ? { message in
-                stdoutStream <<< message <<< "\n"
-                stdoutStream.flush()
-            } : nil
+            loggingHandler: verbose ? Self.logToStdout : .none
+        )
+    }
+
+    public convenience init(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        outputRedirection: OutputRedirection = .collect,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: args,
+            environment: environment,
+            outputRedirection: outputRedirection,
+            loggingHandler: loggingHandler
         )
     }
 
@@ -452,8 +508,6 @@ public final class Process {
         // Print the arguments if we are verbose.
         if let loggingHandler = self.loggingHandler {
             loggingHandler(arguments.map({ $0.spm_shellEscaped() }).joined(separator: " "))
-            //stdoutStream <<< arguments.map({ $0.spm_shellEscaped() }).joined(separator: " ") <<< "\n"
-            //stdoutStream.flush()
         }
 
         // Look for executable.
@@ -890,11 +944,23 @@ extension Process {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
-    /// - Returns: The process result.
-    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars,
-                             queue: DispatchQueue? = nil, completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+    ///   - loggingHandler: Handler for logging messages
+    ///   - queue: Queue to use for callbacks
+    ///   - completion: A completion handler to return the process result
+    static public func popen(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none,
+        queue: DispatchQueue? = nil,
+        completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
+    ) {
         do {
-            let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+            let process = Process(
+                arguments: arguments,
+                environment: environment,
+                outputRedirection: .collect,
+                loggingHandler: loggingHandler
+            )
             process.completionQueue = queue ?? Self.sharedCompletionQueue
             try process.launch()
             process.waitUntilExit(completion)
@@ -909,17 +975,39 @@ extension Process {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
     @discardableResult
-    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+    static public func popen(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        let process = Process(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .collect,
+            loggingHandler: loggingHandler
+        )
         try process.launch()
         return try process.waitUntilExit()
     }
 
+    /// Execute a subprocess and block until it finishes execution
+    ///
+    /// - Parameters:
+    ///   - args: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
+    /// - Returns: The process result.
     @discardableResult
-    static public func popen(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
-        return try Process.popen(arguments: args, environment: environment)
+    static public func popen(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        return try Process.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -928,10 +1016,20 @@ extension Process {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+    static public func checkNonZeroExit(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        let process = Process(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .collect,
+            loggingHandler: loggingHandler
+        )
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
@@ -941,13 +1039,21 @@ extension Process {
         return try result.utf8Output()
     }
 
+    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
+    /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-        return try checkNonZeroExit(arguments: args, environment: environment)
-    }
-
-    public convenience init(args: String..., environment: [String: String] = ProcessEnv.vars, outputRedirection: OutputRedirection = .collect) {
-        self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
+    static public func checkNonZeroExit(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        return try checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 }
 
@@ -1090,3 +1196,12 @@ extension FileHandle: WritableByteStream {
     }
 }
 #endif
+
+
+extension Process {
+    @available(*, deprecated)
+    fileprivate static func logToStdout(_ message: String) {
+        stdoutStream <<< message <<< "\n"
+        stdoutStream.flush()
+    }
+}
