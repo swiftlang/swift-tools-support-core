@@ -1,9 +1,11 @@
 import XCTest
 import TSCUtility
 
-@available(macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
 /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
 /// which is only available in macOS 10.13+ at this time.
+@available(macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 class NetrcTests: XCTestCase {
     /// should load machines for a given inline format
     func testLoadMachinesInline() {
