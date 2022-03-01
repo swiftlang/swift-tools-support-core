@@ -151,10 +151,10 @@ class PathTests: XCTestCase {
     }
 
     func testBaseNameWithoutExt() {
-        XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, "/")
+        XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, AbsolutePath.root.pathString)
         XCTAssertEqual(AbsolutePath("/a").basenameWithoutExt, "a")
         XCTAssertEqual(AbsolutePath("/./a").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/../..").basenameWithoutExt, "/")
+        XCTAssertEqual(AbsolutePath("/../..").basenameWithoutExt, AbsolutePath.root.pathString)
         XCTAssertEqual(RelativePath("../..").basenameWithoutExt, "..")
         XCTAssertEqual(RelativePath("../a").basenameWithoutExt, "a")
         XCTAssertEqual(RelativePath("../a/..").basenameWithoutExt, "..")
@@ -311,7 +311,12 @@ class PathTests: XCTestCase {
     }
 
     func testAbsolutePathValidation() {
-        XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
+      #if os(Windows)
+        let pathString = #"C:\a\b\c\d"#
+      #else
+        let pathString = "/a/b/c/d"
+      #endif
+        XCTAssertNoThrow(try AbsolutePath(validating: pathString))
 
         XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
             XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'")

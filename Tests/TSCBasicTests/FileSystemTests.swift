@@ -87,7 +87,10 @@ class FileSystemTests: XCTestCase {
         }
     }
 
-    func testResolvingSymlinks() {
+    func testResolvingSymlinks() throws {
+      #if os(Windows)
+        throw XCTSkip("Symlink resolving on Windows often crashes due to some Foundation bugs.")
+      #endif
         // Make sure the root path resolves to itself.
         XCTAssertEqual(resolveSymlinks(AbsolutePath.root), AbsolutePath.root)
 
@@ -186,6 +189,7 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+  #if !os(Windows)
     func testLocalReadableWritable() throws {
         try testWithTemporaryDirectory { tmpdir in
             let fs = localFileSystem
@@ -253,6 +257,7 @@ class FileSystemTests: XCTestCase {
             }
         }
     }
+  #endif
 
     func testLocalCreateDirectory() throws {
         let fs = TSCBasic.localFileSystem

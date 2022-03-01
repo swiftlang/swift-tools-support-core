@@ -204,11 +204,12 @@ public struct AbsolutePath: Path {
             self.filepath = filepath.lexicallyNormalized()
             return
         }
-        var filepath = filepath.lexicallyNormalized()
+        var normalizedFilePath = filepath.lexicallyNormalized()
         guard filepath.root?.string == "\\" else {
-            preconditionFailure()
+            preconditionFailure("\(filepath) is not a valid absolute path")
         }
-        self.filepath = AbsolutePath.root.filepath.pushing(filepath)
+        normalizedFilePath.root = AbsolutePath.root.filepath.root
+        self.filepath = normalizedFilePath.lexicallyNormalized()
 #else
         precondition(filepath.isAbsolute)
         self.filepath = filepath.lexicallyNormalized()
