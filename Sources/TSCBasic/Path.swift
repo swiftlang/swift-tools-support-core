@@ -396,9 +396,12 @@ extension AbsolutePath {
         var relFilePath = FilePath()
         var filepath = filepath
 #if os(Windows)
-        /// TODO: DOS relative path may change the root.
-        if root != base.root {
-            throw PathValidationError.differentRoot(pathString, base.pathString)
+        if self.root != base.root {
+            guard self.root?.count == 3,
+                  self.root!.hasSuffix(":\\") else {
+                throw PathValidationError.differentRoot(pathString, base.pathString)
+            }
+            relFilePath.root = .init(String(self.root!.dropLast()))
         }
 #endif
         filepath.root = base.filepath.root
