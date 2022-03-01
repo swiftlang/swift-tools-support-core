@@ -44,9 +44,9 @@ class WalkTests : XCTestCase {
       #else
         let root = ""
         var expected = [
-            AbsolutePath.withPOSIX(path: "/usr"),
-            AbsolutePath.withPOSIX(path: "/bin"),
-            AbsolutePath.withPOSIX(path: "/sbin")
+            AbsolutePath("/usr"),
+            AbsolutePath("/bin"),
+            AbsolutePath("/sbin")
         ]
       #endif
         for x in try! walk(AbsolutePath.withPOSIX(path: "\(root)/"), recursively: false) {

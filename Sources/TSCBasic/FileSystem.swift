@@ -6,11 +6,12 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCLibc
 import Foundation
 import Dispatch
+import SystemPackage
 
 public struct FileSystemError: Error, Equatable {
     public enum Kind: Equatable {
@@ -66,6 +67,12 @@ public struct FileSystemError: Error, Equatable {
         /// This is thrown when copying or moving a file or directory but the destination
         /// path already contains a file or folder.
         case alreadyExistsAtDestination
+
+        /// If an unspecified error occurs when trying to change directories.
+        case couldNotChangeDirectory
+
+        /// If a mismatch is detected in byte count when writing to a file.
+        case mismatchedByteCount(expected: Int, actual: Int)
     }
 
     /// The kind of the error being raised.
@@ -98,7 +105,7 @@ public extension FileSystemError {
         case TSCLibc.ENOTDIR:
             self.init(.notDirectory, path)
         default:
-            self.init(.unknownOSError, path)
+            self.init(.ioError(code: errno), path)
         }
     }
 }
@@ -155,6 +162,12 @@ public protocol FileSystem: AnyObject {
     /// Check whether the given path is accessible and is a symbolic link.
     func isSymlink(_ path: AbsolutePath) -> Bool
 
+    /// Check whether the given path is accessible and readable.
+    func isReadable(_ path: AbsolutePath) -> Bool
+
+    /// Check whether the given path is accessible and writable.
+    func isWritable(_ path: AbsolutePath) -> Bool
+
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
     //
@@ -175,9 +188,12 @@ public protocol FileSystem: AnyObject {
 
     /// Get the home directory of current user
     var homeDirectory: AbsolutePath { get }
-    
+
     /// Get the caches directory of current user
     var cachesDirectory: AbsolutePath? { get }
+
+    /// Get the temp directory
+    var tempDirectory: AbsolutePath { get }
 
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
@@ -311,6 +327,14 @@ private class LocalFileSystem: FileSystem {
         return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        FileManager.default.isReadableFile(atPath: path.pathString)
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
+        FileManager.default.isWritableFile(atPath: path.pathString)
+    }
+
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
         let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
         return FileInfo(attrs)
@@ -339,22 +363,30 @@ private class LocalFileSystem: FileSystem {
         }
 
         guard FileManager.default.changeCurrentDirectoryPath(path.pathString) else {
-            throw FileSystemError(.unknownOSError, path)
+            throw FileSystemError(.couldNotChangeDirectory, path)
         }
     }
 
     var homeDirectory: AbsolutePath {
         return AbsolutePath(NSHomeDirectory())
     }
-    
+
     var cachesDirectory: AbsolutePath? {
         return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
     }
 
+    var tempDirectory: AbsolutePath {
+        let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+        if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
+            return path
+        }
+        return AbsolutePath(NSTemporaryDirectory())
+    }
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-      #if canImport(Darwin)
+#if canImport(Darwin)
         return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
-      #else
+#else
         do {
             return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
         } catch let error as NSError {
@@ -366,7 +398,7 @@ private class LocalFileSystem: FileSystem {
             }
             throw error
         }
-      #endif
+#endif
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -428,7 +460,7 @@ private class LocalFileSystem: FileSystem {
                 throw FileSystemError(.ioError(code: errno), path)
             }
             if n != contents.count {
-                throw FileSystemError(.unknownOSError, path)
+                throw FileSystemError(.mismatchedByteCount(expected: contents.count, actual: n), path)
             }
             break
         }
@@ -477,10 +509,10 @@ private class LocalFileSystem: FileSystem {
         guard isDirectory(path) else { return }
 
         guard let traverse = FileManager.default.enumerator(
-                at: URL(fileURLWithPath: path.pathString),
-                includingPropertiesForKeys: nil) else {
-            throw FileSystemError(.noEntry, path)
-        }
+            at: URL(fileURLWithPath: path.pathString),
+            includingPropertiesForKeys: nil) else {
+                throw FileSystemError(.noEntry, path)
+            }
 
         if !options.contains(.recursive) {
             traverse.skipDescendants()
@@ -506,8 +538,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        let lock = FileLock(name: path.basename, cachePath: path.parentDirectory)
-        return try lock.withLock(type: type, body)
+        try FileLock.withLock(fileToLock: path, type: type, body: body)
     }
 }
 
@@ -515,7 +546,7 @@ private class LocalFileSystem: FileSystem {
 //
 /// Concrete FileSystem implementation which simulates an empty disk.
 public class InMemoryFileSystem: FileSystem {
-    
+
     /// Private internal representation of a file system node.
     /// Not threadsafe.
     private class Node {
@@ -528,7 +559,7 @@ public class InMemoryFileSystem: FileSystem {
 
         /// Creates deep copy of the object.
         func copy() -> Node {
-           return Node(contents.copy())
+            return Node(contents.copy())
         }
     }
 
@@ -551,7 +582,7 @@ public class InMemoryFileSystem: FileSystem {
             }
         }
     }
-    
+
     /// Private internal representation the contents of a directory.
     /// Not threadsafe.
     private class DirectoryContents {
@@ -573,7 +604,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// The root node of the filesytem.
     private var root: Node
-    
+
     /// Protects `root` and everything underneath it.
     /// FIXME: Using a single lock for this is a performance problem, but in
     /// reality, the only practical use for InMemoryFileSystem is for unit
@@ -583,7 +614,7 @@ public class InMemoryFileSystem: FileSystem {
     private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
-    
+
     /// Exclusive file system lock vended to clients through `withLock()`.
     // Used to ensure that DispatchQueues are releassed when they are no longer in use.
     private struct WeakReference<Value: AnyObject> {
@@ -698,6 +729,14 @@ public class InMemoryFileSystem: FileSystem {
         }
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        self.exists(path)
+    }
+
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // FIXME: Always return false until in-memory implementation
         // gets permission semantics.
@@ -706,7 +745,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath.withPOSIX(path: "/")
+        return AbsolutePath("/")
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
@@ -715,11 +754,15 @@ public class InMemoryFileSystem: FileSystem {
 
     public var homeDirectory: AbsolutePath {
         // FIXME: Maybe we should allow setting this when creating the fs.
-        return AbsolutePath.withPOSIX(path: "/home/user")
+        return AbsolutePath("/home/user")
     }
-    
+
     public var cachesDirectory: AbsolutePath? {
         return self.homeDirectory.appending(component: "caches")
+    }
+
+    public var tempDirectory: AbsolutePath {
+        return AbsolutePath("/tmp")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -735,7 +778,7 @@ public class InMemoryFileSystem: FileSystem {
             return [String](contents.entries.keys)
         }
     }
-    
+
     /// Not threadsafe.
     private func _createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Ignore if client passes root.
@@ -871,9 +914,9 @@ public class InMemoryFileSystem: FileSystem {
             // Ignore root and get the parent node's content if its a directory.
             guard !path.isRoot,
                   let parent = try? getNode(path.parentDirectory),
-                case .directory(let contents) = parent.contents else {
-                return
-            }
+                  case .directory(let contents) = parent.contents else {
+                      return
+                  }
             // Set it to nil to release the contents.
             contents.entries[path.basename] = nil
         }
@@ -882,7 +925,7 @@ public class InMemoryFileSystem: FileSystem {
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         // FIXME: We don't have these semantics in InMemoryFileSystem.
     }
-    
+
     /// Private implementation of core copying function.
     /// Not threadsafe.
     private func _copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
@@ -935,7 +978,7 @@ public class InMemoryFileSystem: FileSystem {
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         let resolvedPath: AbsolutePath = try lock.withLock {
             if case let .symlink(destination) = try getNode(path)?.contents {
-                return  AbsolutePath(destination, relativeTo: path.parentDirectory)
+                return AbsolutePath(destination, relativeTo: path.parentDirectory)
             } else {
                 return path
             }
@@ -1007,6 +1050,14 @@ public class RerootedFileSystemView: FileSystem {
         return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isReadable(formUnderlyingPath(path))
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isWritable(formUnderlyingPath(path))
+    }
+
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isExecutableFile(formUnderlyingPath(path))
     }
@@ -1023,9 +1074,13 @@ public class RerootedFileSystemView: FileSystem {
     public var homeDirectory: AbsolutePath {
         fatalError("homeDirectory on RerootedFileSystemView is not supported.")
     }
-    
+
     public var cachesDirectory: AbsolutePath? {
         fatalError("cachesDirectory on RerootedFileSystemView is not supported.")
+    }
+
+    public var tempDirectory: AbsolutePath {
+        fatalError("tempDirectory on RerootedFileSystemView is not supported.")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {

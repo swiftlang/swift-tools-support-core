@@ -13,7 +13,7 @@ import func XCTest.XCTFail
 import TSCBasic
 import TSCUtility
 
-#if os(macOS)
+#if canImport(Darwin)
 import class Foundation.Bundle
 #endif
 

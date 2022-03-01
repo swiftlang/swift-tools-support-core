@@ -42,8 +42,13 @@ class ProcessTests: XCTestCase {
     }
 
     func testPopen() throws {
+        #if os(Windows)
+        let echo = "echo.exe"
+        #else
+        let echo = "echo"
+        #endif
         // Test basic echo.
-        XCTAssertEqual(try Process.popen(arguments: ["echo", "hello"]).utf8Output(), "hello\n")
+        XCTAssertEqual(try Process.popen(arguments: [echo, "hello"]).utf8Output(), "hello\n")
 
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
@@ -51,8 +56,40 @@ class ProcessTests: XCTestCase {
             let stream = BufferedOutputByteStream()
             stream <<< Format.asRepeating(string: "a", count: count)
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-            let outputCount = try Process.popen(args: "cat", file.path.pathString).utf8Output().count
+            #if os(Windows)
+            let cat = "cat.exe"
+            #else
+            let cat = "cat"
+            #endif
+            let outputCount = try Process.popen(args: cat, file.path.pathString).utf8Output().count
             XCTAssert(outputCount == count)
+        }
+    }
+
+    func testPopenAsync() throws {
+        #if os(Windows)
+        let args = ["where.exe", "where"]
+        let answer = "C:\\Windows\\System32\\where.exe"
+        #else
+        let args = ["whoami"]
+        let answer = NSUserName()
+        #endif
+        var popenResult: Result<ProcessResult, Error>?
+        let group = DispatchGroup()
+        group.enter()
+        Process.popen(arguments: args) { result in
+            popenResult = result
+            group.leave()
+        }
+        group.wait()
+        switch popenResult {
+        case .success(let processResult):
+            let output = try processResult.utf8Output()
+            XCTAssertTrue(output.hasPrefix(answer))
+        case .failure(let error):
+            XCTFail("error = \(error)")
+        case nil:
+            XCTFail()
         }
     }
 

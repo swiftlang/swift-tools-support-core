@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+// verbose 2/2022
+@available(*, deprecated)
 public enum Verbosity: Int {
     case concise
     case verbose
@@ -37,4 +39,6 @@ public enum Verbosity: Int {
     }
 }
 
+// verbose 2/2022
+@available(*, deprecated)
 public var verbosity = Verbosity.concise

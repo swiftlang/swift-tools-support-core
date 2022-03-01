@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -26,17 +26,17 @@ class FileSystemTests: XCTestCase {
         try! withTemporaryFile { file in
             try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
                 // exists()
-                XCTAssert(fs.exists(AbsolutePath.withPOSIX(path: "/")))
-                XCTAssert(!fs.exists(AbsolutePath.withPOSIX(path: "/does-not-exist")))
+                XCTAssert(fs.exists(AbsolutePath("/")))
+                XCTAssert(!fs.exists(AbsolutePath("/does-not-exist")))
 
                 // isFile()
                 XCTAssertTrue(fs.exists(file.path))
                 XCTAssertTrue(fs.isFile(file.path))
                 XCTAssertEqual(try fs.getFileInfo(file.path).fileType, .typeRegular)
                 XCTAssertFalse(fs.isDirectory(file.path))
-                XCTAssertFalse(fs.isFile(AbsolutePath.withPOSIX(path: "/does-not-exist")))
-                XCTAssertFalse(fs.isSymlink(AbsolutePath.withPOSIX(path: "/does-not-exist")))
-                XCTAssertThrowsError(try fs.getFileInfo(AbsolutePath.withPOSIX(path: "/does-not-exist")))
+                XCTAssertFalse(fs.isFile(AbsolutePath("/does-not-exist")))
+                XCTAssertFalse(fs.isSymlink(AbsolutePath("/does-not-exist")))
+                XCTAssertThrowsError(try fs.getFileInfo(AbsolutePath("/does-not-exist")))
 
                 // isSymlink()
                 let sym = tempDirPath.appending(component: "hello")
@@ -64,16 +64,16 @@ class FileSystemTests: XCTestCase {
                 XCTAssertTrue(fs.isSymlink(executableSym))
                 XCTAssertFalse(fs.isExecutableFile(sym))
                 XCTAssertFalse(fs.isExecutableFile(file.path))
-                XCTAssertFalse(fs.isExecutableFile(AbsolutePath.withPOSIX(path: "/does-not-exist")))
-                XCTAssertFalse(fs.isExecutableFile(AbsolutePath.withPOSIX(path: "/")))
+                XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
+                XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/")))
 
                 // isDirectory()
-                XCTAssert(fs.isDirectory(AbsolutePath.withPOSIX(path: "/")))
-                XCTAssert(!fs.isDirectory(AbsolutePath.withPOSIX(path: "/does-not-exist")))
+                XCTAssert(fs.isDirectory(AbsolutePath("/")))
+                XCTAssert(!fs.isDirectory(AbsolutePath("/does-not-exist")))
 
                 // getDirectoryContents()
                 do {
-                    _ = try fs.getDirectoryContents(AbsolutePath.withPOSIX(path: "/does-not-exist"))
+                    _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
                     XCTFail("Unexpected success")
                 } catch {
                     XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
@@ -186,6 +186,74 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+    func testLocalReadableWritable() throws {
+        try testWithTemporaryDirectory { tmpdir in
+            let fs = localFileSystem
+
+            // directory
+
+            do {
+                let directory = tmpdir.appending(component: "directory")
+                try fs.createDirectory(directory, recursive: true)
+
+                // should be readable and writable by default
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+
+                // set to non-readable non-writable.
+                _ = try Process.popen(args: "chmod", "-r-w", directory.pathString)
+                XCTAssertFalse(fs.isReadable(directory))
+                XCTAssertFalse(fs.isWritable(directory))
+
+                // set to readable non-writable.
+                _ = try Process.popen(args: "chmod", "+r-w", directory.pathString)
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertFalse(fs.isWritable(directory))
+
+                // set to non-readable writable.
+                _ = try Process.popen(args: "chmod", "-r+w", directory.pathString)
+                XCTAssertFalse(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+
+                // set to readable and writable.
+                _ = try Process.popen(args: "chmod", "+r+w", directory.pathString)
+                XCTAssertTrue(fs.isReadable(directory))
+                XCTAssertTrue(fs.isWritable(directory))
+            }
+
+            // file
+
+            do {
+                let file = tmpdir.appending(component: "file")
+                try fs.writeFileContents(file, bytes: "")
+
+                // should be readable and writable by default
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+
+                // set to non-readable non-writable.
+                _ = try Process.popen(args: "chmod", "-r-w", file.pathString)
+                XCTAssertFalse(fs.isReadable(file))
+                XCTAssertFalse(fs.isWritable(file))
+
+                // set to readable non-writable.
+                _ = try Process.popen(args: "chmod", "+r-w", file.pathString)
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertFalse(fs.isWritable(file))
+
+                // set to non-readable writable.
+                _ = try Process.popen(args: "chmod", "-r+w", file.pathString)
+                XCTAssertFalse(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+
+                // set to readable and writable.
+                _ = try Process.popen(args: "chmod", "+r+w", file.pathString)
+                XCTAssertTrue(fs.isReadable(file))
+                XCTAssertTrue(fs.isWritable(file))
+            }
+        }
+    }
+
     func testLocalCreateDirectory() throws {
         let fs = TSCBasic.localFileSystem
 
@@ -222,7 +290,7 @@ class FileSystemTests: XCTestCase {
             XCTAssertEqual(data, ByteString(testData))
 
             // Atomic writes
-            let inMemoryFilePath = AbsolutePath.withPOSIX(path: "/file.text")
+            let inMemoryFilePath = AbsolutePath("/file.text")
             XCTAssertNoThrow(try TSCBasic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
             XCTAssertNoThrow(try TSCBasic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
             // Local file system does support atomic writes, so it doesn't throw.
@@ -258,9 +326,9 @@ class FileSystemTests: XCTestCase {
 
             // Check read/write against root.
             #if os(Android)
-            let root = AbsolutePath.withPOSIX(path: "/system/")
+            let root = AbsolutePath("/system/")
             #else
-            let root = AbsolutePath.withPOSIX(path: "/")
+            let root = AbsolutePath("/")
             #endif
             XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), root)) {
                 _ = try fs.readFileContents(root)
@@ -379,7 +447,7 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryBasics() throws {
         let fs = InMemoryFileSystem()
-        let doesNotExist = AbsolutePath.withPOSIX(path: "/does-not-exist")
+        let doesNotExist = AbsolutePath("/does-not-exist")
 
         // exists()
         XCTAssert(!fs.exists(doesNotExist))
@@ -399,22 +467,22 @@ class FileSystemTests: XCTestCase {
         }
 
         // createDirectory()
-        XCTAssert(!fs.isDirectory(AbsolutePath.withPOSIX(path: "/new-dir")))
-        try fs.createDirectory(AbsolutePath.withPOSIX(path: "/new-dir/subdir"), recursive: true)
-        XCTAssert(fs.isDirectory(AbsolutePath.withPOSIX(path: "/new-dir")))
-        XCTAssert(fs.isDirectory(AbsolutePath.withPOSIX(path: "/new-dir/subdir")))
-        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath.withPOSIX(path: "/")), ["new-dir"])
-        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath.withPOSIX(path: "/new-dir")), ["subdir"])
+        XCTAssert(!fs.isDirectory(AbsolutePath("/new-dir")))
+        try fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
+        XCTAssert(fs.isDirectory(AbsolutePath("/new-dir")))
+        XCTAssert(fs.isDirectory(AbsolutePath("/new-dir/subdir")))
+        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath("/")), ["new-dir"])
+        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath("/new-dir")), ["subdir"])
     }
 
     func testInMemoryCreateDirectory() {
         let fs = InMemoryFileSystem()
         // Make sure root entry isn't created.
-        try! fs.createDirectory(AbsolutePath.withPOSIX(path: "/"), recursive: true)
+        try! fs.createDirectory(AbsolutePath("/"), recursive: true)
         let rootContents = try! fs.getDirectoryContents(.root)
         XCTAssertEqual(rootContents, [])
 
-        let subdir = AbsolutePath.withPOSIX(path: "/new-dir/subdir")
+        let subdir = AbsolutePath("/new-dir/subdir")
         try! fs.createDirectory(subdir, recursive: true)
         XCTAssert(fs.isDirectory(subdir))
 
@@ -429,7 +497,7 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.isDirectory(subsubdir))
 
         // Check non-recursive failing subdir case.
-        let veryNewDir = AbsolutePath.withPOSIX(path: "/very-new-dir")
+        let veryNewDir = AbsolutePath("/very-new-dir")
         let newsubdir = veryNewDir.appending(component: "subdir")
         XCTAssert(!fs.isDirectory(newsubdir))
         XCTAssertThrows(FileSystemError(.noEntry, veryNewDir)) {
@@ -438,7 +506,7 @@ class FileSystemTests: XCTestCase {
         XCTAssert(!fs.isDirectory(newsubdir))
 
         // Check directory creation over a file.
-        let filePath = AbsolutePath.withPOSIX(path: "/mach_kernel")
+        let filePath = AbsolutePath("/mach_kernel")
         try! fs.writeFileContents(filePath, bytes: [0xCD, 0x0D])
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
         XCTAssertThrows(FileSystemError(.notDirectory, filePath)) {
@@ -483,10 +551,10 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryReadWriteFile() {
         let fs = InMemoryFileSystem()
-        try! fs.createDirectory(AbsolutePath.withPOSIX(path: "/new-dir/subdir"), recursive: true)
+        try! fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
 
         // Check read/write of a simple file.
-        let filePath = AbsolutePath.withPOSIX(path: "/new-dir/subdir").appending(component: "new-file.txt")
+        let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
         XCTAssert(!fs.exists(filePath))
         XCTAssertFalse(fs.isFile(filePath))
         try! fs.writeFileContents(filePath, bytes: "Hello, world!")
@@ -510,7 +578,7 @@ class FileSystemTests: XCTestCase {
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
         // Check read/write against root.
-        let root = AbsolutePath.withPOSIX(path: "/")
+        let root = AbsolutePath("/")
         XCTAssertThrows(FileSystemError(.isDirectory, root)) {
             _ = try fs.readFileContents(root)
         }
@@ -531,7 +599,7 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.exists(filePath))
 
         // Check read/write into a missing directory.
-        let missingParent = AbsolutePath.withPOSIX(path: "/does/not")
+        let missingParent = AbsolutePath("/does/not")
         let missingFile = missingParent.appending(component: "exist")
         XCTAssertThrows(FileSystemError(.noEntry, missingFile)) {
             _ = try fs.readFileContents(missingFile)
@@ -544,8 +612,8 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryFsCopy() throws {
         let fs = InMemoryFileSystem()
-        try! fs.createDirectory(AbsolutePath.withPOSIX(path: "/new-dir/subdir"), recursive: true)
-        let filePath = AbsolutePath.withPOSIX(path: "/new-dir/subdir").appending(component: "new-file.txt")
+        try! fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
+        let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
         try! fs.writeFileContents(filePath, bytes: "Hello, world!")
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
 
@@ -564,7 +632,7 @@ class FileSystemTests: XCTestCase {
 
     func testInMemCopyAndMoveItem() throws {
         let fs = InMemoryFileSystem()
-        let path = AbsolutePath.withPOSIX(path: "/tmp")
+        let path = AbsolutePath("/tmp")
         try fs.createDirectory(path)
         let source = path.appending(component: "source")
         let destination = path.appending(component: "destination")
@@ -642,33 +710,33 @@ class FileSystemTests: XCTestCase {
     func testRootedFileSystem() throws {
         // Create the test file system.
         let baseFileSystem = InMemoryFileSystem() as FileSystem
-        try baseFileSystem.createDirectory(AbsolutePath.withPOSIX(path: "/base/rootIsHere/subdir"), recursive: true)
-        try baseFileSystem.writeFileContents(AbsolutePath.withPOSIX(path: "/base/rootIsHere/subdir/file"), bytes: "Hello, world!")
+        try baseFileSystem.createDirectory(AbsolutePath("/base/rootIsHere/subdir"), recursive: true)
+        try baseFileSystem.writeFileContents(AbsolutePath("/base/rootIsHere/subdir/file"), bytes: "Hello, world!")
 
         // Create the rooted file system.
-        let rerootedFileSystem = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath.withPOSIX(path: "/base/rootIsHere"))
+        let rerootedFileSystem = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
 
         // Check that it has the appropriate view.
-        XCTAssert(rerootedFileSystem.exists(AbsolutePath.withPOSIX(path: "/subdir")))
-        XCTAssert(rerootedFileSystem.isDirectory(AbsolutePath.withPOSIX(path: "/subdir")))
-        XCTAssert(rerootedFileSystem.exists(AbsolutePath.withPOSIX(path: "/subdir/file")))
-        XCTAssertEqual(try rerootedFileSystem.readFileContents(AbsolutePath.withPOSIX(path: "/subdir/file")), "Hello, world!")
+        XCTAssert(rerootedFileSystem.exists(AbsolutePath("/subdir")))
+        XCTAssert(rerootedFileSystem.isDirectory(AbsolutePath("/subdir")))
+        XCTAssert(rerootedFileSystem.exists(AbsolutePath("/subdir/file")))
+        XCTAssertEqual(try rerootedFileSystem.readFileContents(AbsolutePath("/subdir/file")), "Hello, world!")
 
         // Check that mutations work appropriately.
-        XCTAssert(!baseFileSystem.exists(AbsolutePath.withPOSIX(path: "/base/rootIsHere/subdir2")))
-        try rerootedFileSystem.createDirectory(AbsolutePath.withPOSIX(path: "/subdir2"))
-        XCTAssert(baseFileSystem.isDirectory(AbsolutePath.withPOSIX(path: "/base/rootIsHere/subdir2")))
+        XCTAssert(!baseFileSystem.exists(AbsolutePath("/base/rootIsHere/subdir2")))
+        try rerootedFileSystem.createDirectory(AbsolutePath("/subdir2"))
+        XCTAssert(baseFileSystem.isDirectory(AbsolutePath("/base/rootIsHere/subdir2")))
     }
 
     func testRootedCreateSymlink() throws {
         // Create the test file system.
         let baseFileSystem = InMemoryFileSystem() as FileSystem
-        try baseFileSystem.createDirectory(AbsolutePath.withPOSIX(path: "/base/rootIsHere/subdir"), recursive: true)
+        try baseFileSystem.createDirectory(AbsolutePath("/base/rootIsHere/subdir"), recursive: true)
 
         // Create the rooted file system.
-        let fs = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath.withPOSIX(path: "/base/rootIsHere"))
+        let fs = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
 
-        let path = AbsolutePath.withPOSIX(path: "/test")
+        let path = AbsolutePath("/test")
         try fs.createDirectory(path, recursive: true)
 
         let source = path.appending(component: "source")
@@ -698,7 +766,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testSetAttribute() throws {
-      #if os(macOS) || os(Linux) || os(Android)
+      #if canImport(Darwin) || os(Linux) || os(Android)
         try testWithTemporaryDirectory { tmpdir in
             let fs = TSCBasic.localFileSystem
 
@@ -753,7 +821,7 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryFileSystemFileLock() throws {
         let fs = InMemoryFileSystem()
-        let path = AbsolutePath.withPOSIX(path: "/")
+        let path = AbsolutePath("/")
         try fs.createDirectory(path)
 
         let fileA = path.appending(component: "fileA")
@@ -770,16 +838,22 @@ class FileSystemTests: XCTestCase {
             let lockFile = tempDir.appending(component: "lockfile")
 
             try _testFileSystemFileLock(fileSystem: localFileSystem, fileA: fileA, fileB: fileB, lockFile: lockFile)
+
+            // Test some long and edge case paths. We arrange to split between the C and the Cedilla by repeating 255 times.
+            let longEdgeCase1 = tempDir.appending(component: String(repeating: "Façade!  ", count: 255).decomposedStringWithCanonicalMapping)
+            try localFileSystem.withLock(on: longEdgeCase1, type: .exclusive, {})
+            let longEdgeCase2 = tempDir.appending(component: String(repeating: "🏁", count: 255).decomposedStringWithCanonicalMapping)
+            try localFileSystem.withLock(on: longEdgeCase2, type: .exclusive, {})
         }
     }
 
     func testRerootedFileSystemViewFileLock() throws {
         let inMemoryFS = InMemoryFileSystem()
-        let rootPath = AbsolutePath.withPOSIX(path: "/tmp")
+        let rootPath = AbsolutePath("/tmp")
         try inMemoryFS.createDirectory(rootPath)
 
         let fs = RerootedFileSystemView(inMemoryFS, rootedAt: rootPath)
-        let path = AbsolutePath.withPOSIX(path: "/")
+        let path = AbsolutePath("/")
         try fs.createDirectory(path)
 
         let fileA = path.appending(component: "fileA")

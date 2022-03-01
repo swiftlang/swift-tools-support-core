@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+// deprecated 9/2021
+@available(*, deprecated, message: "use Foundation APIs instead")
 public struct URL {
 
     /// Parses the URL type of a git repository

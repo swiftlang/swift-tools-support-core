@@ -17,7 +17,6 @@ add_library(TSCUtility
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
-  Downloader.swift
   FSWatch.swift
   FloatingPointExtensions.swift
   Git.swift
@@ -53,6 +52,9 @@ target_link_libraries(TSCUtility PRIVATE
   Threads::Threads)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  if(CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
+    target_link_directories(TSCUtility PRIVATE /usr/local/lib)
+  endif()
   target_link_libraries(TSCUtility PRIVATE
     SQLite::SQLite3)
   if(Foundation_FOUND)

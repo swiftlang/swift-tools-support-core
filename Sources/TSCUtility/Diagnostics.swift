@@ -186,6 +186,8 @@ extension Optional where Wrapped == DiagnosticsEngine {
 }
 
 /// Namespace for representing diagnostic location of a package.
+// deprecated 9/2021
+@available(*, deprecated)
 public enum PackageLocation {
 
     /// Represents location of a locally available package. This could be root

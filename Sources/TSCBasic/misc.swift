@@ -10,6 +10,9 @@
 
 import TSCLibc
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 #if os(Windows)
 public let executableFileSuffix = ".exe"
@@ -17,27 +20,158 @@ public let executableFileSuffix = ".exe"
 public let executableFileSuffix = ""
 #endif
 
+#if os(Windows)
+private func quote(_ arguments: [String]) -> String {
+    func quote(argument: String) -> String {
+        if !argument.contains(where: { " \t\n\"".contains($0) }) {
+            return argument
+        }
+
+        // To escape the command line, we surround the argument with quotes.
+        // However, the complication comes due to how the Windows command line
+        // parser treats backslashes (\) and quotes (").
+        //
+        // - \ is normally treated as a literal backslash
+        //      e.g. alpha\beta\gamma => alpha\beta\gamma
+        // - The sequence \" is treated as a literal "
+        //      e.g. alpha\"beta => alpha"beta
+        //
+        // But then what if we are given a path that ends with a \?
+        //
+        // Surrounding alpha\beta\ with " would be "alpha\beta\" which would be
+        // an unterminated string since it ends on a literal quote. To allow
+        // this case the parser treats:
+        //
+        //  - \\" as \ followed by the " metacharacter
+        //  - \\\" as \ followed by a literal "
+        //
+        // In general:
+        //  - 2n \ followed by " => n \ followed by the " metacharacter
+        //  - 2n + 1 \ followed by " => n \ followed by a literal "
+
+        var quoted = "\""
+        var unquoted = argument.unicodeScalars
+
+        while !unquoted.isEmpty {
+            guard let firstNonBS = unquoted.firstIndex(where: { $0 != "\\" }) else {
+                // String ends with a backslash (e.g. first\second\), escape all
+                // the backslashes then add the metacharacter ".
+                let count = unquoted.count
+                quoted.append(String(repeating: "\\", count: 2 * count))
+                break
+            }
+
+            let count = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
+            if unquoted[firstNonBS] == "\"" {
+                // This is a string of \ followed by a " (e.g. first\"second).
+                // Escape the backslashes and the quote.
+                quoted.append(String(repeating: "\\", count: 2 * count + 1))
+            } else {
+                // These are just literal backslashes
+                quoted.append(String(repeating: "\\", count: count))
+            }
+
+            quoted.append(String(unquoted[firstNonBS]))
+
+            // Drop the backslashes and the following character
+            unquoted.removeFirst(count + 1)
+        }
+        quoted.append("\"")
+
+        return quoted
+    }
+    return arguments.map(quote(argument:)).joined(separator: " ")
+}
+#endif
+
 /// Replace the current process image with a new process image.
 ///
 /// - Parameters:
 ///   - path: Absolute path to the executable.
 ///   - args: The executable arguments.
-public func exec(path: String, args: [String]) throws {
+public func exec(path: String, args: [String]) throws -> Never {
     let cArgs = CStringArray(args)
   #if os(Windows)
-    guard cArgs.cArray.withUnsafeBufferPointer({
-        $0.withMemoryRebound(to: UnsafePointer<Int8>?.self, {
-          _execv(path, $0.baseAddress) != -1
-        })
-    })
-    else {
-        throw SystemError.exec(errno, path: path, args: args)
+    var hJob: HANDLE
+
+    hJob = CreateJobObjectA(nil, nil)
+    if hJob == HANDLE(bitPattern: 0) {
+        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
     }
-  #else
+    defer { CloseHandle(hJob) }
+
+    let hPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nil, 0, 1)
+    if hPort == HANDLE(bitPattern: 0) {
+        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+    }
+
+    var acpAssociation: JOBOBJECT_ASSOCIATE_COMPLETION_PORT = JOBOBJECT_ASSOCIATE_COMPLETION_PORT()
+    acpAssociation.CompletionKey = hJob
+    acpAssociation.CompletionPort = hPort
+    if !SetInformationJobObject(hJob, JobObjectAssociateCompletionPortInformation,
+                                &acpAssociation, DWORD(MemoryLayout<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>.size)) {
+        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+    }
+
+    var eliLimits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+    eliLimits.BasicLimitInformation.LimitFlags =
+            DWORD(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) | DWORD(JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
+    if !SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &eliLimits,
+                                DWORD(MemoryLayout<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>.size)) {
+        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+    }
+
+
+    var siInfo: STARTUPINFOW = STARTUPINFOW()
+    siInfo.cb = DWORD(MemoryLayout<STARTUPINFOW>.size)
+
+    var piInfo: PROCESS_INFORMATION = PROCESS_INFORMATION()
+
+    try quote(args).withCString(encodedAs: UTF16.self) { pwszCommandLine in
+        if !CreateProcessW(nil,
+                           UnsafeMutablePointer<WCHAR>(mutating: pwszCommandLine),
+                           nil, nil, false,
+                           DWORD(CREATE_SUSPENDED) | DWORD(CREATE_NEW_PROCESS_GROUP),
+                           nil, nil, &siInfo, &piInfo) {
+            throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+        }
+    }
+
+    defer { CloseHandle(piInfo.hThread) }
+    defer { CloseHandle(piInfo.hProcess) }
+
+    if !AssignProcessToJobObject(hJob, piInfo.hProcess) {
+        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+    }
+
+    _ = ResumeThread(piInfo.hThread)
+
+    var dwCompletionCode: DWORD = 0
+    var ulCompletionKey: ULONG_PTR = 0
+    var lpOverlapped: LPOVERLAPPED?
+    repeat {
+    } while GetQueuedCompletionStatus(hPort, &dwCompletionCode, &ulCompletionKey,
+                                      &lpOverlapped, INFINITE) &&
+            !(ulCompletionKey == ULONG_PTR(UInt(bitPattern: hJob)) &&
+              dwCompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
+
+    var dwExitCode: DWORD = DWORD(bitPattern: -1)
+    _ = GetExitCodeProcess(piInfo.hProcess, &dwExitCode)
+    _exit(Int32(bitPattern: dwExitCode))
+  #elseif (!canImport(Darwin) || os(macOS))
     guard execv(path, cArgs.cArray) != -1 else {
         throw SystemError.exec(errno, path: path, args: args)
     }
+    fatalError("unreachable")
+  #else
+    fatalError("not implemented")
   #endif
+}
+
+@_disfavoredOverload
+@available(*, deprecated, message: "Use the overload which returns Never")
+public func exec(path: String, args: [String]) throws {
+    try exec(path: path, args: args)
 }
 
 // MARK: TSCUtility function for searching for executables

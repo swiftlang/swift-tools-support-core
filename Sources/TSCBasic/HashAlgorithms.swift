@@ -30,8 +30,29 @@ extension HashAlgorithm {
 
 /// SHA-256 implementation from Secure Hash Algorithm 2 (SHA-2) set of
 /// cryptographic hash functions (FIPS PUB 180-2).
+///  Uses CryptoKit where available
 public struct SHA256: HashAlgorithm {
+    private let underlying: HashAlgorithm
 
+    public init() {
+        #if canImport(CryptoKit)
+        if #available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *) {
+            self.underlying = _CryptoKitSHA256()
+        } else {
+            self.underlying = InternalSHA256()
+        }
+        #else
+        self.underlying = InternalSHA256()
+        #endif
+    }
+    public func hash(_ bytes: ByteString) -> ByteString {
+        self.underlying.hash(bytes)
+    }
+}
+
+/// SHA-256 implementation from Secure Hash Algorithm 2 (SHA-2) set of
+/// cryptographic hash functions (FIPS PUB 180-2).
+struct InternalSHA256: HashAlgorithm {
     /// The length of the output digest (in bits).
     private static let digestLength = 256
 
@@ -65,10 +86,10 @@ public struct SHA256: HashAlgorithm {
         pad(&input)
 
         // Break the input into N 512-bit blocks.
-        let messageBlocks = input.blocks(size: SHA256.blockBitSize / 8)
+        let messageBlocks = input.blocks(size: Self.blockBitSize / 8)
 
         /// The hash that is being computed.
-        var hash = SHA256.initalHashValue
+        var hash = Self.initalHashValue
 
         // Process each block.
         for block in messageBlocks {
@@ -76,7 +97,7 @@ public struct SHA256: HashAlgorithm {
         }
 
         // Finally, compute the result.
-        var result = [UInt8](repeating: 0, count: SHA256.digestLength / 8)
+        var result = [UInt8](repeating: 0, count: Self.digestLength / 8)
         for (idx, element) in hash.enumerated() {
             let pos = idx * 4
             result[pos + 0] = UInt8((element >> 24) & 0xff)
@@ -92,7 +113,7 @@ public struct SHA256: HashAlgorithm {
     private func process(_ block: ArraySlice<UInt8>, hash: inout [UInt32]) {
 
         // Compute message schedule.
-        var W = [UInt32](repeating: 0, count: SHA256.konstants.count)
+        var W = [UInt32](repeating: 0, count: Self.konstants.count)
         for t in 0..<W.count {
             switch t {
             case 0...15:
@@ -119,10 +140,10 @@ public struct SHA256: HashAlgorithm {
         var h = hash[7]
 
         // Run the main algorithm.
-        for t in 0..<SHA256.konstants.count {
+        for t in 0..<Self.konstants.count {
             let Σ1 = e.rotateRight(by: 6) ^ e.rotateRight(by: 11) ^ e.rotateRight(by: 25)
             let ch = (e & f) ^ (~e & g)
-            let t1 = h &+ Σ1 &+ ch &+ SHA256.konstants[t] &+ W[t]
+            let t1 = h &+ Σ1 &+ ch &+ Self.konstants[t] &+ W[t]
 
             let Σ0 = a.rotateRight(by: 2) ^ a.rotateRight(by: 13) ^ a.rotateRight(by: 22)
             let maj = (a & b) ^ (a & c) ^ (b & c)
@@ -173,23 +194,30 @@ public struct SHA256: HashAlgorithm {
     }
 }
 
-/// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
-@available(macOS 10.15, iOS 13, *)
+#if canImport(CryptoKit)
+@available(*, deprecated, message: "use SHA256 which abstract over platform differences")
+@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
 public struct CryptoKitSHA256: HashAlgorithm {
+    let underlying = _CryptoKitSHA256()
+    public init() {}
+    public func hash(_ bytes: ByteString) -> ByteString {
+        self.underlying.hash(bytes)
+    }
+}
+
+/// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
+@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+struct _CryptoKitSHA256: HashAlgorithm {
     public init() {
     }
-
     public func hash(_ bytes: ByteString) -> ByteString {
-      #if canImport(CryptoKit)
         return bytes.withData { data in
             let digest = CryptoKit.SHA256.hash(data: data)
             return ByteString(digest)
         }
-      #else
-        fatalError("not supported on this platform")
-      #endif
     }
 }
+#endif
 
 // MARK:- Helpers
 

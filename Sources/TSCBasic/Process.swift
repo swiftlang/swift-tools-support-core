@@ -34,7 +34,10 @@ public struct ProcessResult: CustomStringConvertible {
     public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
-#if !os(Windows)
+#if os(Windows)
+        /// The process was terminated abnormally.
+        case abnormal(exception: UInt32)
+#else
         /// The process was terminated due to a signal.
         case signalled(signal: Int32)
 #endif
@@ -64,12 +67,17 @@ public struct ProcessResult: CustomStringConvertible {
         arguments: [String],
         environment: [String: String],
         exitStatusCode: Int32,
+        normal: Bool,
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         let exitStatus: ExitStatus
       #if os(Windows)
-        exitStatus = .terminated(code: exitStatusCode)
+        if normal {
+            exitStatus = .terminated(code: exitStatusCode)
+        } else {
+            exitStatus = .abnormal(exception: UInt32(exitStatusCode))
+        }
       #else
         if WIFSIGNALED(exitStatusCode) {
             exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
@@ -119,8 +127,7 @@ public struct ProcessResult: CustomStringConvertible {
 /// Process allows spawning new subprocesses and working with them.
 ///
 /// Note: This class is thread safe.
-public final class Process: ObjectIdentifierProtocol {
-
+public final class Process {
     /// Errors when attempting to invoke a process
     public enum Error: Swift.Error {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
@@ -178,6 +185,15 @@ public final class Process: ObjectIdentifierProtocol {
         }
     }
 
+    // process execution mutable state
+    private enum State {
+        case idle
+        case readingOutput(sync: DispatchGroup)
+        case outputReady(stdout: Result<[UInt8], Swift.Error>, stderr: Result<[UInt8], Swift.Error>)
+        case complete(ProcessResult)
+        case failed(Swift.Error)
+    }
+
     /// Typealias for process id type.
   #if !os(Windows)
     public typealias ProcessID = pid_t
@@ -188,11 +204,64 @@ public final class Process: ObjectIdentifierProtocol {
     /// Typealias for stdout/stderr output closure.
     public typealias OutputClosure = ([UInt8]) -> Void
 
-    /// Global default setting for verbose.
-    public static var verbose = false
+    /// Typealias for logging handling closure
+    public typealias LoggingHandler = (String) -> Void
 
-    /// If true, prints the subprocess arguments before launching it.
-    public let verbose: Bool
+    private static var _loggingHandler: LoggingHandler?
+    private static let loggingHandlerLock = Lock()
+
+    /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
+    public static var loggingHandler: LoggingHandler? {
+        get {
+            Self.loggingHandlerLock.withLock {
+                self._loggingHandler
+            }
+        } set {
+            Self.loggingHandlerLock.withLock {
+                self._loggingHandler = newValue
+            }
+        }
+    }
+
+    // deprecated 2/2022, remove once client migrate to logging handler
+    @available(*, deprecated)
+    public static var verbose: Bool {
+        get {
+            Self.loggingHandler != nil
+        } set {
+            Self.loggingHandler = newValue ? Self.logToStdout: .none
+        }
+    }
+
+    private var _loggingHandler: LoggingHandler?
+
+    // the log and setter are only required to backward support verbose setter.
+    // remove and make loggingHandler a let property once verbose is deprecated
+    private let loggingHandlerLock = Lock()
+    public private(set) var loggingHandler: LoggingHandler? {
+        get {
+            self.loggingHandlerLock.withLock {
+                self._loggingHandler
+            }
+        }
+        set {
+            self.loggingHandlerLock.withLock {
+                self._loggingHandler = newValue
+            }
+        }
+    }
+
+    // deprecated 2/2022, remove once client migrate to logging handler
+    // also simplify loggingHandler (see above) once this is removed
+    @available(*, deprecated)
+    public var verbose: Bool {
+        get {
+            self.loggingHandler != nil
+        }
+        set {
+            self.loggingHandler = newValue ? Self.logToStdout : .none
+        }
+    }
 
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
@@ -219,36 +288,39 @@ public final class Process: ObjectIdentifierProtocol {
     public private(set) var processID = ProcessID()
   #endif
 
-    /// If the subprocess has launched.
-    /// Note: This property is not protected by the serial queue because it is only mutated in `launch()`, which will be
-    /// called only once.
-    public private(set) var launched = false
+    // process execution mutable state
+    private var state: State = .idle
+    private let stateLock = Lock()
+
+    private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
+    private var completionQueue = Process.sharedCompletionQueue
 
     /// The result of the process execution. Available after process is terminated.
+    /// This will block while the process is awaiting result
+    @available(*, deprecated, message: "use waitUntilExit instead")
     public var result: ProcessResult? {
-        return self.serialQueue.sync {
-            self._result
+        return self.stateLock.withLock {
+            switch self.state {
+            case .complete(let result):
+                return result
+            default:
+                return nil
+            }
+        }
+    }
+
+    // ideally we would use the state for this, but we need to access it while the waitForExit is locking state
+    private var _launched = false
+    private let launchedLock = Lock()
+
+    public var launched: Bool {
+        return self.launchedLock.withLock {
+            return self._launched
         }
     }
 
     /// How process redirects its output.
     public let outputRedirection: OutputRedirection
-
-    /// The result of the process execution. Available after process is terminated.
-    private var _result: ProcessResult?
-
-    /// If redirected, stdout result and reference to the thread reading the output.
-    private var stdout: (result: Result<[UInt8], Swift.Error>, thread: Thread?) = (.success([]), nil)
-
-    /// If redirected, stderr result and reference to the thread reading the output.
-    private var stderr: (result: Result<[UInt8], Swift.Error>, thread: Thread?) = (.success([]), nil)
-
-    /// Queue to protect concurrent reads.
-    private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
-
-    /// Queue to protect reading/writing on map of validated executables.
-    private static let executablesQueue = DispatchQueue(
-        label: "org.swift.swiftpm.process.findExecutable")
 
     /// Indicates if a new progress group is created for the child process.
     private let startNewProcessGroup: Bool
@@ -257,7 +329,8 @@ public final class Process: ObjectIdentifierProtocol {
     ///
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
-    static private var validatedExecutablesMap = [String: AbsolutePath?]()
+    private static var validatedExecutablesMap = [String: AbsolutePath?]()
+    private static let validatedExecutablesMapLock = Lock()
 
     /// Create a new process instance.
     ///
@@ -267,24 +340,50 @@ public final class Process: ObjectIdentifierProtocol {
     ///     will be inherited.
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
-    ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///   - loggingHandler: Handler for logging messages
+    ///
     @available(macOS 10.15, *)
     public init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
-        verbose: Bool = Process.verbose,
-        startNewProcessGroup: Bool = true
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
     ) {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
-        self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
+        self.loggingHandler = loggingHandler ?? Process.loggingHandler
+    }
+
+    // deprecated 2/2022
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use version without verbosity flag")
+    @available(macOS 10.15, *)
+    public convenience init(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        workingDirectory: AbsolutePath,
+        outputRedirection: OutputRedirection = .collect,
+        verbose: Bool,
+        startNewProcessGroup: Bool = true
+    ) {
+        self.init(
+            arguments: arguments,
+            environment: environment,
+            workingDirectory: workingDirectory,
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: verbose ? { message in
+                stdoutStream <<< message <<< "\n"
+                stdoutStream.flush()
+            } : nil
+        )
     }
 
     /// Create a new process instance.
@@ -297,19 +396,52 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///   - loggingHandler: Handler for logging messages
     public init(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        outputRedirection: OutputRedirection = .collect,
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.arguments = arguments
+        self.environment = environment
+        self.workingDirectory = nil
+        self.outputRedirection = outputRedirection
+        self.startNewProcessGroup = startNewProcessGroup
+        self.loggingHandler = loggingHandler ?? Process.loggingHandler
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, message: "user version without verbosity flag")
+    public convenience init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
         verbose: Bool = Process.verbose,
         startNewProcessGroup: Bool = true
     ) {
-        self.arguments = arguments
-        self.environment = environment
-        self.workingDirectory = nil
-        self.outputRedirection = outputRedirection
-        self.verbose = verbose
-        self.startNewProcessGroup = startNewProcessGroup
+        self.init(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: verbose ? Self.logToStdout : .none
+        )
+    }
+
+    public convenience init(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        outputRedirection: OutputRedirection = .collect,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: args,
+            environment: environment,
+            outputRedirection: outputRedirection,
+            loggingHandler: loggingHandler
+        )
     }
 
     /// Returns the path of the the given program if found in the search paths.
@@ -348,7 +480,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
         // This should cover the most common cases, i.e. when the cache is most helpful.
         if workingDirectory == localFileSystem.currentWorkingDirectory {
-            return Process.executablesQueue.sync {
+            return Process.validatedExecutablesMapLock.withLock {
                 if let value = Process.validatedExecutablesMap[program] {
                     return value
                 }
@@ -367,15 +499,15 @@ public final class Process: ObjectIdentifierProtocol {
     @discardableResult
     public func launch() throws -> WritableByteStream {
         precondition(arguments.count > 0 && !arguments[0].isEmpty, "Need at least one argument to launch the process.")
-        precondition(!launched, "It is not allowed to launch the same process object again.")
 
-        // Set the launch bool to true.
-        launched = true
+        self.launchedLock.withLock {
+            precondition(!self._launched, "It is not allowed to launch the same process object again.")
+            self._launched = true
+        }
 
         // Print the arguments if we are verbose.
-        if self.verbose {
-            stdoutStream <<< arguments.map({ $0.spm_shellEscaped() }).joined(separator: " ") <<< "\n"
-            stdoutStream.flush()
+        if let loggingHandler = self.loggingHandler {
+            loggingHandler(arguments.map({ $0.spm_shellEscaped() }).joined(separator: " "))
         }
 
         // Look for executable.
@@ -385,40 +517,80 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
     #if os(Windows)
-        _process = Foundation.Process()
-        _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
-        _process?.executableURL = executablePath.asURL
-        _process?.environment = environment
+        let process = Foundation.Process()
+        _process = process
+        process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        process.executableURL = executablePath.asURL
+        process.environment = environment
 
         let stdinPipe = Pipe()
-        _process?.standardInput = stdinPipe
+        process.standardInput = stdinPipe
+
+        let group = DispatchGroup()
+
+        var stdout: [UInt8] = []
+        let stdoutLock = Lock()
+
+        var stderr: [UInt8] = []
+        let stderrLock = Lock()
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
+
+            group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stdoutClosure([UInt8](contents))
-                if case .success(let data) = self.stdout.result {
-                    self.stdout.result = .success(data + contents)
+                let data = fh.availableData
+                if (data.count == 0) {
+                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                    group.leave()
+                } else {
+                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    self.outputRedirection.outputClosures?.stdoutClosure(contents)
+                    stdoutLock.withLock {
+                        stdout += contents
+                    }
                 }
             }
+
+            group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stderrClosure([UInt8](contents))
-                if case .success(let data) = self.stderr.result {
-                    self.stderr.result = .success(data + contents)
+                let data = fh.availableData
+                if (data.count == 0) {
+                    stderrPipe.fileHandleForReading.readabilityHandler = nil
+                    group.leave()
+                } else {
+                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                    self.outputRedirection.outputClosures?.stderrClosure(contents)
+                    stderrLock.withLock {
+                        stderr += contents
+                    }
                 }
             }
-            _process?.standardOutput = stdoutPipe
-            _process?.standardError = stderrPipe
+
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
         }
 
-        try _process?.run()
+        // first set state then start reading threads
+        let sync = DispatchGroup()
+        sync.enter()
+        self.stateLock.withLock {
+            self.state = .readingOutput(sync: sync)
+        }
+
+        group.notify(queue: self.completionQueue) {
+            self.stateLock.withLock {
+                self.state = .outputReady(stdout: .success(stdout), stderr: .success(stderr))
+            }
+            sync.leave()
+        }
+
+        try process.run()
         return stdinPipe.fileHandleForWriting
-      #else
+    #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
-      #if canImport(Darwin) || os(Android)
+      #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var attributes: posix_spawnattr_t? = nil
       #else
         var attributes = posix_spawnattr_t()
@@ -432,7 +604,7 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setsigmask(&attributes, &noSignals)
 
         // Reset all signals to default behavior.
-      #if os(macOS)
+      #if canImport(Darwin)
         var mostSignals = sigset_t()
         sigfillset(&mostSignals)
         sigdelset(&mostSignals, SIGKILL)
@@ -463,7 +635,7 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if canImport(Darwin) || os(Android)
+      #if canImport(Darwin) || os(Android) || os(OpenBSD)
         var fileActions: posix_spawn_file_actions_t? = nil
       #else
         var fileActions = posix_spawn_file_actions_t()
@@ -472,7 +644,7 @@ public final class Process: ObjectIdentifierProtocol {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         if let workingDirectory = workingDirectory?.pathString {
-          #if os(macOS)
+          #if canImport(Darwin)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
             // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
             // exists here to make the compiler happy.
@@ -547,93 +719,160 @@ public final class Process: ObjectIdentifierProtocol {
         // Close the local read end of the input pipe.
         try close(fd: stdinPipe[0])
 
-        if outputRedirection.redirectsOutput {
+        let group = DispatchGroup()
+        if !outputRedirection.redirectsOutput {
+            // no stdout or stderr in this case
+            self.stateLock.withLock {
+                self.state = .outputReady(stdout: .success([]), stderr: .success([]))
+            }
+        } else {
+            var pending: Result<[UInt8], Swift.Error>?
+            let pendingLock = Lock()
+
             let outputClosures = outputRedirection.outputClosures
 
             // Close the local write end of the output pipe.
             try close(fd: outputPipe[1])
 
             // Create a thread and start reading the output on it.
-            var thread = Thread { [weak self] in
+            group.enter()
+            let stdoutThread = Thread { [weak self] in
                 if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
-                    self?.stdout.result = readResult
+                    pendingLock.withLock {
+                        if let stderrResult = pending {
+                            self?.stateLock.withLock {
+                                self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
+                            }
+                        } else  {
+                            pending = readResult
+                        }
+                    }
+                    group.leave()
+                } else if let stderrResult = (pendingLock.withLock { pending }) {
+                    // TODO: this is more of an error
+                    self?.stateLock.withLock {
+                        self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
+                    }
+                    group.leave()
                 }
             }
-            thread.start()
-            self.stdout.thread = thread
 
             // Only schedule a thread for stderr if no redirect was requested.
+            var stderrThread: Thread? = nil
             if !outputRedirection.redirectStderr {
                 // Close the local write end of the stderr pipe.
                 try close(fd: stderrPipe[1])
 
                 // Create a thread and start reading the stderr output on it.
-                thread = Thread { [weak self] in
+                group.enter()
+                stderrThread = Thread { [weak self] in
                     if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
-                        self?.stderr.result = readResult
+                        pendingLock.withLock {
+                            if let stdoutResult = pending {
+                                self?.stateLock.withLock {
+                                    self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
+                                }
+                            } else {
+                                pending = readResult
+                            }
+                        }
+                        group.leave()
+                    } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                        // TODO: this is more of an error
+                        self?.stateLock.withLock {
+                            self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
+                        }
+                        group.leave()
                     }
                 }
-                thread.start()
-                self.stderr.thread = thread
+            } else {
+                pendingLock.withLock {
+                    pending = .success([])  // no stderr in this case
+                }
             }
+            
+            // first set state then start reading threads
+            self.stateLock.withLock {
+                self.state = .readingOutput(sync: group)
+            }
+            
+            stdoutThread.start()
+            stderrThread?.start()
         }
+
         return stdinStream
-        #endif // POSIX implementation
+    #else
+        preconditionFailure("Process spawning is not available")
+    #endif // POSIX implementation
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
-      #if os(Windows)
-        precondition(_process != nil, "The process is not yet launched.")
-        let p = _process!
-        p.waitUntilExit()
-        stdout.thread?.join()
-        stderr.thread?.join()
+        let group = DispatchGroup()
+        group.enter()
+        var processResult : Result<ProcessResult, Swift.Error>?
+        self.waitUntilExit() { result in
+            processResult = result
+            group.leave()
+        }
+        group.wait()
+        return try processResult.unsafelyUnwrapped.get()
+    }
 
-        let executionResult = ProcessResult(
-            arguments: arguments,
-            environment: environment,
-            exitStatusCode: p.terminationStatus,
-            output: stdout.result,
-            stderrOutput: stderr.result
-        )
-        return executionResult
-      #else
-        return try serialQueue.sync {
-            precondition(launched, "The process is not yet launched.")
-
-            // If the process has already finsihed, return it.
-            if let existingResult = _result {
-                return existingResult
+    /// Executes the process I/O state machine, calling completion block when finished.
+    private func waitUntilExit(_ completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void) {
+        self.stateLock.lock()
+        switch self.state {
+        case .idle:
+            defer { self.stateLock.unlock() }
+            preconditionFailure("The process is not yet launched.")
+        case .complete(let result):
+            self.stateLock.unlock()
+            completion(.success(result))
+        case .failed(let error):
+            self.stateLock.unlock()
+            completion(.failure(error))
+        case .readingOutput(let sync):
+            self.stateLock.unlock()
+            sync.notify(queue: self.completionQueue) {
+                self.waitUntilExit(completion)
             }
-
-            // If we're reading output, make sure that is finished.
-            stdout.thread?.join()
-            stderr.thread?.join()
-
+        case .outputReady(let stdoutResult, let stderrResult):
+            defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
+          #if os(Windows)
+            precondition(_process != nil, "The process is not yet launched.")
+            let p = _process!
+            p.waitUntilExit()
+            let exitStatusCode = p.terminationStatus
+            let normalExit = p.terminationReason == .exit
+          #else
             var exitStatusCode: Int32 = 0
             var result = waitpid(processID, &exitStatusCode, 0)
             while result == -1 && errno == EINTR {
                 result = waitpid(processID, &exitStatusCode, 0)
             }
             if result == -1 {
-                throw SystemError.waitpid(errno)
+                self.state = .failed(SystemError.waitpid(errno))
             }
+            let normalExit = !WIFSIGNALED(result)
+          #endif
 
             // Construct the result.
             let executionResult = ProcessResult(
                 arguments: arguments,
                 environment: environment,
                 exitStatusCode: exitStatusCode,
-                output: stdout.result,
-                stderrOutput: stderr.result
+                normal: normalExit,
+                output: stdoutResult,
+                stderrOutput: stderrResult
             )
-            self._result = executionResult
-            return executionResult
+            self.state = .complete(executionResult)
+            self.completionQueue.async {
+                self.waitUntilExit(completion)
+            }
         }
-      #endif
     }
 
   #if !os(Windows)
@@ -687,35 +926,88 @@ public final class Process: ObjectIdentifierProtocol {
     public func signal(_ signal: Int32) {
       #if os(Windows)
         if signal == SIGINT {
-          _process?.interrupt()
+            _process?.interrupt()
         } else {
-          _process?.terminate()
+            _process?.terminate()
         }
       #else
-        assert(launched, "The process is not yet launched.")
+        assert(self.launched, "The process is not yet launched.")
         _ = TSCLibc.kill(startNewProcessGroup ? -processID : processID, signal)
       #endif
     }
 }
 
 extension Process {
+    /// Execute a subprocess and calls completion block when it finishes execution
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
+    ///   - queue: Queue to use for callbacks
+    ///   - completion: A completion handler to return the process result
+    static public func popen(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none,
+        queue: DispatchQueue? = nil,
+        completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
+    ) {
+        do {
+            let process = Process(
+                arguments: arguments,
+                environment: environment,
+                outputRedirection: .collect,
+                loggingHandler: loggingHandler
+            )
+            process.completionQueue = queue ?? Self.sharedCompletionQueue
+            try process.launch()
+            process.waitUntilExit(completion)
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
     /// Execute a subprocess and block until it finishes execution
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
     @discardableResult
-    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+    static public func popen(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        let process = Process(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .collect,
+            loggingHandler: loggingHandler
+        )
         try process.launch()
         return try process.waitUntilExit()
     }
 
+    /// Execute a subprocess and block until it finishes execution
+    ///
+    /// - Parameters:
+    ///   - args: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
+    /// - Returns: The process result.
     @discardableResult
-    static public func popen(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
-        return try Process.popen(arguments: args, environment: environment)
+    static public func popen(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        return try Process.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -724,10 +1016,20 @@ extension Process {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
+    static public func checkNonZeroExit(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        let process = Process(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .collect,
+            loggingHandler: loggingHandler
+        )
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
@@ -737,20 +1039,38 @@ extension Process {
         return try result.utf8Output()
     }
 
+    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - loggingHandler: Handler for logging messages
+    /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-        return try checkNonZeroExit(arguments: args, environment: environment)
+    static public func checkNonZeroExit(
+        args: String...,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        return try checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
+    }
+}
+
+extension Process: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
     }
 
-    public convenience init(args: String..., environment: [String: String] = ProcessEnv.vars, outputRedirection: OutputRedirection = .collect) {
-        self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
+    public static func == (lhs: Process, rhs: Process) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 
 // MARK: - Private helpers
 
 #if !os(Windows)
-#if os(macOS)
+#if canImport(Darwin)
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
@@ -825,7 +1145,10 @@ extension ProcessResult.Error: CustomStringConvertible {
             switch result.exitStatus {
             case .terminated(let code):
                 stream <<< "terminated(\(code)): "
-#if !os(Windows)
+#if os(Windows)
+            case .abnormal(let exception):
+                stream <<< "abnormal(\(exception)): "
+#else
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
 #endif
@@ -871,9 +1194,14 @@ extension FileHandle: WritableByteStream {
     public func flush() {
         synchronizeFile()
     }
-
-    public func close() throws {
-        closeFile()
-    }
 }
 #endif
+
+
+extension Process {
+    @available(*, deprecated)
+    fileprivate static func logToStdout(_ message: String) {
+        stdoutStream <<< message <<< "\n"
+        stdoutStream.flush()
+    }
+}

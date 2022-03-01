@@ -14,6 +14,8 @@ import TSCTestSupport
 
 @testable import TSCUtility
 
+/// // deprecated 12/21, moved to SwiftPM
+@available(*, deprecated, message: "moved into SwiftPM")
 final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {
         XCTAssertTrue(try PkgConfig(name: "harfbuzz", additionalSearchPaths: [AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs")], diagnostics: DiagnosticsEngine(), brewPrefix: nil).diagnostics.diagnostics.contains { diagnostic in
@@ -105,8 +107,8 @@ final class PkgConfigParserTests: XCTestCase {
             "/usr/lib/pkgconfig/foo.pc",
             "/usr/local/opt/foo/lib/pkgconfig/foo.pc",
             "/custom/foo.pc")
-        XCTAssertEqual("/custom/foo.pc", try PCFileFinder(diagnostics: diagnostics, brewPrefix: nil).locatePCFile(name: "foo", customSearchPaths: [AbsolutePath.withPOSIX(path: "/custom")], fileSystem: fs).pathString)
-        XCTAssertEqual("/custom/foo.pc", try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath.withPOSIX(path: "/custom")], diagnostics: diagnostics, fileSystem: fs, brewPrefix: nil).pcFile.pathString)
+        XCTAssertEqual("/custom/foo.pc", try PCFileFinder(diagnostics: diagnostics, brewPrefix: nil).locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs).pathString)
+        XCTAssertEqual("/custom/foo.pc", try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath("/custom")], diagnostics: diagnostics, fileSystem: fs, brewPrefix: nil).pcFile.pathString)
         XCTAssertEqual("/usr/lib/pkgconfig/foo.pc", try PCFileFinder(diagnostics: diagnostics, brewPrefix: nil).locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs).pathString)
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig"]) {
             XCTAssertEqual("/usr/local/opt/foo/lib/pkgconfig/foo.pc", try PkgConfig(name: "foo", diagnostics: diagnostics, fileSystem: fs, brewPrefix: nil).pcFile.pathString)
@@ -137,7 +139,7 @@ final class PkgConfigParserTests: XCTestCase {
             _ = PCFileFinder(diagnostics: diagnostics, brewPrefix: fakePkgConfig.parentDirectory.parentDirectory)
         }
 
-        XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath.withPOSIX(path: "/Volumes/BestDrive/pkgconfig")])
+        XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath("/Volumes/BestDrive/pkgconfig")])
     }
 
     func testAbsolutePathDependency() throws {
@@ -164,10 +166,10 @@ final class PkgConfigParserTests: XCTestCase {
         XCTAssertNoThrow(
             try PkgConfig(
                 name: "gobject-2.0",
-                additionalSearchPaths: [AbsolutePath.withPOSIX(path: "/usr/local/opt/glib/lib/pkgconfig")],
+                additionalSearchPaths: [AbsolutePath("/usr/local/opt/glib/lib/pkgconfig")],
                 diagnostics: DiagnosticsEngine(),
                 fileSystem: fileSystem,
-                brewPrefix: AbsolutePath.withPOSIX(path: "/usr/local")))
+                brewPrefix: AbsolutePath("/usr/local")))
     }
 
     func testUnevenQuotes() throws {

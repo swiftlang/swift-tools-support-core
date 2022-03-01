@@ -2,11 +2,16 @@ import Foundation
 import TSCBasic
 
 /// Supplies `Authorization` header, typically to be appended to `URLRequest`
+
+// deprecated 9/2021
+@available(*, deprecated)
 public protocol AuthorizationProviding {
     /// Optional `Authorization` header, likely added to `URLRequest`
     func authorization(for url: Foundation.URL) -> String?
 }
 
+// deprecated 9/2021
+@available(*, deprecated)
 extension AuthorizationProviding {
     public func authorization(for url: Foundation.URL) -> String? {
         return nil
@@ -15,11 +20,13 @@ extension AuthorizationProviding {
 
 /*
  Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
- which is only available in macOS 10.13+ at this time.
+ which is only available in macOS 10.13+, iOS 11+, etc at this time.
  */
-@available (OSX 10.13, *)
 /// Container of parsed netrc connection settings
-public struct Netrc: AuthorizationProviding {
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
+public struct Netrc {
     /// Representation of `machine` connection settings & `default` connection settings.
     /// If `default` connection settings present, they will be last element.
     public let machines: [Machine]
@@ -62,7 +69,7 @@ public struct Netrc: AuthorizationProviding {
         
         let machines: [Machine] = matches.compactMap {
             return Machine(for: $0, string: content, variant: "lp") ??
-                Machine(for: $0, string: content, variant: "pl")
+            Machine(for: $0, string: content, variant: "pl")
         }
         
         if let defIndex = machines.firstIndex(where: { $0.isDefault }) {
@@ -88,7 +95,14 @@ public struct Netrc: AuthorizationProviding {
     }
 }
 
-@available (OSX 10.13, *)
+// deprecated 9/2021
+@available(*, deprecated)
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
+extension Netrc: AuthorizationProviding {}
+
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public extension Netrc {
     enum Error: Swift.Error {
         case invalidFilePath
@@ -117,23 +131,27 @@ public extension Netrc {
         
         init?(for match: NSTextCheckingResult, string: String, variant: String = "") {
             guard let name = RegexUtil.Token.machine.capture(in: match, string: string) ?? RegexUtil.Token.default.capture(in: match, string: string),
-                let login = RegexUtil.Token.login.capture(prefix: variant, in: match, string: string),
-                let password = RegexUtil.Token.password.capture(prefix: variant, in: match, string: string) else {
-                    return nil
-            }
+                  let login = RegexUtil.Token.login.capture(prefix: variant, in: match, string: string),
+                  let password = RegexUtil.Token.password.capture(prefix: variant, in: match, string: string) else {
+                      return nil
+                  }
             self = Machine(name: name, login: login, password: password)
         }
     }
 }
 
-@available (OSX 10.13, *)
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 extension Netrc.Error: CustomNSError {
     public var errorUserInfo: [String : Any] {
         return [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
 
-@available (OSX 10.13, *)
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to SwiftPM")
+@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 fileprivate enum RegexUtil {
     @frozen fileprivate enum Token: String, CaseIterable {
         case machine, login, password, account, macdef, `default`

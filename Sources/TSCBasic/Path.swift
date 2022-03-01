@@ -199,8 +199,20 @@ public struct AbsolutePath: Path {
 
     /// Public initializer with FilePath.
     public init(_ filepath: FilePath) {
+#if os(Windows)
+        if filepath.isAbsolute {
+            self.filepath = filepath.lexicallyNormalized()
+            return
+        }
+        var filepath = filepath.lexicallyNormalized()
+        guard filepath.root?.string == "\\" else {
+            preconditionFailure()
+        }
+        self.filepath = AbsolutePath.root.filepath.pushing(filepath)
+#else
         precondition(filepath.isAbsolute)
         self.filepath = filepath.lexicallyNormalized()
+#endif
     }
 
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
@@ -288,6 +300,7 @@ public struct AbsolutePath: Path {
         }
     }
 
+    @available(*, deprecated, message: "use AbsolutePath(_:) directly")
     public static func withPOSIX(path: String) -> AbsolutePath {
 #if os(Windows)
         var filepath = FilePath(path)
@@ -416,10 +429,42 @@ extension AbsolutePath {
     ///
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
+    @available(*, deprecated, renamed: "isDescendantOfOrEqual(to:)")
     public func contains(_ other: AbsolutePath) -> Bool {
-        return filepath.starts(with: other.filepath)
+        return isDescendantOfOrEqual(to: other)
     }
 
+    /// Returns true if the path is an ancestor of the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isAncestor(of descendant: AbsolutePath) -> Bool {
+        return descendant.filepath.removingLastComponent().starts(with: self.filepath)
+    }
+
+    /// Returns true if the path is an ancestor of or equal to the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isAncestorOfOrEqual(to descendant: AbsolutePath) -> Bool {
+        return descendant.filepath.starts(with: self.filepath)
+    }
+
+    /// Returns true if the path is a descendant of the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isDescendant(of ancestor: AbsolutePath) -> Bool {
+        return self.filepath.removingLastComponent().starts(with: ancestor.filepath)
+    }
+
+    /// Returns true if the path is a descendant of or equal to the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func isDescendantOfOrEqual(to ancestor: AbsolutePath) -> Bool {
+        return self.filepath.starts(with: ancestor.filepath)
+    }
 }
 
 extension PathValidationError: CustomNSError {

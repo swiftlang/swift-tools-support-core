@@ -12,6 +12,8 @@ import protocol Foundation.CustomNSError
 import var Foundation.NSLocalizedDescriptionKey
 import TSCLibc
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public final class DLHandle {
   #if os(Windows)
     typealias Handle = HMODULE
@@ -48,6 +50,8 @@ public final class DLHandle {
     }
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public struct DLOpenFlags: RawRepresentable, OptionSet {
 
   #if !os(Windows)
@@ -57,13 +61,15 @@ public struct DLOpenFlags: RawRepresentable, OptionSet {
     public static let global: DLOpenFlags = DLOpenFlags(rawValue: RTLD_GLOBAL)
 
     // Platform-specific flags.
-  #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+  #if canImport(Darwin)
     public static let first: DLOpenFlags = DLOpenFlags(rawValue: RTLD_FIRST)
     public static let deepBind: DLOpenFlags = DLOpenFlags(rawValue: 0)
   #else
     public static let first: DLOpenFlags = DLOpenFlags(rawValue: 0)
-  #if !os(Android)
+  #if os(Linux)
     public static let deepBind: DLOpenFlags = DLOpenFlags(rawValue: RTLD_DEEPBIND)
+  #else
+    public static let deepBind: DLOpenFlags = DLOpenFlags(rawValue: 0)
   #endif
   #endif
   #endif
@@ -75,6 +81,8 @@ public struct DLOpenFlags: RawRepresentable, OptionSet {
     }
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public enum DLError: Error {
     case `open`(String)
     case close(String)
@@ -86,6 +94,8 @@ extension DLError: CustomNSError {
     }
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public func dlopen(_ path: String?, mode: DLOpenFlags) throws -> DLHandle {
   #if os(Windows)
     guard let handle = path?.withCString(encodedAs: UTF16.self, LoadLibraryW) else {
@@ -99,6 +109,8 @@ public func dlopen(_ path: String?, mode: DLOpenFlags) throws -> DLHandle {
     return DLHandle(rawValue: handle)
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public func dlsym<T>(_ handle: DLHandle, symbol: String) -> T? {
   #if os(Windows)
     guard let ptr = GetProcAddress(handle.rawValue!, symbol) else {
@@ -112,11 +124,15 @@ public func dlsym<T>(_ handle: DLHandle, symbol: String) -> T? {
     return unsafeBitCast(ptr, to: T.self)
 }
 
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public func dlclose(_ handle: DLHandle) throws {
     try handle.close()
 }
 
 #if !os(Windows)
+// FIXME: deprecate 2/2022, remove once clients transitioned
+@available(*, deprecated, message: "moved to swift-driver")
 public func dlerror() -> String? {
     if let err: UnsafeMutablePointer<Int8> = dlerror() {
         return String(cString: err)

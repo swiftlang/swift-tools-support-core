@@ -27,6 +27,8 @@ public struct Triple: Encodable, Equatable {
     public let vendor: Vendor
     public let os: OS
     public let abi: ABI
+    public let osVersion: String?
+    public let abiVersion: String?
 
     public enum Error: Swift.Error {
         case badFormat
@@ -41,6 +43,7 @@ public struct Triple: Encodable, Equatable {
         case powerpc64le
         case s390x
         case aarch64
+        case amd64
         case armv7
         case arm
         case arm64
@@ -59,6 +62,7 @@ public struct Triple: Encodable, Equatable {
         case linux
         case windows
         case wasi
+        case openbsd
     }
 
     public enum ABI: String, Encodable {
@@ -83,17 +87,31 @@ public struct Triple: Encodable, Equatable {
             throw Error.unknownOS
         }
 
+        let osVersion = Triple.parseVersion(components[2])
+
         let abi = components.count > 3 ? Triple.parseABI(components[3]) : nil
+        let abiVersion = components.count > 3 ? Triple.parseVersion(components[3]) : nil
 
         self.tripleString = string
         self.arch = arch
         self.vendor = vendor
         self.os = os
+        self.osVersion = osVersion
         self.abi = abi ?? .unknown
+        self.abiVersion = abiVersion
     }
 
     fileprivate static func parseOS(_ string: String) -> OS? {
         for candidate in OS.allCases where string.hasPrefix(candidate.rawValue) {
+            return candidate
+        }
+
+        return nil
+    }
+
+    fileprivate static func parseVersion(_ string: String) -> String? {
+        let candidate = String(string.drop(while: { $0.isLetter }))
+        if candidate != string && !candidate.isEmpty {
             return candidate
         }
 
@@ -127,32 +145,55 @@ public struct Triple: Encodable, Equatable {
         return os == .wasi
     }
 
+    public func isOpenBSD() -> Bool {
+        return os == .openbsd
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        return self.tripleString + version
+        return String(self.tripleString.dropLast(self.osVersion?.count ?? 0)) + version
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx")
 
-    /// Determine the host triple using the Swift compiler.
+    /// Determine the versioned host triple using the Swift compiler.
     public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) -> Triple {
+        // Call the compiler to get the target info JSON.
+        let compilerOutput: String
         do {
             let result = try Process.popen(args: swiftCompiler.pathString, "-print-target-info")
-            let output = try result.utf8Output().spm_chomp()
-            let targetInfo = try JSON(string: output)
-            let tripleString: String = try targetInfo.get("target").get("unversionedTriple")
-            return try Triple(tripleString)
+            compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
             // FIXME: Remove the macOS special-casing once the latest version of Xcode comes with
             // a Swift compiler that supports -print-target-info.
-          #if os(macOS)
-            return .macOS
-          #else
-            fatalError("could not determine host triple: \(error)")
-          #endif
+            #if os(macOS)
+                return .macOS
+            #else
+                fatalError("Failed to get target info (\(error))")
+            #endif
+        }
+        // Parse the compiler's JSON output.
+        let parsedTargetInfo: JSON
+        do {
+            parsedTargetInfo = try JSON(string: compilerOutput)
+        } catch {
+            fatalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
+        }
+        // Get the triple string from the parsed JSON.
+        let tripleString: String
+        do {
+            tripleString = try parsedTargetInfo.get("target").get("triple")
+        } catch {
+            fatalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
+        }
+        // Parse the triple string.
+        do {
+            return try Triple(tripleString)
+        } catch {
+            fatalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
         }
     }
 }
@@ -173,7 +214,7 @@ extension Triple {
         switch os {
         case .darwin, .macOS:
             return ".dylib"
-        case .linux:
+        case .linux, .openbsd:
             return ".so"
         case .windows:
             return ".dll"
@@ -186,7 +227,7 @@ extension Triple {
       switch os {
       case .darwin, .macOS:
         return ""
-      case .linux:
+      case .linux, .openbsd:
         return ""
       case .wasi:
         return ".wasm"
