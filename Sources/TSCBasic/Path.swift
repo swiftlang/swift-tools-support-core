@@ -175,9 +175,9 @@ extension Path {
 
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
-/// An absolute path always starts with a `/` character, and holds a normalized
-/// string representation.  This normalization is strictly syntactic, and does
-/// not access the file system in any way.
+/// An absolute path always holds a normalized string representation.  This
+/// normalization is strictly syntactic, and does not access the file system
+/// in any way.
 ///
 /// The absolute path string is normalized by:
 /// - Collapsing `..` path components
@@ -197,7 +197,7 @@ public struct AbsolutePath: Path {
     /// Underlying type, based on SwiftSystem.
     public let filepath: FilePath
 
-    /// Public initializer with FilePath.
+    /// Public initializer with `FilePath``.
     public init(_ filepath: FilePath) {
 #if os(Windows)
         if filepath.isAbsolute {
@@ -220,6 +220,11 @@ public struct AbsolutePath: Path {
     /// not interpret leading `~` characters as home directory specifiers).
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
+    /// 
+    /// On Unix-like systems, an absolute path always starts with a `/`
+    /// character. Windows normally regards `/` as a relative root, but for
+    /// compatibility, system drive letter will be appended. Use
+    /// `try AbsolutePath(validating:)` to avoid such convention.
     public init(_ absStr: String) {
         self.init(FilePath(absStr))
     }
@@ -298,20 +303,6 @@ public struct AbsolutePath: Path {
             }
 #endif
         }
-    }
-
-    @available(*, deprecated, message: "use AbsolutePath(_:) directly")
-    public static func withPOSIX(path: String) -> AbsolutePath {
-#if os(Windows)
-        var filepath = FilePath(path)
-        precondition(filepath.root != nil)
-        if !filepath.isAbsolute {
-            filepath.root = root.filepath.root
-        }
-        return AbsolutePath(filepath)
-#else
-        return AbsolutePath(path)
-#endif
     }
 }
 

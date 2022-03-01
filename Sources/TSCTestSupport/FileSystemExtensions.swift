@@ -25,7 +25,7 @@ extension InMemoryFileSystem {
         self.init()
 
         for (path, contents) in files {
-            let path = AbsolutePath.withPOSIX(path: path)
+            let path = AbsolutePath(path)
             try! createDirectory(path.parentDirectory, recursive: true)
             try! writeFileContents(path, bytes: contents)
         }
@@ -52,7 +52,7 @@ extension FileSystem {
         do {
             try createDirectory(root, recursive: true)
             for path in files {
-                let components = AbsolutePath.withPOSIX(path: path).components
+                let components = AbsolutePath(path).components
                 let path = root.appending(components: components)
                 try createDirectory(path.parentDirectory, recursive: true)
                 try writeFileContents(path, bytes: "")

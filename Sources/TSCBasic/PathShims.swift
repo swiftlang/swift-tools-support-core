@@ -29,7 +29,7 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     }
 
     return resolved.standardized.withUnsafeFileSystemRepresentation {
-        try! AbsolutePath(validating: String(cString: $0!))
+        AbsolutePath(String(cString: $0!))
     }
 #else
     let pathStr = path.pathString
