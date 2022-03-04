@@ -112,15 +112,13 @@ public final class TerminalController {
 
     /// Computes the terminal type of the stream.
     public static func terminalType(_ stream: LocalFileOutputByteStream) -> TerminalType {
-#if os(Windows)
-        return _isatty(_fileno(stream.filePointer)) == 0 ? .file : .dumb
-#else
+#if !os(Windows)
         if ProcessEnv.vars["TERM"] == "dumb" {
             return .dumb
         }
+#endif
         let isTTY = isatty(fileno(stream.filePointer)) != 0
         return isTTY ? .tty : .file
-#endif
     }
 
     /// Tries to get the terminal width first using COLUMNS env variable and
