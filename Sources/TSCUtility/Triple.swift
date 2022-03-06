@@ -45,6 +45,8 @@ public struct Triple: Encodable, Equatable {
         case aarch64
         case amd64
         case armv7
+        case armv6
+        case armv5
         case arm
         case arm64
         case arm64e
