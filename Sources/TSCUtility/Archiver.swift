@@ -66,7 +66,7 @@ public struct ZipArchiver: Archiver {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try Process.popen(args: "unzip", archivePath.pathString, "-d", destinationPath.pathString)
+                let result = try Process.popen(args: "unzip\(executableFileSuffix)", archivePath.pathString, "-d", destinationPath.pathString)
                 guard result.exitStatus == .terminated(code: 0) else {
                     throw try StringError(result.utf8stderrOutput())
                 }

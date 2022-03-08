@@ -60,15 +60,13 @@ target_link_libraries(TSCBasic PUBLIC
   SwiftSystem::SystemPackage
   TSCLibc)
 target_link_libraries(TSCBasic PRIVATE
-   TSCclibc)
+  TSCclibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   if(Foundation_FOUND)
     target_link_libraries(TSCBasic PUBLIC
       Foundation)
   endif()
 endif()
-target_link_libraries(TSCBasic PRIVATE
-  $<$<PLATFORM_ID:Windows>:Pathcch>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCBasic PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

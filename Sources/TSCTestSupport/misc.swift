@@ -9,6 +9,7 @@
 */
 
 import func XCTest.XCTFail
+import struct XCTest.XCTSkip
 import class Foundation.NSDate
 import class Foundation.Thread
 
@@ -61,6 +62,9 @@ public func systemQuietly(_ args: String...) throws {
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
 public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
+  #if os(Windows)
+    throw XCTSkip("'withCustomEnv(_:body:)' is broken on Windows")
+  #endif
     let state = Array(env.keys).map({ ($0, ProcessEnv.vars[$0]) })
     let restore = {
         for (key, value) in state {

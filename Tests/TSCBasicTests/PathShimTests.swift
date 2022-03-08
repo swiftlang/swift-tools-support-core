@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -54,9 +54,9 @@ class WalkTests : XCTestCase {
                 expected.remove(at: i)
             }
           #if os(Android)
-            XCTAssertEqual(3, x.components.count)
-          #else
             XCTAssertEqual(2, x.components.count)
+          #else
+            XCTAssertEqual(1, x.components.count)
           #endif
         }
         XCTAssertEqual(expected.count, 0)

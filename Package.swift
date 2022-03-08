@@ -44,7 +44,6 @@ let package = Package(
             name: "TSCTestSupport",
             targets: ["TSCTestSupport"]),
     ],
-    dependencies: [],
     targets: [
 
         // MARK: Tools support core targets
@@ -67,7 +66,8 @@ let package = Package(
               "TSCclibc",
               .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: CMakeFiles + ["README.md"]),
+            exclude: CMakeFiles + ["README.md"],
+            cxxSettings: [.define("_CRT_SECURE_NO_WARNINGS")]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
@@ -102,27 +102,14 @@ let package = Package(
 )
 
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
- let relatedDependenciesBranch = "main"
+let relatedDependenciesBranch = "main"
 
- if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
-     package.dependencies += [
-         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
-     ]
- } else {
-     package.dependencies += [
-         .package(path: "../swift-system"),
-     ]
- }
-
-// FIXME: conditionalise these flags since SwiftPM 5.3 and earlier will crash
-// for platforms they don't know about.
-#if os(Windows)
-  if let TSCBasic = package.targets.first(where: { $0.name == "TSCBasic" }) {
-    TSCBasic.cxxSettings = [
-      .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
+if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    package.dependencies += [
+        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
     ]
-    TSCBasic.linkerSettings = [
-      .linkedLibrary("Pathcch", .when(platforms: [.windows])),
+} else {
+    package.dependencies += [
+        .package(path: "../swift-system"),
     ]
-  }
-#endif
+}

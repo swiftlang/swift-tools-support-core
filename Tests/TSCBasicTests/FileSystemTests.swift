@@ -17,9 +17,12 @@ import TSCLibc
 class FileSystemTests: XCTestCase {
 
     // MARK: LocalFS Tests
-
     func testLocalBasics() throws {
         let fs = TSCBasic.localFileSystem
+#if os(Windows)
+        XCTSkip("FIXME: withTemporaryDirectory(removeTreeOnDeinit: true) will throw on Windows")
+        return
+#endif
         try! withTemporaryFile { file in
             try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
                 // exists()
@@ -46,7 +49,7 @@ class FileSystemTests: XCTestCase {
                 // isExecutableFile
                 let executable = tempDirPath.appending(component: "exec-foo")
                 let executableSym = tempDirPath.appending(component: "exec-sym")
-                try! fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
+                try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
                 let stream = BufferedOutputByteStream()
                 stream <<< """
                     #!/bin/sh
@@ -84,7 +87,10 @@ class FileSystemTests: XCTestCase {
         }
     }
 
-    func testResolvingSymlinks() {
+    func testResolvingSymlinks() throws {
+      #if os(Windows)
+        throw XCTSkip("Symlink resolving on Windows often crashes due to some Foundation bugs.")
+      #endif
         // Make sure the root path resolves to itself.
         XCTAssertEqual(resolveSymlinks(AbsolutePath.root), AbsolutePath.root)
 
@@ -183,6 +189,7 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+  #if !os(Windows)
     func testLocalReadableWritable() throws {
         try testWithTemporaryDirectory { tmpdir in
             let fs = localFileSystem
@@ -250,6 +257,7 @@ class FileSystemTests: XCTestCase {
             }
         }
     }
+  #endif
 
     func testLocalCreateDirectory() throws {
         let fs = TSCBasic.localFileSystem
