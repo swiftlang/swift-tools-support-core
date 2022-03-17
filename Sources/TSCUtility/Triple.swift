@@ -51,6 +51,7 @@ public struct Triple: Encodable, Equatable {
         case arm64
         case arm64e
         case wasm32
+        case riscv64
     }
 
     public enum Vendor: String, Encodable {
