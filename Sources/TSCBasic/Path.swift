@@ -75,7 +75,29 @@ public struct AbsolutePath: Hashable {
         if PathImpl(string: str).isAbsolute {
             self.init(str)
         } else {
+#if os(Windows)
+            var joined: PWSTR!
+            _ = basePath._impl.string.withCString(encodedAs: UTF16.self) { base in
+                str.withCString(encodedAs: UTF16.self) { path in
+                    PathAllocCombine(base, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &joined)
+                }
+            }
+            defer { LocalFree(joined) }
+
+            let buffer: UnsafePointer<Int8> =
+                String(decodingCString: joined, as: UTF16.self).fileSystemRepresentation
+            defer { buffer.deallocate() }
+
+            var canonical: PWSTR!
+            _ = String(cString: buffer).withCString(encodedAs: UTF16.self) {
+                PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &canonical)
+            }
+            defer { LocalFree(canonical) }
+
+            self.init(String(decodingCString: canonical, as: UTF16.self))
+#else
             self.init(basePath, RelativePath(str))
+#endif
         }
     }
 
