@@ -166,6 +166,7 @@ public struct AbsolutePath: Hashable {
     }
 
     /// Returns the absolute path with the relative path applied.
+    @available(*, deprecated, renamed: "AbsolutePath(_:relativeTo:)")
     public func appending(_ subpath: RelativePath) -> AbsolutePath {
         return AbsolutePath(self, subpath)
     }
