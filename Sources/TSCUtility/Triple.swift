@@ -104,11 +104,10 @@ public struct Triple: Encodable, Equatable {
     }
 
     fileprivate static func parseOS(_ string: String) -> OS? {
-        for candidate in OS.allCases where string.hasPrefix(candidate.rawValue) {
-            return candidate
-        }
-
-        return nil
+        var candidates =  OS.allCases.map{ (name: $0.rawValue, value: $0) }
+        // LLVM target triples support this alternate spelling as well.
+        candidates.append((name: "macos", value: .macOS))
+        return candidates.first(where: { string.hasPrefix($0.name)  })?.value
     }
 
     fileprivate static func parseVersion(_ string: String) -> String? {

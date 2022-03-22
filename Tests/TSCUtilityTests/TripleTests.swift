@@ -24,6 +24,10 @@ class TripleTests : XCTestCase {
         let newVersion = "10.12"
         let tripleString = macos!.tripleString(forPlatformVersion: newVersion)
         XCTAssertEqual(tripleString, "x86_64-apple-macosx10.12")
+        let macosNoX = try? Triple("x86_64-apple-macos12.2")
+        XCTAssertNotNil(macosNoX!)
+        XCTAssertEqual(macosNoX!.os, .macOS)
+        XCTAssertEqual(macosNoX!.osVersion, "12.2")
 
         let android = try? Triple("aarch64-unknown-linux-android24")
         XCTAssertNotNil(android)
