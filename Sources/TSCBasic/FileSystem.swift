@@ -1028,7 +1028,7 @@ public class RerootedFileSystemView: FileSystem {
             return root
         } else {
             // FIXME: Optimize?
-            return root.appending(RelativePath(String(path.pathString.dropFirst(1))))
+            return AbsolutePath(String(path.pathString.dropFirst(1)), relativeTo: root)
         }
     }
 

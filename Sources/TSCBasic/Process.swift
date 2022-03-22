@@ -458,7 +458,7 @@ public final class Process {
         // The program might be a multi-component relative path.
         if let rel = try? RelativePath(validating: program), rel.components.count > 1 {
             if let cwd = cwdOpt {
-                let abs = cwd.appending(rel)
+                let abs = AbsolutePath(cwd, rel)
                 if localFileSystem.isExecutableFile(abs) {
                     return abs
                 }

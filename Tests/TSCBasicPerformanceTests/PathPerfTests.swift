@@ -16,6 +16,7 @@ import TSCTestSupport
 class PathPerfTests: XCTestCasePerf {
     
     /// Tests creating very long AbsolutePaths by joining path components.
+    @available(*, deprecated)
     func testJoinPerf_X100000() {
       #if canImport(Darwin)
         let absPath = AbsolutePath("/hello/little")

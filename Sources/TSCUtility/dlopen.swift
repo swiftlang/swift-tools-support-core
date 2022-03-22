@@ -88,6 +88,7 @@ public enum DLError: Error {
     case close(String)
 }
 
+@available(*, deprecated, message: "moved to swift-driver")
 extension DLError: CustomNSError {
     public var errorUserInfo: [String : Any] {
         return [NSLocalizedDescriptionKey: "\(self)"]

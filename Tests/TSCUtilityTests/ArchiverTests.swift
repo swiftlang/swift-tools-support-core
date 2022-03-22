@@ -107,6 +107,7 @@ private struct DummyError: Error, Equatable {
 
 private typealias Extraction = (AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) -> Void
 
+@available(*, deprecated)
 private struct MockArchiver: Archiver {
     let supportedExtensions: Set<String>
     private let extract: Extraction
