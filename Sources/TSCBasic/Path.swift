@@ -930,7 +930,7 @@ extension AbsolutePath {
             result = RelativePath(relComps.joined(separator: "/"))
 #endif
         }
-        assert(base.appending(result) == self)
+        assert(AbsolutePath(base, result) == self)
         return result
     }
 

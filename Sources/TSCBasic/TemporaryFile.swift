@@ -87,7 +87,7 @@ public struct TemporaryFile {
         // Determine in which directory to create the temporary file.
         self.dir = try determineTempDirectory(dir)
         // Construct path to the temporary file.
-        let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
+        let path = AbsolutePath(prefix + ".XXXXXX" + suffix, relativeTo: self.dir)
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
@@ -236,7 +236,7 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) throws -> Result
 ) throws -> Result {
     // Construct path to the temporary directory.
-    let templatePath = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
+    let templatePath = try AbsolutePath(prefix + ".XXXXXX", relativeTo: determineTempDirectory(dir))
 
     // Convert templatePath to a C style string terminating with null char to be an valid input
     // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
