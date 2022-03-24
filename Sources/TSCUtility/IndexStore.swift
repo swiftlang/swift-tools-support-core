@@ -212,7 +212,7 @@ private final class IndexStoreAPIImpl {
     private let path: AbsolutePath
 
     /// Handle of the dynamic library.
-    private let dylib: DLHandle
+    private let dylib: _DLHandle
 
     /// The index store API functions.
     fileprivate let fn: indexstore_functions_t
@@ -234,14 +234,14 @@ private final class IndexStoreAPIImpl {
     public init(dylib path: AbsolutePath) throws {
         self.path = path
 #if os(Windows)
-        let flags: DLOpenFlags = []
+        let flags: _DLOpenFlags = []
 #else
-        let flags: DLOpenFlags = [.lazy, .local, .first, .deepBind]
+        let flags: _DLOpenFlags = [.lazy, .local, .first, .deepBind]
 #endif
-        self.dylib = try dlopen(path.pathString, mode: flags)
+        self.dylib = try _dlopen(path.pathString, mode: flags)
 
-        func dlsym_required<T>(_ handle: DLHandle, symbol: String) throws -> T {
-            guard let sym: T = dlsym(handle, symbol: symbol) else {
+        func dlsym_required<T>(_ handle: _DLHandle, symbol: String) throws -> T {
+            guard let sym: T = _dlsym(handle, symbol: symbol) else {
                 throw StringError("Missing required symbol: \(symbol)")
             }
             return sym
@@ -285,3 +285,124 @@ extension indexstore_string_ref_t {
         )!
     }
 }
+
+// Private, non-deprecated copy of the dlopen code in `dlopen.swift` as we are planning to remove the public API in the next version.
+
+import protocol Foundation.CustomNSError
+import var Foundation.NSLocalizedDescriptionKey
+import TSCLibc
+
+private final class _DLHandle {
+  #if os(Windows)
+    typealias Handle = HMODULE
+  #else
+    typealias Handle = UnsafeMutableRawPointer
+  #endif
+    var rawValue: Handle? = nil
+
+    init(rawValue: Handle) {
+        self.rawValue = rawValue
+    }
+
+    deinit {
+        precondition(rawValue == nil, "DLHandle must be closed or explicitly leaked before destroying")
+    }
+
+    public func close() throws {
+        if let handle = rawValue {
+          #if os(Windows)
+            guard FreeLibrary(handle) else {
+                throw _DLError.close("Failed to FreeLibrary: \(GetLastError())")
+            }
+          #else
+            guard dlclose(handle) == 0 else {
+                throw _DLError.close(_dlerror() ?? "unknown error")
+            }
+          #endif
+        }
+        rawValue = nil
+    }
+
+    public func leak() {
+        rawValue = nil
+    }
+}
+
+private struct _DLOpenFlags: RawRepresentable, OptionSet {
+
+  #if !os(Windows)
+    public static let lazy: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_LAZY)
+    public static let now: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_NOW)
+    public static let local: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_LOCAL)
+    public static let global: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_GLOBAL)
+
+    // Platform-specific flags.
+  #if canImport(Darwin)
+    public static let first: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_FIRST)
+    public static let deepBind: _DLOpenFlags = _DLOpenFlags(rawValue: 0)
+  #else
+    public static let first: _DLOpenFlags = _DLOpenFlags(rawValue: 0)
+  #if os(Linux)
+    public static let deepBind: _DLOpenFlags = _DLOpenFlags(rawValue: RTLD_DEEPBIND)
+  #else
+    public static let deepBind: _DLOpenFlags = _DLOpenFlags(rawValue: 0)
+  #endif
+  #endif
+  #endif
+
+    public var rawValue: Int32
+
+    public init(rawValue: Int32) {
+        self.rawValue = rawValue
+    }
+}
+
+private enum _DLError: Error {
+    case `open`(String)
+    case close(String)
+}
+
+extension _DLError: CustomNSError {
+    public var errorUserInfo: [String : Any] {
+        return [NSLocalizedDescriptionKey: "\(self)"]
+    }
+}
+
+private func _dlsym<T>(_ handle: _DLHandle, symbol: String) -> T? {
+  #if os(Windows)
+    guard let ptr = GetProcAddress(handle.rawValue!, symbol) else {
+        return nil
+    }
+  #else
+    guard let ptr = dlsym(handle.rawValue!, symbol) else {
+        return nil
+    }
+  #endif
+    return unsafeBitCast(ptr, to: T.self)
+}
+
+private func _dlopen(_ path: String?, mode: _DLOpenFlags) throws -> _DLHandle {
+  #if os(Windows)
+    guard let handle = path?.withCString(encodedAs: UTF16.self, LoadLibraryW) else {
+        throw _DLError.open("LoadLibraryW failed: \(GetLastError())")
+    }
+  #else
+    guard let handle = TSCLibc.dlopen(path, mode.rawValue) else {
+        throw _DLError.open(_dlerror() ?? "unknown error")
+    }
+  #endif
+    return _DLHandle(rawValue: handle)
+}
+
+private func _dlclose(_ handle: _DLHandle) throws {
+    try handle.close()
+}
+
+#if !os(Windows)
+private func _dlerror() -> String? {
+    if let err: UnsafeMutablePointer<Int8> = dlerror() {
+        return String(cString: err)
+    }
+    return nil
+}
+#endif
