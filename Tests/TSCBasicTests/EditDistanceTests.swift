@@ -8,18 +8,29 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+@testable import TSCBasic
 import XCTest
 
 import TSCBasic
 
 class EditDistanceTests: XCTestCase {
 
-    func testBasics() {
-        XCTAssertEqual(editDistance("Foo", "Fo"), 1)
-        XCTAssertEqual(editDistance("Foo", "Foo"), 0)
-        XCTAssertEqual(editDistance("Bar", "Foo"), 3)
-        XCTAssertEqual(editDistance("ABCDE", "ABDE"), 1)
-        XCTAssertEqual(editDistance("sunday", "saturday"), 3)
-        XCTAssertEqual(editDistance("FOO", "foo"), 3)
+    @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+    func testEditDistanceWithCollectionDiff() {
+        XCTAssertEqual(collectionDiffEditDistance("Foo", "Fo"), 1)
+        XCTAssertEqual(collectionDiffEditDistance("Foo", "Foo"), 0)
+        XCTAssertEqual(collectionDiffEditDistance("Bar", "Foo"), 3)
+        XCTAssertEqual(collectionDiffEditDistance("ABCDE", "ABDE"), 1)
+        XCTAssertEqual(collectionDiffEditDistance("sunday", "saturday"), 3)
+        XCTAssertEqual(collectionDiffEditDistance("FOO", "foo"), 3)
+    }
+
+    func testInternalEditDistance() {
+        XCTAssertEqual(internalEditDistance("Foo", "Fo"), 1)
+        XCTAssertEqual(internalEditDistance("Foo", "Foo"), 0)
+        XCTAssertEqual(internalEditDistance("Bar", "Foo"), 3)
+        XCTAssertEqual(internalEditDistance("ABCDE", "ABDE"), 1)
+        XCTAssertEqual(internalEditDistance("sunday", "saturday"), 3)
+        XCTAssertEqual(internalEditDistance("FOO", "foo"), 3)
     }
 }

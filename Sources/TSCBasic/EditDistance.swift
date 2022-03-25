@@ -8,13 +8,28 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Computes the number of edits needed to transform first string to second.
+/// Computes the number of edits needed to transform source string to target.
 ///
-/// - Complexity: O(_n*m_), where *n* is the length of the first String and
-///   *m* is the length of the second one.
-public func editDistance(_ first: String, _ second: String) -> Int {
+/// - Complexity: O(_n*m_), where *n* is the length of the source String and
+///   *m* is the length of the target one.
+public func editDistance(_ source: String, _ target: String) -> Int {
     // FIXME: We should use the new `CollectionDifference` API once the
     // deployment target is bumped.
+    if #available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *) {
+        return collectionDiffEditDistance(source, target)
+    }
+    else {
+        return internalEditDistance(source, target)
+    }
+}
+
+@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+func collectionDiffEditDistance(_ source: String, _ target: String) -> Int {
+    let difference = target.difference(from: source)
+    return max(difference.insertions.count, difference.removals.count)
+}
+
+func internalEditDistance(_ first: String, _ second: String) -> Int {
     let a = Array(first.utf16)
     let b = Array(second.utf16)
     var distance = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
