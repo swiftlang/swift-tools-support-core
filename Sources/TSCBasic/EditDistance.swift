@@ -16,31 +16,40 @@ public func editDistance(_ source: String, _ target: String) -> Int {
     // FIXME: We should use the new `CollectionDifference` API once the
     // deployment target is bumped.
     if #available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *) {
-        let difference = target.difference(from: source)
-        return max(difference.insertions.count, difference.removals.count)
+        return collectionDiffEditDistance(source, target)
     }
     else {
-        let a = Array(source.utf16)
-        let b = Array(target.utf16)
-        var distance = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
-        for i in 0...a.count {
-            for j in 0...b.count {
-                if i == 0 {
-                    distance[i][j] = j
-                } else if j == 0 {
-                    distance[i][j] = i
-                } else if a[i - 1] == b[j - 1] {
-                    distance[i][j] = distance[i - 1][j - 1]
-                } else {
-                    let insertion = distance[i][ j - 1]
-                    let deletion = distance[i - 1][j]
-                    let replacement = distance[i - 1][j - 1]
-                    distance[i][j] = 1 + min(insertion, deletion, replacement)
-                }
+        return internalEditDistance(source, target)
+    }
+}
+
+@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+func collectionDiffEditDistance(_ source: String, _ target: String) -> Int {
+    let difference = target.difference(from: source)
+    return max(difference.insertions.count, difference.removals.count)
+}
+
+func internalEditDistance(_ first: String, _ second: String) -> Int {
+    let a = Array(first.utf16)
+    let b = Array(second.utf16)
+    var distance = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
+    for i in 0...a.count {
+        for j in 0...b.count {
+            if i == 0 {
+                distance[i][j] = j
+            } else if j == 0 {
+                distance[i][j] = i
+            } else if a[i - 1] == b[j - 1] {
+                distance[i][j] = distance[i - 1][j - 1]
+            } else {
+                let insertion = distance[i][ j - 1]
+                let deletion = distance[i - 1][j]
+                let replacement = distance[i - 1][j - 1]
+                distance[i][j] = 1 + min(insertion, deletion, replacement)
             }
         }
-        return distance[a.count][b.count]
     }
+    return distance[a.count][b.count]
 }
 
 /// Finds the "best" match for a `String` from an array of possible options.
