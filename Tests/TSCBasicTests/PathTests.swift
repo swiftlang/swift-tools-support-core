@@ -39,6 +39,12 @@ class PathTests: XCTestCase {
         XCTAssertEqual(abs5, AbsolutePath("/base/path/a/b/c"))
         let abs6 = AbsolutePath("~/bla", relativeTo: base)  // `~` isn't special
         XCTAssertEqual(abs6, AbsolutePath("/base/path/~/bla"))
+        let abs7 = AbsolutePath(RelativePath("a/b/c"), relativeTo: base)
+        XCTAssertEqual(abs7, AbsolutePath("/base/path/a/b/c"))
+        let abs8 = AbsolutePath(RelativePath("./a/b/c"), relativeTo: base)
+        XCTAssertEqual(abs8, AbsolutePath("/base/path/a/b/c"))
+        let abs9 = AbsolutePath(RelativePath("../a/b/c"), relativeTo: base)
+        XCTAssertEqual(abs9, AbsolutePath("/base/a/b/c"))
     }
 
     func testStringLiteralInitialization() {

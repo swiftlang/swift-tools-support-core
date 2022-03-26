@@ -101,6 +101,11 @@ public struct AbsolutePath: Hashable {
         }
     }
 
+    /// Initializes an AbsolutePath from a relative path having `basePath` used as the anchor.
+    public init(_ relativePath: RelativePath, relativeTo: AbsolutePath) {
+        self.init(relativePath.pathString, relativeTo: relativeTo)
+    }
+
     /// Initializes the AbsolutePath by concatenating a relative path to an
     /// existing absolute path, and renormalizing if necessary.
     public init(_ absPath: AbsolutePath, _ relPath: RelativePath) {
