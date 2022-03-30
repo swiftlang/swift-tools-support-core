@@ -34,4 +34,13 @@ class TripleTests : XCTestCase {
         XCTAssertEqual(android!.os, .linux)
         XCTAssertEqual(android!.abiVersion, "24")
     }
+
+    func testEquality() throws {
+        let macOSTriple = try Triple("arm64-apple-macos")
+        let macOSXTriple = try Triple("arm64-apple-macosx")
+        XCTAssertEqual(macOSTriple, macOSXTriple)
+
+        let intelMacOSTriple = try Triple("x86_64-apple-macos")
+        XCTAssertNotEqual(macOSTriple, intelMacOSTriple)
+    }
 }

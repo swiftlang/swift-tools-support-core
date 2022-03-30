@@ -197,6 +197,10 @@ public struct Triple: Encodable, Equatable {
             fatalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
         }
     }
+
+    public static func ==(lhs: Triple, rhs: Triple) -> Bool {
+        return lhs.arch == rhs.arch && lhs.vendor == rhs.vendor && lhs.os == rhs.os && lhs.abi == rhs.abi && lhs.osVersion == rhs.osVersion && lhs.abiVersion == rhs.abiVersion
+    }
 }
 
 extension Triple {
