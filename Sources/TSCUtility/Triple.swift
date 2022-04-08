@@ -31,9 +31,9 @@ public struct Triple: Encodable, Equatable {
     public let abiVersion: String?
 
     public enum Error: Swift.Error {
-        case badFormat
-        case unknownArch
-        case unknownOS
+        case badFormat(triple: String)
+        case unknownArch(arch: String)
+        case unknownOS(os: String)
     }
 
     public enum Arch: String, Encodable {
@@ -76,17 +76,17 @@ public struct Triple: Encodable, Equatable {
         let components = string.split(separator: "-").map(String.init)
 
         guard components.count == 3 || components.count == 4 else {
-            throw Error.badFormat
+            throw Error.badFormat(triple: string)
         }
 
         guard let arch = Arch(rawValue: components[0]) else {
-            throw Error.unknownArch
+            throw Error.unknownArch(arch: components[0])
         }
 
         let vendor = Vendor(rawValue: components[1]) ?? .unknown
 
         guard let os = Triple.parseOS(components[2]) else {
-            throw Error.unknownOS
+            throw Error.unknownOS(os: components[2])
         }
 
         let osVersion = Triple.parseVersion(components[2])
