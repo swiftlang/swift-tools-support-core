@@ -570,11 +570,17 @@ private struct UNIXPath: Path {
 
     init(normalizingAbsolutePath path: String) {
       #if os(Windows)
-        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
-        _ = path.withCString(encodedAs: UTF16.self) {
-            PathCanonicalizeW(&buffer, $0)
-        }
-        self.init(string: String(decodingCString: buffer, as: UTF16.self))
+        let normalized: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { normalized.deallocate() }
+
+        self.init(string: String(cString: normalized)
+                              .withCString(encodedAs: UTF16.self) { pwszPath in
+          var canonical: PWSTR!
+          _ = PathAllocCanonicalize(pwszPath,
+                                    ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
+                                    &canonical)
+          return String(decodingCString: canonical, as: UTF16.self)
+        })
       #else
         precondition(path.first == "/", "Failure normalizing \(path), absolute paths should start with '/'")
 
