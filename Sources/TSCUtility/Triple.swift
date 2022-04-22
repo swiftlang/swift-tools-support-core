@@ -224,7 +224,7 @@ extension Triple {
         case .windows:
             return ".dll"
         case .wasi:
-            fatalError("WebAssembly/WASI doesn't support dynamic library yet")
+            return ".wasm"
         }
     }
 
