@@ -225,9 +225,9 @@ public func lookupExecutablePath(
         return nil
     }
 #if os(Windows)
-    let isPath = value.contains(":") || value.contains("\\") || value.contains("/")
+    let isFileName = !value.contains(":") && !value.contains("\\") && !value.contains("/")
 #else
-    let isPath = value.contains("/")
+    let isFileName = !value.contains("/")
 #endif
 
     var paths: [AbsolutePath] = []
@@ -241,8 +241,8 @@ public func lookupExecutablePath(
         paths.append(absPath)
     }
 
-    // Ensure the value is not a path.
-    if !isPath {
+    // Only search in PATH if the value is a single path component.
+    if isFileName {
         // Try to locate in search paths.
         paths.append(contentsOf: searchPaths.map({ $0.appending(component: value) }))
 #if os(Windows)
