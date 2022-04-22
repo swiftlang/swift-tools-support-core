@@ -149,7 +149,7 @@ class ProcessTests: XCTestCase {
             try localFileSystem.writeFileContents(tempNonExecutable, bytes: """
                 @echo off
                 exit
-
+                
                 """)
 
             try withCustomEnv(["Path": tmpdir.pathString]) {
