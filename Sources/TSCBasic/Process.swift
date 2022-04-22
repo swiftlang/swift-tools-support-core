@@ -481,6 +481,8 @@ public final class Process {
             )
             var searchPaths: [AbsolutePath] = []
 #if os(Windows)
+            // NOTE: `CreateProcess` the Windows system API always searchs System and Windows directories first.
+            // See https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw#parameters
             var buffer = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
             // The 32-bit Windows system directory
             if GetSystemDirectoryW(&buffer, .init(buffer.count)) > 0 {
