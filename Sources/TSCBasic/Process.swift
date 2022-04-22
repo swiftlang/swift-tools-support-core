@@ -463,6 +463,13 @@ public final class Process {
                 if localFileSystem.isExecutableFile(abs) {
                     return abs
                 }
+#if os(Windows)
+                if abs.extension != "exe" && abs.extension != "",
+                   case let abs = abs.parentDirectory.appending(component: abs.basename + executableFileSuffix),
+                   localFileSystem.isExecutableFile(abs) {
+                    return abs
+                }
+#endif
             }
             return nil
         }
