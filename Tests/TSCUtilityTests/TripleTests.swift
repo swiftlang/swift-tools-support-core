@@ -43,4 +43,12 @@ class TripleTests : XCTestCase {
         let intelMacOSTriple = try Triple("x86_64-apple-macos")
         XCTAssertNotEqual(macOSTriple, intelMacOSTriple)
     }
+
+    func testWASI() throws {
+        let wasi = try Triple("wasm32-unknown-wasi")
+
+        // WASI dynamic libraries are only experimental,
+        // but SwiftPM requires this property not to crash.
+        _ = wasi.dynamicLibraryExtension
+    }
 }
