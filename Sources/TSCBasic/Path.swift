@@ -544,7 +544,10 @@ private struct UNIXPath: Path {
     //
     var components: [String] {
 #if os(Windows)
-        return string.components(separatedBy: "\\").filter { !$0.isEmpty }
+        let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
+        defer { normalized.deallocate() }
+
+        return String(cString: normalized).components(separatedBy: "\\").filter { !$0.isEmpty }
 #else
         // FIXME: This isn't particularly efficient; needs optimization, and
         // in fact, it might well be best to return a custom iterator so we
