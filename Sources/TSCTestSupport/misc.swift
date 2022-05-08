@@ -33,7 +33,8 @@ public func testWithTemporaryDirectory(
         .replacingOccurrences(of: "(", with: "")
         .replacingOccurrences(of: ")", with: "")
         .replacingOccurrences(of: ".", with: "")
-    try withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+    try withTemporaryDirectory(dir: localFileSystem.currentWorkingDirectory,
+                               prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
