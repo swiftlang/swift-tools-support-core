@@ -247,6 +247,13 @@ public struct RelativePath: Hashable {
         _impl = impl
     }
 
+    /// Private initializer for constructing a relative path without performing
+    /// normalization or canonicalization.  This will construct a path without
+    /// an anchor and thus may be invalid.
+    fileprivate init(unsafeUncheckedPath string: String) {
+        self.init(PathImpl(string: string))
+    }
+
     /// Initializes the RelativePath from `str`, which must be a relative path
     /// (which means that it must not begin with a path separator or a tilde).
     /// An empty input path is allowed, but will be normalized to a single `.`
@@ -915,7 +922,7 @@ extension AbsolutePath {
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
 #if os(Windows)
-            result = RelativePath(relComps.joined(separator: "\\"))
+            result = RelativePath(unsafeUncheckedPath: relComps.joined(separator: "\\"))
 #else
             result = RelativePath(relComps.joined(separator: "/"))
 #endif
@@ -934,11 +941,12 @@ extension AbsolutePath {
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
 #if os(Windows)
-            result = RelativePath(relComps.joined(separator: "\\"))
+            result = RelativePath(unsafeUncheckedPath: relComps.joined(separator: "\\"))
 #else
             result = RelativePath(relComps.joined(separator: "/"))
 #endif
         }
+
         assert(AbsolutePath(base, result) == self)
         return result
     }
