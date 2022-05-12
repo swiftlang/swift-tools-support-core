@@ -1,9 +1,21 @@
+# macOS
 .DS_Store
+
+# SwiftPM
+.swiftpm
 /.build
-/Packages
+Package.resolved
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+
+# Xcode
 /*.xcodeproj
 xcuserdata/
-.swiftpm
-build
+
+# VScode
 .vscode
-Package.resolved
+
+/Packages
+build

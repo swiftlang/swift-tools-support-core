@@ -30,6 +30,7 @@ find_package(Foundation QUIET)
 find_package(Threads QUIET)
 find_package(SQLite3 REQUIRED)
 find_package(SwiftSystem CONFIG REQUIRED)
+find_package(SwiftCollections REQUIRED)
 
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)
