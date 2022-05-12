@@ -56,6 +56,6 @@ class LazyCacheTests: XCTestCase {
             exp.fulfill()
         }
 
-        wait(for: [exp], timeout: 0.5)
+        wait(for: [exp], timeout: 0.2)
     }
 }
