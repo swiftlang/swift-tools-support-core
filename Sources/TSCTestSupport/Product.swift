@@ -96,7 +96,9 @@ extension Product {
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
         environment["SWIFTPM_TESTS_MODULECACHE"] = self.path.parentDirectory.pathString
+#if !os(Windows)
         environment["SDKROOT"] = nil
+#endif
 
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
