@@ -76,25 +76,28 @@ public struct AbsolutePath: Hashable {
             self.init(str)
         } else {
 #if os(Windows)
-            var joined: PWSTR!
-            _ = basePath._impl.string.withCString(encodedAs: UTF16.self) { base in
-                str.withCString(encodedAs: UTF16.self) { path in
-                    PathAllocCombine(base, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &joined)
+            assert(!basePath.pathString.isEmpty)
+            guard !str.isEmpty else {
+                self.init(basePath._impl)
+                return
+            }
+
+            let base: UnsafePointer<Int8> =
+                basePath.pathString.fileSystemRepresentation
+            defer { base.deallocate() }
+
+            let path: UnsafePointer<Int8> = str.fileSystemRepresentation
+            defer { path.deallocate() }
+
+            var pwszResult: PWSTR!
+            _ = String(cString: base).withCString(encodedAs: UTF16.self) { pwszBase in
+                String(cString: path).withCString(encodedAs: UTF16.self) { pwszPath in
+                    PathAllocCombine(pwszBase, pwszPath, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &pwszResult)
                 }
             }
-            defer { LocalFree(joined) }
+            defer { LocalFree(pwszResult) }
 
-            let buffer: UnsafePointer<Int8> =
-                String(decodingCString: joined, as: UTF16.self).fileSystemRepresentation
-            defer { buffer.deallocate() }
-
-            var canonical: PWSTR!
-            _ = String(cString: buffer).withCString(encodedAs: UTF16.self) {
-                PathAllocCanonicalize($0, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &canonical)
-            }
-            defer { LocalFree(canonical) }
-
-            self.init(String(decodingCString: canonical, as: UTF16.self))
+            self.init(String(decodingCString: pwszResult, as: UTF16.self))
 #else
             self.init(basePath, RelativePath(str))
 #endif
