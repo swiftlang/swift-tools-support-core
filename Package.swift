@@ -101,9 +101,6 @@ let package = Package(
     ]
 )
 
-/// When not using local dependencies, the branch to use for llbuild and TSC repositories.
- let relatedDependenciesBranch = "main"
-
  if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
      package.dependencies += [
          .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
