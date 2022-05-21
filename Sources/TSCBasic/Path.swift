@@ -18,6 +18,11 @@ private typealias PathImpl = UNIXPath
 private typealias PathImpl = UNIXPath
 #endif
 
+#if canImport(Darwin)
+import Darwin.C
+#endif
+
+import class Foundation.NSURL
 import protocol Foundation.CustomNSError
 import var Foundation.NSLocalizedDescriptionKey
 
@@ -254,7 +259,18 @@ public struct RelativePath: Hashable {
     /// normalization or canonicalization.  This will construct a path without
     /// an anchor and thus may be invalid.
     fileprivate init(unsafeUncheckedPath string: String) {
-        self.init(PathImpl(string: string))
+        if string.isEmpty {
+            self.init(PathImpl(string: string))
+        } else {
+#if _runtime(_ObjC)
+            self.init(PathImpl(string: String(cString: NSURL(fileURLWithPath: string).fileSystemRepresentation)))
+#else
+            let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
+            defer { normalized.deallocate() }
+
+            self.init(PathImpl(string: String(cString: normalized)))
+#endif
+        }
     }
 
     /// Initializes the RelativePath from `str`, which must be a relative path
