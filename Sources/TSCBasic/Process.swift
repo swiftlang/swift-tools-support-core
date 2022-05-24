@@ -14,6 +14,7 @@ import var Foundation.NSLocalizedDescriptionKey
 
 #if os(Windows)
 import Foundation
+import WinSDK
 #endif
 
 @_implementationOnly import TSCclibc
@@ -462,6 +463,13 @@ public final class Process {
                 if localFileSystem.isExecutableFile(abs) {
                     return abs
                 }
+#if os(Windows)
+                if abs.extension != "exe" && abs.extension != "",
+                   case let abs = abs.parentDirectory.appending(component: abs.basename + executableFileSuffix),
+                   localFileSystem.isExecutableFile(abs) {
+                    return abs
+                }
+#endif
             }
             return nil
         }
@@ -471,10 +479,28 @@ public final class Process {
                 pathString: ProcessEnv.path,
                 currentWorkingDirectory: cwdOpt
             )
+            var searchPaths: [AbsolutePath] = []
+#if os(Windows)
+            // NOTE: `CreateProcess` the Windows system API always searchs System and Windows directories first.
+            // See https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw#parameters
+            var buffer = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+            // The 32-bit Windows system directory
+            if GetSystemDirectoryW(&buffer, .init(buffer.count)) > 0 {
+                searchPaths.append(AbsolutePath(String(decodingCString: buffer, as: UTF16.self)))
+            }
+            if GetWindowsDirectoryW(&buffer, .init(buffer.count)) > 0 {
+                let windowsDirectory = String(decodingCString: buffer, as: UTF16.self)
+                // The 16-bit Windows system directory
+                searchPaths.append(AbsolutePath("\(windowsDirectory)\\System"))
+                // The Windows directory
+                searchPaths.append(AbsolutePath(windowsDirectory))
+            }
+#endif
+            searchPaths.append(contentsOf: envSearchPaths)
             let value = lookupExecutablePath(
                 filename: program,
                 currentWorkingDirectory: cwdOpt,
-                searchPaths: envSearchPaths
+                searchPaths: searchPaths
             )
             return value
         }

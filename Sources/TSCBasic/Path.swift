@@ -489,11 +489,12 @@ private struct UNIXPath: Path {
         defer { fsr.deallocate() }
 
         let path: String = String(cString: fsr)
-        return path.withCString(encodedAs: UTF16.self) {
+        let result: String = path.withCString(encodedAs: UTF16.self) {
             let data = UnsafeMutablePointer(mutating: $0)
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
+        return result.isEmpty ? "." : result
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
@@ -734,6 +735,12 @@ private struct UNIXPath: Path {
 
     init(validatingAbsolutePath path: String) throws {
       #if os(Windows)
+        // Explicitly handle the empty path, since retrieving
+        // `fileSystemRepresentation` of it is illegal.
+        guard !path.isEmpty else {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { fsr.deallocate() }
 
@@ -756,6 +763,12 @@ private struct UNIXPath: Path {
 
     init(validatingRelativePath path: String) throws {
       #if os(Windows)
+        // Explicitly handle the empty path, since retrieving
+        // `fileSystemRepresentation` of it is illegal.
+        guard !path.isEmpty else {
+            throw PathValidationError.invalidRelativePath(path)
+        }
+
         let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { fsr.deallocate() }
 
