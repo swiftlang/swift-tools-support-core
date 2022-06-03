@@ -760,7 +760,9 @@ private struct UNIXPath: Path {
         defer { fsr.deallocate() }
 
         let realpath: String = String(cString: fsr)
-        if UNIXPath.isAbsolutePath(realpath) {
+        // Treat a relative path as an invalid relative path...
+        if UNIXPath.isAbsolutePath(realpath) ||
+                realpath.first == "~" || realpath.first == "\\" {
             throw PathValidationError.invalidRelativePath(path)
         }
         self.init(normalizingRelativePath: path)
@@ -895,7 +897,7 @@ extension PathValidationError: CustomStringConvertible {
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
         case .invalidRelativePath(let path):
-            return "invalid relative path '\(path)'; relative path should not begin with '/' or '~'"
+            return "invalid relative path '\(path)'; relative path should not begin with '\(AbsolutePath.root.pathString)' or '~'"
         }
     }
 }
