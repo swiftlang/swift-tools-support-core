@@ -125,4 +125,10 @@ let package = Package(
       .linkedLibrary("Pathcch", .when(platforms: [.windows])),
     ]
   }
+#elseif os(Linux)
+  if let TSCclibc = package.targets.first(where: { $0.name == "TSCclibc" }) {
+    TSCclibc.cSettings = [
+      .define("_GNU_SOURCE", .when(platforms: [.linux])),
+    ]
+  }
 #endif

@@ -10,6 +10,8 @@ add_library(TSCclibc STATIC
   libc.c process.c)
 target_include_directories(TSCclibc PUBLIC
   include)
+target_compile_definitions(TSCclibc PRIVATE
+  "$<$<PLATFORM_ID:Linux>:_GNU_SOURCE>")
 
 if(NOT BUILD_SHARED_LIBS)
   install(TARGETS TSCclibc
