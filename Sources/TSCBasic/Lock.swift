@@ -19,11 +19,11 @@ public struct Lock {
     public init() {
     }
 
-    func lock() {
+    public func lock() {
         _lock.lock()
     }
 
-    func unlock() {
+    public func unlock() {
         _lock.unlock()
     }
 

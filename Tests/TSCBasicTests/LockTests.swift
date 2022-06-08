@@ -26,6 +26,18 @@ class LockTests: XCTestCase {
         }
         XCTAssertEqual(count, N)
     }
+    
+    func testLockUnlock() {
+        let lock = TSCBasic.Lock()
+        var count = 0
+        let N = 100
+        for _ in 0..<N {
+            lock.lock()
+            count += 1
+            lock.unlock()
+        }
+        XCTAssertEqual(count, N)
+    }
 
     func testFileLock() throws {
         // Shared resource file.
