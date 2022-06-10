@@ -11,6 +11,7 @@
 import Foundation
 import TSCLibc
 
+@available(*, deprecated, message: "Use NSLock directly instead. SPM has a withLock extension function" )
 /// A simple lock wrapper.
 public struct Lock {
     private let _lock = NSLock()
