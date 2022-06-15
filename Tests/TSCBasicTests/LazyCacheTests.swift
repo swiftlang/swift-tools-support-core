@@ -39,14 +39,12 @@ class LazyCacheTests: XCTestCase {
     func testThreadSafety() {
         let dispatchGroup = DispatchGroup()
         let exp = expectation(description: "multi thread")
+
         for _ in 0..<10 {
             let foo = Foo()
             for _ in 0..<10 {
-                dispatchGroup.enter()
-                DispatchQueue.global().async {
+                DispatchQueue.global().async(group: dispatchGroup) {
                     XCTAssertEqual(foo.bar, 42)
-                    dispatchGroup.leave()
-
                     XCTAssertEqual(foo.numCalls, 1)
                 }
             }
