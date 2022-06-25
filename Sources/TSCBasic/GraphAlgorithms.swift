@@ -115,10 +115,13 @@ public func findCycle<T: Hashable>(
 ) rethrows -> (path: [T], cycle: [T])? {
     // Ordered set to hold the current traversed path.
     var path = OrderedSet<T>()
+    var validNodes = Set<T>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
     func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
+        if validNodes.contains(node) { return nil }
+        
         // If this node is already in the current path then we have found a cycle.
         if !path.append(node) {
             let index = path.firstIndex(of: node)!
@@ -133,6 +136,7 @@ public func findCycle<T: Hashable>(
         // No cycle found for this node, remove it from the path.
         let item = path.removeLast()
         assert(item == node)
+        validNodes.insert(node)
         return nil
     }
 
