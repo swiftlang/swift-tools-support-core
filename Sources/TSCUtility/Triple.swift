@@ -61,6 +61,10 @@ public struct Triple: Encodable, Equatable {
     public enum OS: String, Encodable, CaseIterable {
         case darwin
         case macOS = "macosx"
+        case ios
+        case watchos
+        case tvos
+        case driverkit
         case linux
         case windows
         case wasi
@@ -156,7 +160,23 @@ public struct Triple: Encodable, Equatable {
     }
 
     public func isDarwin() -> Bool {
-        return vendor == .apple || os == .macOS || os == .darwin
+        return vendor == .apple || os == .macOS || os == .darwin || os == .ios || os == .watchos || os == .tvos || os == .driverkit
+    }
+
+    public func isIOS() -> Bool {
+        return os == .ios
+    }
+
+    public func isWatchOS() -> Bool {
+        return os == .watchos
+    }
+
+    public func isTVOS() -> Bool {
+        return os == .tvos
+    }
+
+    public func isDriverKit() -> Bool {
+        return os == .driverkit
     }
 
     public func isLinux() -> Bool {
@@ -242,7 +262,7 @@ extension Triple {
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .ios, .watchos, .tvos, .driverkit:
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -255,7 +275,7 @@ extension Triple {
 
     public var executableExtension: String {
       switch os {
-      case .darwin, .macOS:
+      case .darwin, .macOS, .ios, .watchos, .tvos, .driverkit:
         return ""
       case .linux, .openbsd:
         return ""
@@ -274,7 +294,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .ios, .watchos, .tvos, .driverkit:
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
