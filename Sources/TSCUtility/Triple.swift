@@ -67,9 +67,41 @@ public struct Triple: Encodable, Equatable {
         case openbsd
     }
 
-    public enum ABI: String, Encodable {
+    public enum ABI: Encodable, Equatable, RawRepresentable {
         case unknown
         case android
+        case other(name: String)
+
+        public init?(rawValue: String) {
+            if rawValue.hasPrefix(ABI.android.rawValue) {
+                self = .android
+            } else if let version = rawValue.firstIndex(where: { $0.isNumber }) {
+                self = .other(name: String(rawValue[..<version]))
+            } else {
+                self = .other(name: rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .android: return "android"
+            case .other(let name): return name
+            case .unknown: return "unknown"
+            }
+        }
+
+        public static func ==(lhs: ABI, rhs: ABI) -> Bool {
+            switch (lhs, rhs) {
+            case (.unknown, .unknown):
+                return true
+            case (.android, .android):
+                return true
+            case let (.other(lhsName), .other(rhsName)):
+                return lhsName == rhsName
+            default:
+                return false
+            }
+        }
     }
 
     public init(_ string: String) throws {
@@ -91,7 +123,7 @@ public struct Triple: Encodable, Equatable {
 
         let osVersion = Triple.parseVersion(components[2])
 
-        let abi = components.count > 3 ? Triple.parseABI(components[3]) : nil
+        let abi = components.count > 3 ? Triple.ABI(rawValue: components[3]) : nil
         let abiVersion = components.count > 3 ? Triple.parseVersion(components[3]) : nil
 
         self.tripleString = string
@@ -116,13 +148,6 @@ public struct Triple: Encodable, Equatable {
             return candidate
         }
 
-        return nil
-    }
-
-    fileprivate static func parseABI(_ string: String) -> ABI? {
-        if string.hasPrefix(ABI.android.rawValue) {
-            return ABI.android
-        }
         return nil
     }
 
