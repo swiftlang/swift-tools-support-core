@@ -14,6 +14,88 @@ import TSCBasic
 import TSCUtility
 
 final class SerializedDiagnosticsTests: XCTestCase {
+  func testReadSwiftDiagnosticWithNote() throws {
+    let serializedDiagnosticsPath = AbsolutePath(#file).parentDirectory
+      .appending(components: "Inputs", "multiblock.dia")
+    let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
+    let serializedDiags = try SerializedDiagnostics(bytes: contents)
+
+    XCTAssertEqual(serializedDiags.versionNumber, 2)
+    XCTAssertEqual(serializedDiags.diagnostics.count, 7)
+
+    struct TestSrcLoc: Equatable {
+        var filename: String
+        var line: UInt64
+        var column: UInt64
+        var offset: UInt64
+
+        init(filename: String, line: UInt64, column: UInt64, offset: UInt64) {
+            self.filename = filename
+            self.line = line
+            self.column = column
+            self.offset = offset
+        }
+
+        init(_ original: SerializedDiagnostics.SourceLocation) {
+            self.filename = original.filename
+            self.line = original.line
+            self.column = original.column
+            self.offset = original.offset
+        }
+    }
+
+    struct TestDiag {
+        var text: String
+        var level: SerializedDiagnostics.Diagnostic.Level
+        var location: TestSrcLoc?
+        var category: String?
+        var flag: String?
+
+    }
+
+    let expectedResults = [
+        TestDiag(text: "type 'A' does not conform to protocol 'P'",
+                 level: .error,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 5, column: 7, offset: 35)),
+        TestDiag(text: "candidate is 'async', but protocol requirement is not",
+                 level: .note,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 6, column: 10, offset: 51)),
+        TestDiag(text: "do you want to add protocol stubs?",
+                 level: .note,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 5, column: 7, offset: 35)),
+        TestDiag(text: "initialization of immutable value 'a' was never used",
+                 level: .warning,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 7, column: 13, offset: 75)),
+        TestDiag(text: "consider replacing with '_' or removing it",
+                 level: .note,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 7, column: 13, offset: 75)),
+        TestDiag(text: "initialization of immutable value 'b' was never used",
+                 level: .warning,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 8, column: 13, offset: 94)),
+        TestDiag(text: "consider replacing with '_' or removing it",
+                 level: .note,
+                 location: TestSrcLoc(filename: "test.swift",
+                                      line: 8, column: 13, offset: 94))
+    ]
+
+    for case let (diag, expected) in zip(serializedDiags.diagnostics,
+        expectedResults) {
+        XCTAssertEqual(diag.text, expected.text, "Mismatched Diagnostic Text")
+        XCTAssertEqual(diag.level, expected.level, "Mismatched Diagnostic Level")
+
+        XCTAssertEqual((diag.location == nil), (expected.location == nil), "Unexpected Diagnostic Location")
+        if let diagLoc = diag.location, let expectedLoc = expected.location {
+            XCTAssertEqual(TestSrcLoc(diagLoc), expectedLoc, "Mismatched Diagnostic Location")
+        }
+    }
+  }
+
   func testReadSwiftSerializedDiags() throws {
     let serializedDiagnosticsPath = AbsolutePath(#file).parentDirectory
         .appending(components: "Inputs", "serialized.dia")
