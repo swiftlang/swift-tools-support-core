@@ -41,6 +41,11 @@ public final class IndexStore {
         return IndexStore(impl)
     }
 
+    public func listTests(in objectFiles: [AbsolutePath]) throws -> [TestCaseClass] {
+        return try impl.listTests(in: objectFiles)
+    }
+
+    @available(*, deprecated, message: "use listTests(in:) instead")
     public func listTests(inObjectFile object: AbsolutePath) throws -> [TestCaseClass] {
         return try impl.listTests(inObjectFile: object)
     }
@@ -58,12 +63,9 @@ public final class IndexStoreAPI {
 }
 
 private final class IndexStoreImpl {
-
     typealias TestCaseClass = IndexStore.TestCaseClass
 
     let api: IndexStoreAPIImpl
-
-    var fn: indexstore_functions_t { api.fn }
 
     let store: indexstore_t
 
@@ -79,47 +81,156 @@ private final class IndexStoreImpl {
         throw StringError("Unable to open store at \(path)")
     }
 
-    public func listTests(inObjectFile object: AbsolutePath) throws -> [TestCaseClass] {
-        // Get the records of this object file.
-        let unitReader = try api.call{ fn.unit_reader_create(store, unitName(object: object), &$0) }
-        let records = try getRecords(unitReader: unitReader)
+    public func listTests(in objectFiles: [AbsolutePath]) throws -> [TestCaseClass] {
+        var inheritance = [String: String]()
+        var testMethods = [String: [(name: String, async: Bool)]]()
+        var testModules = [String: String]()
 
-        // Get the test classes.
-        let testCaseClasses = try records.flatMap{ try self.getTestCaseClasses(forRecord: $0) }
+        for objectFile in objectFiles {
+            // Get the records of this object file.
+            let unitReader = try self.api.call{ self.api.fn.unit_reader_create(store, unitName(object: objectFile), &$0) }
+            let records = try getRecords(unitReader: unitReader)
+            let moduleName = self.api.fn.unit_reader_get_module_name(unitReader).str
+            
+            for record in records {
+                let testsInfo = try self.getTestsInfo(record: record)
+                inheritance.merge(testsInfo.inheritance, uniquingKeysWith: { (lhs, _) in lhs })
+                testMethods.merge(testsInfo.testMethods, uniquingKeysWith: { (lhs, _) in lhs })
 
-        // Fill the module name and return.
-        let module = fn.unit_reader_get_module_name(unitReader).str
-        return testCaseClasses.map {
-            var c = $0
-            c.module = module
-            return c
-        }
-    }
-
-    private func getTestCaseClasses(forRecord record: String) throws -> [TestCaseClass] {
-        let recordReader = try api.call{ fn.record_reader_create(store, record, &$0) }
-
-        class TestCaseBuilder {
-            var classToMethods: [String: Set<TestCaseClass.TestMethod>] = [:]
-
-            func add(className: String, method: TestCaseClass.TestMethod) {
-                classToMethods[className, default: []].insert(method)
-            }
-
-            func build() -> [TestCaseClass] {
-                return classToMethods.map {
-                    let testMethods = Array($0.value).sorted()
-                    return TestCaseClass(name: $0.key, module: "", testMethods: testMethods, methods: testMethods.map(\.name))
+                for className in testsInfo.testMethods.keys {
+                    testModules[className] = moduleName
                 }
             }
         }
 
-        let builder = Ref(TestCaseBuilder(), api: api)
+        func flatten(className: String) -> [String: (name: String, async: Bool)] {
+            var allMethods = [String: (name: String, async: Bool)]()
 
-        let ctx = unsafeBitCast(Unmanaged.passUnretained(builder), to: UnsafeMutableRawPointer.self)
-        _ = fn.record_reader_occurrences_apply_f(recordReader, ctx) { ctx , occ -> Bool in
-            let builder = Unmanaged<Ref<TestCaseBuilder>>.fromOpaque(ctx!).takeUnretainedValue()
-            let fn = builder.api.fn
+            if let parentClassName = inheritance[className] {
+                let parentMethods = flatten(className: parentClassName)
+                allMethods.merge(parentMethods, uniquingKeysWith:  { (lhs, _) in lhs })
+            }
+
+            for method in testMethods[className] ?? [] {
+                allMethods[method.name] = (name: method.name, async: method.async)
+            }
+
+            return allMethods
+        }
+
+        var testCaseClasses = [TestCaseClass]()
+        for className in testMethods.keys {
+            guard let moduleName = testModules[className] else {
+                throw StringError("unknown module name for '\(className)'")
+            }
+            let methods = flatten(className: className)
+                .map { (name, info) in TestCaseClass.TestMethod(name: name, isAsync: info.async) }
+                .sorted()
+            testCaseClasses.append(TestCaseClass(name: className, module: moduleName, testMethods: methods, methods: methods.map(\.name)))
+        }
+
+        return testCaseClasses
+    }
+
+
+    @available(*, deprecated, message: "use listTests(in:) instead")
+    public func listTests(inObjectFile object: AbsolutePath) throws -> [TestCaseClass] {
+        // Get the records of this object file.
+        let unitReader = try api.call{ self.api.fn.unit_reader_create(store, unitName(object: object), &$0) }
+        let records = try getRecords(unitReader: unitReader)
+
+        // Get the test classes.
+        var inheritance = [String: String]()
+        var testMethods = [String: [(name: String, async: Bool)]]()
+
+        for record in records {
+            let testsInfo = try self.getTestsInfo(record: record)
+            inheritance.merge(testsInfo.inheritance, uniquingKeysWith: { (lhs, _) in lhs })
+            testMethods.merge(testsInfo.testMethods, uniquingKeysWith: { (lhs, _) in lhs })
+        }
+
+        func flatten(className: String) -> [(method: String, async: Bool)] {
+            var results = [(String, Bool)]()
+            if let parentClassName = inheritance[className] {
+                let parentMethods = flatten(className: parentClassName)
+                results.append(contentsOf: parentMethods)
+            }
+            if let methods = testMethods[className] {
+                results.append(contentsOf: methods)
+            }
+            return results
+        }
+
+        let moduleName = self.api.fn.unit_reader_get_module_name(unitReader).str
+
+        var testCaseClasses = [TestCaseClass]()
+        for className in testMethods.keys {
+            let methods = flatten(className: className)
+                .map { TestCaseClass.TestMethod(name: $0.method, isAsync: $0.async) }
+                .sorted()
+            testCaseClasses.append(TestCaseClass(name: className, module: moduleName, testMethods: methods, methods: methods.map(\.name)))
+        }
+
+        return testCaseClasses
+    }
+
+    private func getTestsInfo(record: String) throws -> (inheritance: [String: String], testMethods: [String: [(name: String, async: Bool)]] ) {
+        let recordReader = try api.call{ self.api.fn.record_reader_create(store, record, &$0) }
+
+        // scan for inheritance
+
+        let inheritanceRef = Ref([String: String](), api: self.api)
+        let inheritancePointer = unsafeBitCast(Unmanaged.passUnretained(inheritanceRef), to: UnsafeMutableRawPointer.self)
+
+        _ = self.api.fn.record_reader_occurrences_apply_f(recordReader, inheritancePointer) { inheritancePointer , occ -> Bool in
+            let inheritanceRef = Unmanaged<Ref<[String: String?]>>.fromOpaque(inheritancePointer!).takeUnretainedValue()
+            let fn = inheritanceRef.api.fn
+
+            // Get the symbol.
+            let sym = fn.occurrence_get_symbol(occ)
+            let symbolProperties = fn.symbol_get_properties(sym)
+            // We only care about symbols that are marked unit tests and are instance methods.
+            if symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_UNITTEST.rawValue) == 0 {
+                return true
+            }
+            if fn.symbol_get_kind(sym) != INDEXSTORE_SYMBOL_KIND_CLASS{
+                return true
+            }
+
+            let parentClassName = fn.symbol_get_name(sym).str
+            
+            let childClassNameRef = Ref("", api: inheritanceRef.api)
+            let childClassNamePointer = unsafeBitCast(Unmanaged.passUnretained(childClassNameRef), to: UnsafeMutableRawPointer.self)
+            _ = fn.occurrence_relations_apply_f(occ!, childClassNamePointer) { childClassNamePointer, relation in
+                guard let relation = relation else { return true }
+                let childClassNameRef = Unmanaged<Ref<String>>.fromOpaque(childClassNamePointer!).takeUnretainedValue()
+                let fn = childClassNameRef.api.fn
+
+                // Look for the base class.
+                if fn.symbol_relation_get_roles(relation) != UInt64(INDEXSTORE_SYMBOL_ROLE_REL_BASEOF.rawValue) {
+                    return true
+                }
+
+                let childClassNameSym = fn.symbol_relation_get_symbol(relation)
+                childClassNameRef.instance = fn.symbol_get_name(childClassNameSym).str
+                return true
+            }
+
+            if !childClassNameRef.instance.isEmpty {
+                inheritanceRef.instance[childClassNameRef.instance] = parentClassName
+            }
+
+            return true
+        }
+
+        // scan for methods
+
+        let testMethodsRef = Ref([String: [(name: String, async: Bool)]](), api: api)
+        let testMethodsPointer = unsafeBitCast(Unmanaged.passUnretained(testMethodsRef), to: UnsafeMutableRawPointer.self)
+
+        _ = self.api.fn.record_reader_occurrences_apply_f(recordReader, testMethodsPointer) { testMethodsPointer , occ -> Bool in
+            let testMethodsRef = Unmanaged<Ref<[String: [(name: String, async: Bool)]]>>.fromOpaque(testMethodsPointer!).takeUnretainedValue()
+            let fn = testMethodsRef.api.fn
 
             // Get the symbol.
             let sym = fn.occurrence_get_symbol(occ)
@@ -132,41 +243,45 @@ private final class IndexStoreImpl {
                 return true
             }
 
-            let className = Ref("", api: builder.api)
-            let ctx = unsafeBitCast(Unmanaged.passUnretained(className), to: UnsafeMutableRawPointer.self)
+            let classNameRef = Ref("", api: testMethodsRef.api)
+            let classNamePointer = unsafeBitCast(Unmanaged.passUnretained(classNameRef), to: UnsafeMutableRawPointer.self)
 
-            _ = fn.occurrence_relations_apply_f(occ!, ctx) { ctx, relation in
+            _ = fn.occurrence_relations_apply_f(occ!, classNamePointer) { classNamePointer, relation in
                 guard let relation = relation else { return true }
-                let className = Unmanaged<Ref<String>>.fromOpaque(ctx!).takeUnretainedValue()
-                let fn = className.api.fn
+                let classNameRef = Unmanaged<Ref<String>>.fromOpaque(classNamePointer!).takeUnretainedValue()
+                let fn = classNameRef.api.fn
 
                 // Look for the class.
                 if fn.symbol_relation_get_roles(relation) != UInt64(INDEXSTORE_SYMBOL_ROLE_REL_CHILDOF.rawValue) {
                     return true
                 }
 
-                let sym = fn.symbol_relation_get_symbol(relation)
-                className.instance = fn.symbol_get_name(sym).str
+                let classNameSym = fn.symbol_relation_get_symbol(relation)
+                classNameRef.instance = fn.symbol_get_name(classNameSym).str
                 return true
             }
 
-            if !className.instance.isEmpty {
+            if !classNameRef.instance.isEmpty {
                 let methodName = fn.symbol_get_name(sym).str
                 let isAsync = symbolProperties & UInt64(INDEXSTORE_SYMBOL_PROPERTY_SWIFT_ASYNC.rawValue) != 0
-                builder.instance.add(className: className.instance, method: TestCaseClass.TestMethod(name: methodName, isAsync: isAsync))
+                testMethodsRef.instance[classNameRef.instance, default: []].append((name: methodName, async: isAsync))
             }
 
             return true
         }
 
-        return builder.instance.build()
+        return (
+            inheritance: inheritanceRef.instance,
+            testMethods: testMethodsRef.instance
+        )
+
     }
 
     private func getRecords(unitReader: indexstore_unit_reader_t?) throws -> [String] {
         let builder = Ref([String](), api: api)
 
         let ctx = unsafeBitCast(Unmanaged.passUnretained(builder), to: UnsafeMutableRawPointer.self)
-        _ = fn.unit_reader_dependencies_apply_f(unitReader, ctx) { ctx , unit -> Bool in
+        _ = self.api.fn.unit_reader_dependencies_apply_f(unitReader, ctx) { ctx , unit -> Bool in
             let store = Unmanaged<Ref<[String]>>.fromOpaque(ctx!).takeUnretainedValue()
             let fn = store.api.fn
             if fn.unit_dependency_get_kind(unit) == INDEXSTORE_UNIT_DEPENDENCY_RECORD {
@@ -181,12 +296,12 @@ private final class IndexStoreImpl {
     private func unitName(object: AbsolutePath) -> String {
         let initialSize = 64
         var buf = UnsafeMutablePointer<CChar>.allocate(capacity: initialSize)
-        let len = fn.store_get_unit_name_from_output_path(store, object.pathString, buf, initialSize)
+        let len = self.api.fn.store_get_unit_name_from_output_path(store, object.pathString, buf, initialSize)
 
         if len + 1 > initialSize {
             buf.deallocate()
             buf = UnsafeMutablePointer<CChar>.allocate(capacity: len + 1)
-            _ = fn.store_get_unit_name_from_output_path(store, object.pathString, buf, len + 1)
+            _ = self.api.fn.store_get_unit_name_from_output_path(store, object.pathString, buf, len + 1)
         }
 
         defer {
