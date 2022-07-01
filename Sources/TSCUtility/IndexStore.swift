@@ -82,36 +82,37 @@ private final class IndexStoreImpl {
     }
 
     public func listTests(in objectFiles: [AbsolutePath]) throws -> [TestCaseClass] {
-        var inheritance = [String: String]()
-        var testMethods = [String: [(name: String, async: Bool)]]()
-        var testModules = [String: String]()
+        var inheritance = [String: [String: String]]()
+        var testMethods = [String: [String: [(name: String, async: Bool)]]]()
 
         for objectFile in objectFiles {
             // Get the records of this object file.
             let unitReader = try self.api.call{ self.api.fn.unit_reader_create(store, unitName(object: objectFile), &$0) }
             let records = try getRecords(unitReader: unitReader)
             let moduleName = self.api.fn.unit_reader_get_module_name(unitReader).str
-            
             for record in records {
+                // get tests info
                 let testsInfo = try self.getTestsInfo(record: record)
-                inheritance.merge(testsInfo.inheritance, uniquingKeysWith: { (lhs, _) in lhs })
-                testMethods.merge(testsInfo.testMethods, uniquingKeysWith: { (lhs, _) in lhs })
-
-                for className in testsInfo.testMethods.keys {
-                    testModules[className] = moduleName
+                // merge results across module
+                for (className, parentClassName) in testsInfo.inheritance {
+                    inheritance[moduleName, default: [:]][className] = parentClassName
+                }
+                for (className, classTestMethods) in testsInfo.testMethods {
+                    testMethods[moduleName, default: [:]][className, default: []].append(contentsOf: classTestMethods)
                 }
             }
         }
 
-        func flatten(className: String) -> [String: (name: String, async: Bool)] {
+        // merge across inheritance in module boundries
+        func flatten(moduleName: String, className: String) -> [String: (name: String, async: Bool)] {
             var allMethods = [String: (name: String, async: Bool)]()
 
-            if let parentClassName = inheritance[className] {
-                let parentMethods = flatten(className: parentClassName)
+            if let parentClassName = inheritance[moduleName]?[className] {
+                let parentMethods = flatten(moduleName: moduleName, className: parentClassName)
                 allMethods.merge(parentMethods, uniquingKeysWith:  { (lhs, _) in lhs })
             }
 
-            for method in testMethods[className] ?? [] {
+            for method in testMethods[moduleName]?[className] ?? [] {
                 allMethods[method.name] = (name: method.name, async: method.async)
             }
 
@@ -119,14 +120,13 @@ private final class IndexStoreImpl {
         }
 
         var testCaseClasses = [TestCaseClass]()
-        for className in testMethods.keys {
-            guard let moduleName = testModules[className] else {
-                throw StringError("unknown module name for '\(className)'")
+        for (moduleName, classMethods) in testMethods {
+            for className in classMethods.keys {
+                let methods = flatten(moduleName: moduleName, className: className)
+                    .map { (name, info) in TestCaseClass.TestMethod(name: name, isAsync: info.async) }
+                    .sorted()
+                testCaseClasses.append(TestCaseClass(name: className, module: moduleName, testMethods: methods, methods: methods.map(\.name)))
             }
-            let methods = flatten(className: className)
-                .map { (name, info) in TestCaseClass.TestMethod(name: name, isAsync: info.async) }
-                .sorted()
-            testCaseClasses.append(TestCaseClass(name: className, module: moduleName, testMethods: methods, methods: methods.map(\.name)))
         }
 
         return testCaseClasses
