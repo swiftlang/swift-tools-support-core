@@ -18,11 +18,28 @@ if (uname | grep -qi darwin); then
     CMAKE_Swift_FLAGS="-sdk $(xcrun --sdk macosx --show-sdk-path)"
 fi
 
+echo "Building swift system"
+mkdir -p swiftsystem
+cd swiftsystem
+
+SwiftSystem_SRCROOT="`cd "${SRCROOT}/../swift-system";pwd`"
+
 set -x
 cmake \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $SwiftSystem_SRCROOT
+ninja
+cd ..
+set +x
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    -DSwiftSystem_DIR=$BUILD_DIR/swiftsystem/cmake/modules \
     $SRCROOT
 
 ninja
