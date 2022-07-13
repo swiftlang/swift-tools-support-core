@@ -609,11 +609,11 @@ public class InMemoryFileSystem: FileSystem {
     /// FIXME: Using a single lock for this is a performance problem, but in
     /// reality, the only practical use for InMemoryFileSystem is for unit
     /// tests.
-    private let lock = Lock()
+    private let lock = NSLock()
     /// A map that keeps weak references to all locked files.
     private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
-    private let lockFilesLock = Lock()
+    private let lockFilesLock = NSLock()
 
     /// Exclusive file system lock vended to clients through `withLock()`.
     // Used to ensure that DispatchQueues are releassed when they are no longer in use.

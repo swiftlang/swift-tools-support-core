@@ -14,6 +14,7 @@ import TSCBasic
 import TSCTestSupport
 
 class LockTests: XCTestCase {
+    @available(*, deprecated)
     func testBasics() {
         // FIXME: Make this a more interesting test once we have concurrency primitives.
         let lock = TSCBasic.Lock()

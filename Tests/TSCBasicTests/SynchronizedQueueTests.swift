@@ -8,9 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+@testable import TSCBasic
 import XCTest
-
-import TSCBasic
 
 class SyncronizedQueueTests: XCTestCase {
     func testSingleProducerConsumer() {
@@ -46,7 +45,7 @@ class SyncronizedQueueTests: XCTestCase {
         let queueElementsTwo = Set(100..<500)
 
         var consumed = Set<Int>()
-        let consumedLock = TSCBasic.Lock()
+        let consumedLock = NSLock()
 
         // Create two producers.
         let producers = [queueElementsOne, queueElementsTwo].map { queueElements in

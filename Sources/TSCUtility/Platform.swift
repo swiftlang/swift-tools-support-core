@@ -28,7 +28,7 @@ public enum Platform: Equatable {
     public static var currentPlatform = Platform.findCurrentPlatform(localFileSystem)
 
     /// Returns the cache directories used in Darwin.
-    private static var darwinCacheDirectoriesLock = Lock()
+    private static var darwinCacheDirectoriesLock = NSLock()
     private static var _darwinCacheDirectories: [AbsolutePath]? = .none
 
     /// Attempt to match `uname` with recognized platforms.

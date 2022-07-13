@@ -36,6 +36,15 @@ public struct Lock {
     }
 }
 
+// for internal usage
+extension NSLock {
+    internal func withLock<T> (_ body: () throws -> T) rethrows -> T {
+        self.lock()
+        defer { self.unlock() }
+        return try body()
+    }
+}
+
 enum ProcessLockError: Error {
     case unableToAquireLock(errno: Int32)
 }

@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.ProcessInfo
 import protocol Foundation.CustomNSError
 import var Foundation.NSLocalizedDescriptionKey
+import class Foundation.NSLock
+import class Foundation.ProcessInfo
 
 #if os(Windows)
 import Foundation
@@ -208,7 +209,7 @@ public final class Process {
     public typealias LoggingHandler = (String) -> Void
 
     private static var _loggingHandler: LoggingHandler?
-    private static let loggingHandlerLock = Lock()
+    private static let loggingHandlerLock = NSLock()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
     public static var loggingHandler: LoggingHandler? {
@@ -237,7 +238,7 @@ public final class Process {
 
     // the log and setter are only required to backward support verbose setter.
     // remove and make loggingHandler a let property once verbose is deprecated
-    private let loggingHandlerLock = Lock()
+    private let loggingHandlerLock = NSLock()
     public private(set) var loggingHandler: LoggingHandler? {
         get {
             self.loggingHandlerLock.withLock {
@@ -290,7 +291,7 @@ public final class Process {
 
     // process execution mutable state
     private var state: State = .idle
-    private let stateLock = Lock()
+    private let stateLock = NSLock()
 
     private static let sharedCompletionQueue = DispatchQueue(label: "org.swift.tools-support-core.process-completion")
     private var completionQueue = Process.sharedCompletionQueue
@@ -311,7 +312,7 @@ public final class Process {
 
     // ideally we would use the state for this, but we need to access it while the waitForExit is locking state
     private var _launched = false
-    private let launchedLock = Lock()
+    private let launchedLock = NSLock()
 
     public var launched: Bool {
         return self.launchedLock.withLock {
@@ -330,7 +331,7 @@ public final class Process {
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
     private static var validatedExecutablesMap = [String: AbsolutePath?]()
-    private static let validatedExecutablesMapLock = Lock()
+    private static let validatedExecutablesMapLock = NSLock()
 
     /// Create a new process instance.
     ///
@@ -727,7 +728,7 @@ public final class Process {
             }
         } else {
             var pending: Result<[UInt8], Swift.Error>?
-            let pendingLock = Lock()
+            let pendingLock = NSLock()
 
             let outputClosures = outputRedirection.outputClosures
 
