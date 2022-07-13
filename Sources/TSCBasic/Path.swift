@@ -470,7 +470,7 @@ extension Path {
 private struct WindowsPath: Path {
     let string: String
 
-    static let root = WindowsPath(string: "/")
+    static let root = Self(string: "/")
 
     static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
@@ -558,7 +558,7 @@ private struct WindowsPath: Path {
         defer { fsr.deallocate() }
 
         let realpath = String(cString: fsr)
-        if !UNIXPath.isAbsolutePath(realpath) {
+        if !Self.isAbsolutePath(realpath) {
             throw PathValidationError.invalidAbsolutePath(path)
         }
         self.init(normalizingAbsolutePath: path)
@@ -570,7 +570,7 @@ private struct WindowsPath: Path {
 
         let realpath: String = String(cString: fsr)
         // Treat a relative path as an invalid relative path...
-        if UNIXPath.isAbsolutePath(realpath) ||
+        if Self.isAbsolutePath(realpath) ||
                 realpath.first == "~" || realpath.first == "\\" {
             throw PathValidationError.invalidRelativePath(path)
         }
@@ -588,7 +588,7 @@ private struct WindowsPath: Path {
         }
     }
 
-    func appending(component name: String) -> UNIXPath {
+    func appending(component name: String) -> Self {
         var result: PWSTR?
         _ = string.withCString(encodedAs: UTF16.self) { root in
             name.withCString(encodedAs: UTF16.self) { path in
@@ -599,7 +599,7 @@ private struct WindowsPath: Path {
         return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
     }
 
-    func appending(relativePath: UNIXPath) -> UNIXPath {
+    func appending(relativePath: Self) -> Self {
         var result: PWSTR?
         _ = string.withCString(encodedAs: UTF16.self) { root in
             relativePath.string.withCString(encodedAs: UTF16.self) { path in
@@ -614,7 +614,7 @@ private struct WindowsPath: Path {
 private struct UNIXPath: Path {
     let string: String
 
-    static let root = UNIXPath(string: "/")
+    static let root = Self(string: "/")
 
     static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
@@ -683,7 +683,7 @@ private struct UNIXPath: Path {
         }
     }
 
-    var parentDirectory: UNIXPath {
+    var parentDirectory: Self {
         return self == .root ? self : Self(string: dirname)
     }
 
@@ -860,7 +860,7 @@ private struct UNIXPath: Path {
         return nil
     }
 
-    func appending(component name: String) -> UNIXPath {
+    func appending(component name: String) -> Self {
         assert(!name.contains("/"), "\(name) is invalid path component")
 
         // Handle pseudo paths.
@@ -880,7 +880,7 @@ private struct UNIXPath: Path {
         }
     }
 
-    func appending(relativePath: UNIXPath) -> UNIXPath {
+    func appending(relativePath: Self) -> Self {
         // Both paths are already normalized.  The only case in which we have
         // to renormalize their concatenation is if the relative path starts
         // with a `..` path component.
