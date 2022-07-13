@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import class Foundation.NSLock
+
 // FIXME: This wrapper could benefit from local static variables, in which case
 // we could embed the cache object inside the accessor.
 //
@@ -32,7 +34,7 @@ public struct LazyCache<Class, T> {
     // FIXME: It would be nice to avoid a per-instance lock, but this type isn't
     // intended for creating large numbers of instances of. We also really want
     // a reader-writer lock or something similar here.
-    private var lock = Lock()
+    private var lock = NSLock()
     let body: (Class) -> () -> T
     var cachedValue: T?
 
