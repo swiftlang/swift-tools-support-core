@@ -13,7 +13,7 @@ import WinSDK
 #endif
 
 #if os(Windows)
-private typealias PathImpl = UNIXPath
+private typealias PathImpl = WindowsPath
 #else
 private typealias PathImpl = UNIXPath
 #endif
@@ -161,11 +161,7 @@ public struct AbsolutePath: Hashable {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
-#if os(Windows)
-        return _impl.string.withCString(encodedAs: UTF16.self, PathCchIsRoot)
-#else
-        return _impl == PathImpl.root
-#endif
+        return _impl.isRoot
     }
 
     /// Returns the absolute path with the relative path applied.
@@ -414,6 +410,9 @@ protocol Path: Hashable {
     /// Normalized string of the (absolute or relative) path. Never empty.
     var string: String { get }
 
+    /// Returns whether the path is the root path.
+    var isRoot: Bool { get }
+
     /// Returns whether the path is an absolute path.
     var isAbsolute: Bool { get }
 
@@ -467,24 +466,22 @@ extension Path {
     }
 }
 
-private struct UNIXPath: Path {
+#if os(Windows)
+private struct WindowsPath: Path {
     let string: String
 
-    static let root = UNIXPath(string: "/")
+    static let root = Self(string: "/")
 
     static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
     }
 
-#if os(Windows)
     static func isAbsolutePath(_ path: String) -> Bool {
         return !path.withCString(encodedAs: UTF16.self, PathIsRelativeW)
     }
-#endif
 
     var dirname: String {
-#if os(Windows)
-        let fsr: UnsafePointer<Int8> = string.fileSystemRepresentation
+        let fsr: UnsafePointer<Int8> = self.string.fileSystemRepresentation
         defer { fsr.deallocate() }
 
         let path: String = String(cString: fsr)
@@ -493,7 +490,137 @@ private struct UNIXPath: Path {
             PathCchRemoveFileSpec(data, path.count)
             return String(decodingCString: data, as: UTF16.self)
         }
+    }
+
+    var isAbsolute: Bool {
+        return Self.isAbsolutePath(self.string)
+    }
+
+    public var isRoot: Bool {
+        return self.string.withCString(encodedAs: UTF16.self, PathCchIsRoot)
+    }
+
+    var basename: String {
+        let path: String = self.string
+        return path.withCString(encodedAs: UTF16.self) {
+            PathStripPathW(UnsafeMutablePointer(mutating: $0))
+            return String(decodingCString: $0, as: UTF16.self)
+        }
+    }
+
+    // FIXME: We should investigate if it would be more efficient to instead
+    // return a path component iterator that does all its work lazily, moving
+    // from one path separator to the next on-demand.
+    //
+    var components: [String] {
+        let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
+        defer { normalized.deallocate() }
+
+        return String(cString: normalized).components(separatedBy: "\\").filter { !$0.isEmpty }
+    }
+
+    var parentDirectory: Self {
+        return self == .root ? self : Self(string: dirname)
+    }
+
+    init(string: String) {
+        self.string = string
+    }
+
+    init(normalizingAbsolutePath path: String) {
+        let normalized: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { normalized.deallocate() }
+
+        self.init(string: String(cString: normalized)
+                              .withCString(encodedAs: UTF16.self) { pwszPath in
+          var canonical: PWSTR!
+          _ = PathAllocCanonicalize(pwszPath,
+                                    ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
+                                    &canonical)
+          return String(decodingCString: canonical, as: UTF16.self)
+        })
+    }
+
+    init(normalizingRelativePath path: String) {
+        if path.isEmpty || path == "." {
+            self.init(string: ".")
+        } else {
+            var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+            _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
+                PathCanonicalizeW(&buffer, $0)
+            }
+            self.init(string: String(decodingCString: buffer, as: UTF16.self))
+        }
+    }
+
+    init(validatingAbsolutePath path: String) throws {
+        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let realpath = String(cString: fsr)
+        if !Self.isAbsolutePath(realpath) {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+        self.init(normalizingAbsolutePath: path)
+    }
+
+    init(validatingRelativePath path: String) throws {
+        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let realpath: String = String(cString: fsr)
+        // Treat a relative path as an invalid relative path...
+        if Self.isAbsolutePath(realpath) ||
+                realpath.first == "~" || realpath.first == "\\" {
+            throw PathValidationError.invalidRelativePath(path)
+        }
+        self.init(normalizingRelativePath: path)
+    }
+
+    func suffix(withDot: Bool) -> String? {
+        return self.string.withCString(encodedAs: UTF16.self) {
+          if let pointer = PathFindExtensionW($0) {
+            let substring = String(decodingCString: pointer, as: UTF16.self)
+            guard substring.length > 0 else { return nil }
+            return withDot ? substring : String(substring.dropFirst(1))
+          }
+          return nil
+        }
+    }
+
+    func appending(component name: String) -> Self {
+        var result: PWSTR?
+        _ = string.withCString(encodedAs: UTF16.self) { root in
+            name.withCString(encodedAs: UTF16.self) { path in
+                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+            }
+        }
+        defer { LocalFree(result) }
+        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+    }
+
+    func appending(relativePath: Self) -> Self {
+        var result: PWSTR?
+        _ = string.withCString(encodedAs: UTF16.self) { root in
+            relativePath.string.withCString(encodedAs: UTF16.self) { path in
+                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+            }
+        }
+        defer { LocalFree(result) }
+        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+    }
+}
 #else
+private struct UNIXPath: Path {
+    let string: String
+
+    static let root = Self(string: "/")
+
+    static func isValidComponent(_ name: String) -> Bool {
+        return name != "" && name != "." && name != ".." && !name.contains("/")
+    }
+
+    var dirname: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator.
@@ -509,25 +636,17 @@ private struct UNIXPath: Path {
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
         return String(string.prefix(upTo: idx))
-#endif
     }
 
     var isAbsolute: Bool {
-#if os(Windows)
-        return UNIXPath.isAbsolutePath(string)
-#else
         return string.hasPrefix("/")
-#endif
+    }
+
+    var isRoot: Bool {
+        return self == Self.root
     }
 
     var basename: String {
-#if os(Windows)
-        let path: String = self.string
-        return path.withCString(encodedAs: UTF16.self) {
-            PathStripPathW(UnsafeMutablePointer(mutating: $0))
-            return String(decodingCString: $0, as: UTF16.self)
-        }
-#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Check for a special case of the root directory.
@@ -544,7 +663,6 @@ private struct UNIXPath: Path {
         // Otherwise, it's the string from (but not including) the last path
         // separator.
         return String(string.suffix(from: string.index(after: idx)))
-#endif
     }
 
     // FIXME: We should investigate if it would be more efficient to instead
@@ -552,12 +670,6 @@ private struct UNIXPath: Path {
     // from one path separator to the next on-demand.
     //
     var components: [String] {
-#if os(Windows)
-        let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
-        defer { normalized.deallocate() }
-
-        return String(cString: normalized).components(separatedBy: "\\").filter { !$0.isEmpty }
-#else
         // FIXME: This isn't particularly efficient; needs optimization, and
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
@@ -569,10 +681,9 @@ private struct UNIXPath: Path {
         } else {
             return components
         }
-#endif
     }
 
-    var parentDirectory: UNIXPath {
+    var parentDirectory: Self {
         return self == .root ? self : Self(string: dirname)
     }
 
@@ -581,19 +692,6 @@ private struct UNIXPath: Path {
     }
 
     init(normalizingAbsolutePath path: String) {
-      #if os(Windows)
-        let normalized: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { normalized.deallocate() }
-
-        self.init(string: String(cString: normalized)
-                              .withCString(encodedAs: UTF16.self) { pwszPath in
-          var canonical: PWSTR!
-          _ = PathAllocCanonicalize(pwszPath,
-                                    ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
-                                    &canonical)
-          return String(decodingCString: canonical, as: UTF16.self)
-        })
-      #else
         precondition(path.first == "/", "Failure normalizing \(path), absolute paths should start with '/'")
 
         // At this point we expect to have a path separator as first character.
@@ -653,21 +751,9 @@ private struct UNIXPath: Path {
 
         // Use the result as our stored string.
         self.init(string: result)
-      #endif
     }
 
     init(normalizingRelativePath path: String) {
-      #if os(Windows)
-        if path.isEmpty || path == "." {
-            self.init(string: ".")
-        } else {
-            var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
-            _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
-                PathCanonicalizeW(&buffer, $0)
-            }
-            self.init(string: String(decodingCString: buffer, as: UTF16.self))
-        }
-      #else
         precondition(path.first != "/")
 
         // FIXME: Here we should also keep track of whether anything actually has
@@ -728,20 +814,9 @@ private struct UNIXPath: Path {
 
         // If the result is empty, return `.`, otherwise we return it as a string.
         self.init(string: result.isEmpty ? "." : result)
-      #endif
     }
 
     init(validatingAbsolutePath path: String) throws {
-      #if os(Windows)
-        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { fsr.deallocate() }
-
-        let realpath = String(cString: fsr)
-        if !UNIXPath.isAbsolutePath(realpath) {
-            throw PathValidationError.invalidAbsolutePath(path)
-        }
-        self.init(normalizingAbsolutePath: path)
-      #else
         switch path.first {
         case "/":
             self.init(normalizingAbsolutePath: path)
@@ -750,42 +825,18 @@ private struct UNIXPath: Path {
         default:
             throw PathValidationError.invalidAbsolutePath(path)
         }
-      #endif
     }
 
     init(validatingRelativePath path: String) throws {
-      #if os(Windows)
-        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { fsr.deallocate() }
-
-        let realpath: String = String(cString: fsr)
-        // Treat a relative path as an invalid relative path...
-        if UNIXPath.isAbsolutePath(realpath) ||
-                realpath.first == "~" || realpath.first == "\\" {
-            throw PathValidationError.invalidRelativePath(path)
-        }
-        self.init(normalizingRelativePath: path)
-      #else
         switch path.first {
         case "/", "~":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(normalizingRelativePath: path)
         }
-      #endif
     }
 
     func suffix(withDot: Bool) -> String? {
-#if os(Windows)
-        return self.string.withCString(encodedAs: UTF16.self) {
-          if let pointer = PathFindExtensionW($0) {
-            let substring = String(decodingCString: pointer, as: UTF16.self)
-            guard substring.length > 0 else { return nil }
-            return withDot ? substring : String(substring.dropFirst(1))
-          }
-          return nil
-        }
-#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator, if any.
@@ -807,20 +858,9 @@ private struct UNIXPath: Path {
         }
         // If we get this far, there is no suffix.
         return nil
-#endif
     }
 
-    func appending(component name: String) -> UNIXPath {
-#if os(Windows)
-        var result: PWSTR?
-        _ = string.withCString(encodedAs: UTF16.self) { root in
-            name.withCString(encodedAs: UTF16.self) { path in
-                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
-            }
-        }
-        defer { LocalFree(result) }
-        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
-#else
+    func appending(component name: String) -> Self {
         assert(!name.contains("/"), "\(name) is invalid path component")
 
         // Handle pseudo paths.
@@ -838,20 +878,9 @@ private struct UNIXPath: Path {
         } else {
             return PathImpl(string: string + "/" + name)
         }
-#endif
     }
 
-    func appending(relativePath: UNIXPath) -> UNIXPath {
-#if os(Windows)
-        var result: PWSTR?
-        _ = string.withCString(encodedAs: UTF16.self) { root in
-            relativePath.string.withCString(encodedAs: UTF16.self) { path in
-                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
-            }
-        }
-        defer { LocalFree(result) }
-        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
-#else
+    func appending(relativePath: Self) -> Self {
         // Both paths are already normalized.  The only case in which we have
         // to renormalize their concatenation is if the relative path starts
         // with a `..` path component.
@@ -877,9 +906,9 @@ private struct UNIXPath: Path {
         } else {
             return PathImpl(string: newPathString)
         }
-#endif
     }
 }
+#endif
 
 /// Describes the way in which a path is invalid.
 public enum PathValidationError: Error {
