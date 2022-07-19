@@ -823,7 +823,7 @@ public final class FSEventStream {
 
     // Start the runloop.
     public func start() throws {
-        let thread = Thread { [weak self] in
+        let thread = TSCBasic.Thread { [weak self] in
             guard let `self` = self else { return }
             self.runLoop = CFRunLoopGetCurrent()
             // Schedule the run loop.
