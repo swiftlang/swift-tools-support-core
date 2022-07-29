@@ -52,7 +52,7 @@ extension FileSystem {
         do {
             try createDirectory(root, recursive: true)
             for path in files {
-                let path = AbsolutePath(String(path.dropFirst()), relativeTo: root)
+                let path = AbsolutePath(path, relativeTo: root)
                 try createDirectory(path.parentDirectory, recursive: true)
                 try writeFileContents(path, bytes: "")
             }
