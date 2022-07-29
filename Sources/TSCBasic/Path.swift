@@ -470,7 +470,6 @@ extension Path {
 private struct WindowsPath: Path {
     let string: String
 
-#if os(Windows)
     // NOTE: this is *NOT* a root path.  It is a drive-relative path that needs
     // to be specified due to assumptions in the APIs.  Use the platform
     // specific path separator as we should be normalizing the path normally.
