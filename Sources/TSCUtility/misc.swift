@@ -42,3 +42,12 @@ public func measure<T>(_ label: String = "", _ f: () throws -> (T)) rethrows -> 
     print("\(label): Time taken", endTime)
     return result
 }
+
+// for internal usage
+extension NSLock {
+    internal func withLock<T> (_ body: () throws -> T) rethrows -> T {
+        self.lock()
+        defer { self.unlock() }
+        return try body()
+    }
+}

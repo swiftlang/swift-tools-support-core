@@ -11,6 +11,7 @@
 import Foundation
 import TSCLibc
 
+@available(*, deprecated, message: "Use NSLock directly instead. SPM has a withLock extension function" )
 /// A simple lock wrapper.
 public struct Lock {
     private let _lock = NSLock()
@@ -31,6 +32,15 @@ public struct Lock {
     public func withLock<T> (_ body: () throws -> T) rethrows -> T {
         lock()
         defer { unlock() }
+        return try body()
+    }
+}
+
+// for internal usage
+extension NSLock {
+    internal func withLock<T> (_ body: () throws -> T) rethrows -> T {
+        self.lock()
+        defer { self.unlock() }
         return try body()
     }
 }

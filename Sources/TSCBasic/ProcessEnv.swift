@@ -26,11 +26,7 @@ public enum ProcessEnv {
     /// Set the given key and value in the process's environment.
     public static func setVar(_ key: String, value: String) throws {
       #if os(Windows)
-        guard key.withCString(encodedAs: UTF16.self, { keyStr in
-            value.withCString(encodedAs: UTF16.self) { valStr in
-                SetEnvironmentVariableW(keyStr, valStr)
-            }
-        }) else {
+        guard TSCLibc._putenv("\(key)=\(value)") == 0 else {
             throw SystemError.setenv(Int32(GetLastError()), key)
         }
       #else
@@ -44,9 +40,7 @@ public enum ProcessEnv {
     /// Unset the give key in the process's environment.
     public static func unsetVar(_ key: String) throws {
       #if os(Windows)
-        guard key.withCString(encodedAs: UTF16.self, { keyStr in
-            SetEnvironmentVariableW(keyStr, nil)
-        }) else {
+        guard TSCLibc._putenv("\(key)=") == 0 else {
             throw SystemError.unsetenv(Int32(GetLastError()), key)
         }
       #else

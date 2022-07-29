@@ -18,7 +18,7 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v10_10)
+    macOSPlatform = .macOS(.v10_13)
 }
 
 let CMakeFiles = ["CMakeLists.txt"]
@@ -101,9 +101,6 @@ let package = Package(
     ]
 )
 
-/// When not using local dependencies, the branch to use for llbuild and TSC repositories.
- let relatedDependenciesBranch = "main"
-
  if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
      package.dependencies += [
          .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
@@ -123,6 +120,12 @@ let package = Package(
     ]
     TSCBasic.linkerSettings = [
       .linkedLibrary("Pathcch", .when(platforms: [.windows])),
+    ]
+  }
+#elseif os(Linux)
+  if let TSCclibc = package.targets.first(where: { $0.name == "TSCclibc" }) {
+    TSCclibc.cSettings = [
+      .define("_GNU_SOURCE", .when(platforms: [.linux])),
     ]
   }
 #endif

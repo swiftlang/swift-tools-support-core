@@ -17,6 +17,8 @@ class TripleTests : XCTestCase {
         XCTAssertNotNil(linux)
         XCTAssertEqual(linux!.os, .linux)
         XCTAssertNil(linux!.osVersion)
+        XCTAssertEqual(linux!.abi, .other(name: "gnu"))
+        XCTAssertNil(linux!.abiVersion)
 
         let macos = try? Triple("x86_64-apple-macosx10.15")
         XCTAssertNotNil(macos!)
@@ -32,7 +34,12 @@ class TripleTests : XCTestCase {
         let android = try? Triple("aarch64-unknown-linux-android24")
         XCTAssertNotNil(android)
         XCTAssertEqual(android!.os, .linux)
+        XCTAssertEqual(android!.abi, .android)
         XCTAssertEqual(android!.abiVersion, "24")
+
+        let linuxWithABIVersion = try? Triple("x86_64-unknown-linux-gnu42")
+        XCTAssertEqual(linuxWithABIVersion!.abi, .other(name: "gnu"))
+        XCTAssertEqual(linuxWithABIVersion!.abiVersion, "42")
     }
 
     func testEquality() throws {
@@ -42,6 +49,10 @@ class TripleTests : XCTestCase {
 
         let intelMacOSTriple = try Triple("x86_64-apple-macos")
         XCTAssertNotEqual(macOSTriple, intelMacOSTriple)
+
+        let linuxWithoutGNUABI = try Triple("x86_64-unknown-linux")
+        let linuxWithGNUABI = try Triple("x86_64-unknown-linux-gnu")
+        XCTAssertNotEqual(linuxWithoutGNUABI, linuxWithGNUABI)
     }
 
     func testWASI() throws {

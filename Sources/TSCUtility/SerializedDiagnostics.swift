@@ -80,9 +80,9 @@ extension SerializedDiagnostics {
     public var fixIts: [FixIt]
 
     fileprivate init(records: [SerializedDiagnostics.OwnedRecord],
-                     filenameMap: inout [UInt64: String],
-                     flagMap: inout [UInt64: String],
-                     categoryMap: inout [UInt64: String]) throws {
+                     filenameMap: [UInt64: String],
+                     flagMap: [UInt64: String],
+                     categoryMap: [UInt64: String]) throws {
       var text: String? = nil
       var level: Level? = nil
       var location: SourceLocation? = nil
@@ -93,6 +93,7 @@ extension SerializedDiagnostics {
 
       for record in records {
         switch SerializedDiagnostics.RecordID(rawValue: record.id) {
+        case .flag, .category, .filename: continue
         case .diagnosticInfo:
           guard record.fields.count == 8,
                 case .blob(let diagnosticBlob) = record.payload
@@ -114,34 +115,6 @@ extension SerializedDiagnostics {
                                       filenameMap: filenameMap) {
               ranges.append((start, end))
           }
-        case .flag:
-          guard record.fields.count == 2,
-                case .blob(let flagBlob) = record.payload
-          else { throw Error.malformedRecord }
-
-          let flagText = String(decoding: flagBlob, as: UTF8.self)
-          let diagnosticID = record.fields[0]
-          flagMap[diagnosticID] = flagText
-
-        case .category:
-          guard record.fields.count == 2,
-                case .blob(let categoryBlob) = record.payload
-          else { throw Error.malformedRecord }
-
-          let categoryText = String(decoding: categoryBlob, as: UTF8.self)
-          let categoryID = record.fields[0]
-          categoryMap[categoryID] = categoryText
-
-        case .filename:
-          guard record.fields.count == 4,
-                case .blob(let filenameBlob) = record.payload
-          else { throw Error.malformedRecord }
-
-          let filenameText = String(decoding: filenameBlob, as: UTF8.self)
-          let filenameID = record.fields[0]
-          // record.fields[1] and record.fields[2] are no longer used.
-          filenameMap[filenameID] = filenameText
-
         case .fixit:
           guard record.fields.count == 9,
                 case .blob(let fixItBlob) = record.payload
@@ -206,7 +179,9 @@ extension SerializedDiagnostics {
 
 extension SerializedDiagnostics {
   private struct Reader: BitstreamVisitor {
-    var currentBlockID: BlockID? = nil
+    var diagnosticRecords: [[OwnedRecord]] = []
+    var activeBlocks: [BlockID] = []
+    var currentBlockID: BlockID? { activeBlocks.last }
 
     var diagnostics: [Diagnostic] = []
     var versionNumber: Int? = nil
@@ -214,40 +189,68 @@ extension SerializedDiagnostics {
     var flagMap = [UInt64: String]()
     var categoryMap = [UInt64: String]()
 
-    var currentDiagnosticRecords: [OwnedRecord] = []
-
     func validate(signature: Bitcode.Signature) throws {
       guard signature == .init(string: "DIAG") else { throw Error.badMagic }
     }
 
     mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
       guard let blockID = BlockID(rawValue: id) else { throw Error.unknownBlock }
-      guard currentBlockID == nil else { throw Error.unexpectedSubblock }
-      currentBlockID = blockID
+      activeBlocks.append(blockID)
+      if currentBlockID == .diagnostic {
+        diagnosticRecords.append([])
+      }
       return true
     }
 
     mutating func didExitBlock() throws {
-      if currentBlockID == .diagnostic {
-        diagnostics.append(try Diagnostic(records: currentDiagnosticRecords,
-                                          filenameMap: &filenameMap,
-                                          flagMap: &flagMap,
-                                          categoryMap: &categoryMap))
-        currentDiagnosticRecords = []
+      activeBlocks.removeLast()
+      if activeBlocks.isEmpty {
+        for records in diagnosticRecords where !records.isEmpty {
+          diagnostics.append(try Diagnostic(records: records,
+                                            filenameMap: filenameMap,
+                                            flagMap: flagMap,
+                                            categoryMap: categoryMap))
+        }
+        diagnosticRecords = []
       }
-      currentBlockID = nil
     }
 
     mutating func visit(record: BitcodeElement.Record) throws {
       switch currentBlockID {
       case .metadata:
         guard record.id == RecordID.version.rawValue,
-              record.fields.count == 1 else {
-          throw Error.malformedRecord
-        }
+              record.fields.count == 1 else { throw Error.malformedRecord }
         versionNumber = Int(record.fields[0])
       case .diagnostic:
-        currentDiagnosticRecords.append(SerializedDiagnostics.OwnedRecord(record))
+        switch SerializedDiagnostics.RecordID(rawValue: record.id) {
+        case .filename:
+          guard record.fields.count == 4,
+                case .blob(let filenameBlob) = record.payload
+          else { throw Error.malformedRecord }
+
+          let filenameText = String(decoding: filenameBlob, as: UTF8.self)
+          let filenameID = record.fields[0]
+          // record.fields[1] and record.fields[2] are no longer used.
+          filenameMap[filenameID] = filenameText
+        case .category:
+          guard record.fields.count == 2,
+                case .blob(let categoryBlob) = record.payload
+          else { throw Error.malformedRecord }
+
+          let categoryText = String(decoding: categoryBlob, as: UTF8.self)
+          let categoryID = record.fields[0]
+          categoryMap[categoryID] = categoryText
+        case .flag:
+          guard record.fields.count == 2,
+                case .blob(let flagBlob) = record.payload
+          else { throw Error.malformedRecord }
+
+          let flagText = String(decoding: flagBlob, as: UTF8.self)
+          let diagnosticID = record.fields[0]
+          flagMap[diagnosticID] = flagText
+        default:
+          diagnosticRecords[diagnosticRecords.count - 1].append(SerializedDiagnostics.OwnedRecord(record))
+        }
       case nil:
         throw Error.unexpectedTopLevelRecord
       }
