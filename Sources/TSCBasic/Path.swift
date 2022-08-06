@@ -470,7 +470,12 @@ extension Path {
 private struct WindowsPath: Path {
     let string: String
 
-    static let root = Self(string: "/")
+    // NOTE: this is *NOT* a root path.  It is a drive-relative path that needs
+    // to be specified due to assumptions in the APIs.  Use the platform
+    // specific path separator as we should be normalizing the path normally.
+    // This is required to make the `InMemoryFileSystem` correctly iterate
+    // paths.
+    static let root = Self(string: "\\")
 
     static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
