@@ -23,13 +23,18 @@ import Foundation
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
 #if os(Windows)
-    var resolved: URL = URL(fileURLWithPath: path.pathString)
-    if let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: path.pathString) {
-        resolved = URL(fileURLWithPath: destination, relativeTo: URL(fileURLWithPath: path.pathString))
+    let handle: HANDLE = path.pathString.withCString(encodedAs: UTF16.self) {
+      CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ), nil,
+                  DWORD(OPEN_EXISTING), DWORD(FILE_FLAG_BACKUP_SEMANTICS), nil)
     }
-
-    return resolved.standardized.withUnsafeFileSystemRepresentation {
-        try! AbsolutePath(validating: String(cString: $0!))
+    if handle == INVALID_HANDLE_VALUE { return path }
+    defer { CloseHandle(handle) }
+    return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: 261) {
+      let dwLength: DWORD =
+            GetFinalPathNameByHandleW(handle, $0.baseAddress!, DWORD($0.count),
+                                      DWORD(FILE_NAME_NORMALIZED))
+      let path = String(decodingCString: $0.baseAddress!, as: UTF16.self)
+      return try! AbsolutePath(validating: path)
     }
 #else
     let pathStr = path.pathString
