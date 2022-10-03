@@ -54,4 +54,12 @@ class TripleTests : XCTestCase {
         let linuxWithGNUABI = try Triple("x86_64-unknown-linux-gnu")
         XCTAssertNotEqual(linuxWithoutGNUABI, linuxWithGNUABI)
     }
+
+    func testWASI() throws {
+        let wasi = try Triple("wasm32-unknown-wasi")
+
+        // WASI dynamic libraries are only experimental,
+        // but SwiftPM requires this property not to crash.
+        _ = wasi.dynamicLibraryExtension
+    }
 }
