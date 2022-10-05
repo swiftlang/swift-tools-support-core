@@ -14,6 +14,7 @@ import TSCBasic
 @_implementationOnly import CSQLite3
 
 /// A minimal SQLite wrapper.
+@available(*, deprecated, message: "moved to SwiftPM")
 public struct SQLite {
     /// The location of the database.
     public let location: Location
@@ -291,6 +292,7 @@ public struct SQLite {
     }
 }
 
+@available(*, deprecated, message: "Moved to SwiftPM")
 private func sqlite_callback(
     _ ctx: UnsafeMutableRawPointer?,
     _ numColumns: Int32,
