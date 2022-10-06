@@ -12,6 +12,7 @@ import TSCBasic
 import Foundation
 
 /// A protocol for Data -> Data cache.
+@available(*, deprecated, message: "Unused")
 public protocol PersistentCacheProtocol {
     func get(key: Data) throws -> Data?
     func put(key: Data, value: Data) throws
@@ -19,6 +20,7 @@ public protocol PersistentCacheProtocol {
 }
 
 /// SQLite backed persistent cache.
+@available(*, deprecated, message: "Unused")
 public final class SQLiteBackedPersistentCache: PersistentCacheProtocol, Closable {
     let db: SQLite
 
