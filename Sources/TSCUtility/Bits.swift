@@ -11,6 +11,7 @@
 import Foundation
 import TSCBasic
 
+@available(*, deprecated, message: "moved to swift-driver")
 struct Bits: RandomAccessCollection {
   var buffer: ByteString
 

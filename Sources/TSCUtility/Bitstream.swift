@@ -12,6 +12,7 @@ import Foundation
 
 /// Represents the contents of a file encoded using the
 /// [LLVM bitstream container format](https://llvm.org/docs/BitCodeFormat.html#bitstream-container-format)
+@available(*, deprecated, message: "moved to swift-driver")
 public struct Bitcode {
   public let signature: Signature
   public let elements: [BitcodeElement]
@@ -19,6 +20,7 @@ public struct Bitcode {
 }
 
 /// A non-owning view of a bitcode element.
+@available(*, deprecated, message: "moved to swift-driver")
 public enum BitcodeElement {
   public struct Block {
     public var id: UInt64
@@ -47,6 +49,7 @@ public enum BitcodeElement {
   case record(Record)
 }
 
+@available(*, deprecated, message: "moved to swift-driver")
 extension BitcodeElement.Record.Payload: CustomStringConvertible {
   public var description: String {
     switch self {
@@ -62,12 +65,14 @@ extension BitcodeElement.Record.Payload: CustomStringConvertible {
   }
 }
 
+@available(*, deprecated, message: "moved to swift-driver")
 public struct BlockInfo {
   public var name: String = ""
   public var recordNames: [UInt64: String] = [:]
 }
 
 extension Bitcode {
+  @available(*, deprecated, message: "moved to swift-driver")
   public struct Signature: Equatable {
     private var value: UInt32
 
@@ -88,6 +93,7 @@ extension Bitcode {
 }
 
 /// A visitor which receives callbacks while reading a bitstream.
+@available(*, deprecated, message: "moved to swift-driver")
 public protocol BitstreamVisitor {
   /// Customization point to validate a bitstream's signature or "magic number".
   func validate(signature: Bitcode.Signature) throws
@@ -101,12 +107,14 @@ public protocol BitstreamVisitor {
 }
 
 /// A top-level namespace for all bitstream-related structures.
+@available(*, deprecated, message: "moved to swift-driver")
 public enum Bitstream {}
 
 extension Bitstream {
   /// An `Abbreviation` represents the encoding definition for a user-defined
   /// record. An `Abbreviation` is the primary form of compression available in
   /// a bitstream file.
+  @available(*, deprecated, message: "moved to swift-driver")
   public struct Abbreviation {
     public enum Operand {
       /// A literal value (emitted as a VBR8 field).
@@ -174,6 +182,7 @@ extension Bitstream {
     /// a name is given to a block or record with `blockName` or
     /// `setRecordName`, debugging tools like `llvm-bcanalyzer` can be used to
     /// introspect the structure of blocks and records in the bitstream file.
+    @available(*, deprecated, message: "moved to swift-driver")
     public enum BlockInfoCode: UInt8 {
         /// Indicates which block ID is being described.
         case setBID = 1
@@ -203,6 +212,7 @@ extension Bitstream {
   ///     static let diagnostics  = Self.firstApplicationID + 1
   /// }
   /// ```
+  @available(*, deprecated, message: "moved to swift-driver")
   public struct BlockID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt8
 
@@ -240,6 +250,7 @@ extension Bitstream {
   ///            abbreviation defined by `BitstreamWriter`. Always use
   ///            `BitstreamWriter.defineBlockInfoAbbreviation(_:_:)`
   ///            to register abbreviations.
+  @available(*, deprecated, message: "moved to swift-driver")
   public struct AbbreviationID: RawRepresentable, Equatable, Hashable, Comparable, Identifiable {
     public var rawValue: UInt64
 
