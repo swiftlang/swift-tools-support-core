@@ -14,6 +14,7 @@ import TSCBasic
 extension Bitcode {
   /// Traverse a bitstream using the specified `visitor`, which will receive
   /// callbacks when blocks and records are encountered.
+  @available(*, deprecated, message: "moved to swift-driver")
   public static func read<Visitor: BitstreamVisitor>(bytes: ByteString, using visitor: inout Visitor) throws {
     precondition(bytes.count > 4)
     var reader = BitstreamReader(buffer: bytes)
@@ -26,10 +27,12 @@ extension Bitcode {
 }
 
 private extension Bits.Cursor {
+  @available(*, deprecated, message: "moved to swift-driver")
   enum BitcodeError: Swift.Error {
     case vbrOverflow
   }
 
+  @available(*, deprecated, message: "moved to swift-driver")
   mutating func readVBR(_ width: Int) throws -> UInt64 {
     precondition(width > 1)
     let testBit = UInt64(1 << (width &- 1))
@@ -49,6 +52,7 @@ private extension Bits.Cursor {
   }
 }
 
+@available(*, deprecated, message: "moved to swift-driver")
 private struct BitstreamReader {
   enum Error: Swift.Error {
     case invalidAbbrev

@@ -90,6 +90,7 @@
 ///
 /// The higher-level APIs will automatically ensure that `BitstreamWriter.data`
 /// is valid. Once serialization has completed, simply emit this data to a file.
+@available(*, deprecated, message: "moved to swift-driver")
 public final class BitstreamWriter {
     /// The buffer of data being written to.
     private(set) public var data: [UInt8]
@@ -159,6 +160,7 @@ public final class BitstreamWriter {
 
 extension BitstreamWriter {
     /// Writes the provided UInt32 to the data stream directly.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func write(_ int: UInt32) {
         let index = data.count
 
@@ -177,6 +179,7 @@ extension BitstreamWriter {
     ///   - int: The integer containing the bits you'd like to write
     ///   - width: The number of low-bits of the integer you're writing to the
     ///            buffer
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeVBR<IntType>(_ int: IntType, width: UInt8)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
@@ -199,6 +202,7 @@ extension BitstreamWriter {
     ///   - int: The integer containing the bits you'd like to write
     ///   - width: The number of low-bits of the integer you're writing to the
     ///            buffer
+    @available(*, deprecated, message: "moved to swift-driver")
     public func write<IntType>(_ int: IntType, width: UInt8)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
@@ -245,6 +249,7 @@ extension BitstreamWriter {
         currentBit = (currentBit + width) & 31
     }
 
+    @available(*, deprecated, message: "moved to swift-driver")
     public func alignIfNeeded() {
         guard currentBit > 0 else { return }
         write(currentValue)
@@ -254,11 +259,13 @@ extension BitstreamWriter {
     }
 
     /// Writes a Bool as a 1-bit integer value.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func write(_ bool: Bool) {
         write(bool ? 1 as UInt : 0, width: 1)
     }
 
     /// Writes the provided BitCode Abbrev operand to the stream.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func write(_ abbrevOp: Bitstream.Abbreviation.Operand) {
         write(abbrevOp.isLiteral) // the Literal bit.
         switch abbrevOp {
@@ -288,11 +295,13 @@ extension BitstreamWriter {
     }
 
     /// Writes the specified abbreviaion value to the stream, as a 32-bit quantity.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeCode(_ code: Bitstream.AbbreviationID) {
         writeCode(code.rawValue)
     }
 
     /// Writes the specified Code value to the stream, as a 32-bit quantity.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeCode<IntType>(_ code: IntType)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
@@ -300,6 +309,7 @@ extension BitstreamWriter {
     }
 
     /// Writes an ASCII character to the stream, as an 8-bit ascii value.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeASCII(_ character: Character) {
         precondition(character.unicodeScalars.count == 1, "character is not ASCII")
         let c = UInt8(ascii: character.unicodeScalars.first!)
@@ -312,6 +322,7 @@ extension BitstreamWriter {
 extension BitstreamWriter {
     /// Defines an abbreviation and returns the unique identifier for that
     /// abbreviation.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func defineAbbreviation(_ abbrev: Bitstream.Abbreviation) -> Bitstream.AbbreviationID {
         encodeAbbreviation(abbrev)
         currentAbbreviations.append(abbrev)
@@ -321,6 +332,7 @@ extension BitstreamWriter {
     }
 
     /// Encodes the definition of an abbreviation to the stream.
+    @available(*, deprecated, message: "moved to swift-driver")
     private func encodeAbbreviation(_ abbrev: Bitstream.Abbreviation) {
         writeCode(.defineAbbreviation)
         writeVBR(UInt(abbrev.operands.count), width: 5)
@@ -333,6 +345,7 @@ extension BitstreamWriter {
 // MARK: Writing Records
 
 extension BitstreamWriter {
+    @available(*, deprecated, message: "moved to swift-driver")
     public struct RecordBuffer {
         private(set) var values = [UInt32]()
 
@@ -376,6 +389,7 @@ extension BitstreamWriter {
     }
 
     /// Writes an unabbreviated record to the stream.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeRecord<CodeType>(_ code: CodeType, _ composeRecord: (inout RecordBuffer) -> Void)
         where CodeType: RawRepresentable, CodeType.RawValue == UInt8
     {
@@ -392,6 +406,7 @@ extension BitstreamWriter {
     /// Writes a record with the provided abbreviation ID and record contents.
     /// Optionally, emits the provided blob if the abbreviation referenced
     /// by that ID requires it.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeRecord(
         _ abbrevID: Bitstream.AbbreviationID,
         _ composeRecord: (inout RecordBuffer) -> Void,
@@ -455,12 +470,14 @@ extension BitstreamWriter {
     /// '0' .. '9' --- 52 .. 61
     ///        '.' --- 62
     ///        '_' --- 63
+    @available(*, deprecated, message: "moved to swift-driver")
     private static let char6Map =
         Array(zip("abcdefghijklmnopqrstuvwxyz" +
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
                     "0123456789._", (0 as UInt)...))
 
     /// Writes a char6-encoded value.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeChar6<IntType>(_ value: IntType)
         where IntType: UnsignedInteger & ExpressibleByIntegerLiteral
     {
@@ -472,6 +489,7 @@ extension BitstreamWriter {
     }
 
     /// Writes a value with the provided abbreviation encoding.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeAbbrevField(_ op: Bitstream.Abbreviation.Operand, value: UInt32) {
         switch op {
         case .literal(let literalValue):
@@ -492,6 +510,7 @@ extension BitstreamWriter {
 
     /// Writes a block, beginning with the provided block code and the
     /// abbreviation width
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeBlock(
         _ blockID: Bitstream.BlockID,
         newAbbrevWidth: UInt8? = nil,
@@ -502,6 +521,7 @@ extension BitstreamWriter {
         endBlock()
     }
 
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeBlob<S>(_ bytes: S, includeSize: Bool = true)
         where S: Collection, S.Element == UInt8
     {
@@ -527,6 +547,7 @@ extension BitstreamWriter {
 
     /// Writes the blockinfo block and allows emitting abbreviations
     /// and records in it.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func writeBlockInfoBlock(emitRecords: () -> Void) {
         writeBlock(.blockInfo, newAbbrevWidth: 2) {
             currentBlockID = nil
@@ -545,6 +566,7 @@ extension BitstreamWriter {
     ///   - blockID: The ID of the block to emit.
     ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
     ///   - defineSubBlock: A closure that is called to define the contents of the new block.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func withSubBlock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil,
@@ -566,6 +588,7 @@ extension BitstreamWriter {
     /// - Parameters:
     ///   - blockID: The ID of the block to emit.
     ///   - abbreviationBitWidth: The width of the largest abbreviation ID in this block.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func enterSubblock(
         _ blockID: Bitstream.BlockID,
         abbreviationBitWidth: UInt8? = nil
@@ -599,6 +622,7 @@ extension BitstreamWriter {
     }
 
     /// Marks the end of a new block record.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func endBlock() {
         guard let block = blockScope.popLast() else {
             fatalError("endBlock() called with no block registered")
@@ -621,6 +645,7 @@ extension BitstreamWriter {
 
     /// Defines an abbreviation within the blockinfo block for the provided
     /// block ID.
+    @available(*, deprecated, message: "moved to swift-driver")
     public func defineBlockInfoAbbreviation(
         _ blockID: Bitstream.BlockID,
         _ abbrev: Bitstream.Abbreviation
@@ -634,6 +659,7 @@ extension BitstreamWriter {
     }
 
 
+    @available(*, deprecated, message: "moved to swift-driver")
     private func overwriteBytes(_ int: UInt32, byteIndex: Int) {
         let i = int.littleEndian
         data.withUnsafeMutableBytes { ptr in
@@ -643,6 +669,7 @@ extension BitstreamWriter {
 
     /// Gets the BlockInfo for the provided ID or creates it if it hasn't been
     /// created already.
+    @available(*, deprecated, message: "moved to swift-driver")
     private func getOrCreateBlockInfo(_ id: UInt8) -> BlockInfo {
         if let blockInfo = blockInfoRecords[id] { return blockInfo }
         let info = BlockInfo()
@@ -650,6 +677,7 @@ extension BitstreamWriter {
         return info
     }
 
+    @available(*, deprecated, message: "moved to swift-driver")
     private func `switch`(to blockID: Bitstream.BlockID) {
         if currentBlockID == blockID { return }
         writeRecord(Bitstream.BlockInfoCode.setBID) {
