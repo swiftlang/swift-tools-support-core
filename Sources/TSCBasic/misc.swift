@@ -195,7 +195,7 @@ public func getEnvSearchPaths(
 #endif
     return (pathString ?? "").split(separator: pathSeparator).map(String.init).compactMap({ pathString in
         if let cwd = currentWorkingDirectory {
-            return AbsolutePath(pathString, relativeTo: cwd)
+            return try? AbsolutePath(validating: pathString, relativeTo: cwd)
         }
         return try? AbsolutePath(validating: pathString)
     })
@@ -227,9 +227,9 @@ public func lookupExecutablePath(
 
     var paths: [AbsolutePath] = []
 
-    if let cwd = currentWorkingDirectory {
+    if let cwd = currentWorkingDirectory, let path = try? AbsolutePath(validating: value, relativeTo: cwd) {
         // We have a value, but it could be an absolute or a relative path.
-        paths.append(AbsolutePath(value, relativeTo: cwd))
+        paths.append(path)
     } else if let absPath = try? AbsolutePath(validating: value) {
         // Current directory not being available is not a problem
         // for the absolute-specified paths.

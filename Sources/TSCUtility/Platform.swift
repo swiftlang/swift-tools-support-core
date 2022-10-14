@@ -49,26 +49,28 @@ public enum Platform: Equatable {
     }
 
     internal static func findCurrentPlatformLinux(_ fileSystem: FileSystem) -> Platform? {
-        if fileSystem.isFile(AbsolutePath("/etc/debian_version")) {
-            return .linux(.debian)
-        }
-        if fileSystem.isFile(AbsolutePath("/system/bin/toolbox")) ||
-            fileSystem.isFile(AbsolutePath("/system/bin/toybox")) {
-            return .android
-        }
-        if fileSystem.isFile(AbsolutePath("/etc/redhat-release")) ||
-            fileSystem.isFile(AbsolutePath("/etc/centos-release")) ||
-            fileSystem.isFile(AbsolutePath("/etc/fedora-release")) ||
-            Platform.isAmazonLinux2(fileSystem) {
-            return .linux(.fedora)
-        }
+        do {
+            if try fileSystem.isFile(AbsolutePath(validating: "/etc/debian_version")) {
+                return .linux(.debian)
+            }
+            if try fileSystem.isFile(AbsolutePath(validating: "/system/bin/toolbox")) ||
+                fileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox")) {
+                return .android
+            }
+            if try fileSystem.isFile(AbsolutePath(validating: "/etc/redhat-release")) ||
+                fileSystem.isFile(AbsolutePath(validating: "/etc/centos-release")) ||
+                fileSystem.isFile(AbsolutePath(validating: "/etc/fedora-release")) ||
+                Platform.isAmazonLinux2(fileSystem) {
+                return .linux(.fedora)
+            }
+        } catch {}
 
         return nil
     }
 
     private static func isAmazonLinux2(_ fileSystem: FileSystem) -> Bool {
         do {
-            let release = try fileSystem.readFileContents(AbsolutePath("/etc/system-release")).cString
+            let release = try fileSystem.readFileContents(AbsolutePath(validating: "/etc/system-release")).cString
             return release.hasPrefix("Amazon Linux release 2")
         } catch {
             return false
@@ -76,14 +78,14 @@ public enum Platform: Equatable {
     }
 
     /// Returns the cache directories used in Darwin.
-    public static func darwinCacheDirectories() -> [AbsolutePath] {
-        Self.darwinCacheDirectoriesLock.withLock {
+    public static func darwinCacheDirectories() throws -> [AbsolutePath] {
+        try Self.darwinCacheDirectoriesLock.withLock {
             if let darwinCacheDirectories = Self._darwinCacheDirectories {
                 return darwinCacheDirectories
             }
             var directories = [AbsolutePath]()
             // Compute the directories.
-            directories.append(AbsolutePath("/private/var/tmp"))
+            try directories.append(AbsolutePath(validating: "/private/var/tmp"))
             (try? TSCBasic.determineTempDirectory()).map{ directories.append($0) }
             #if canImport(Darwin)
             getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
@@ -106,7 +108,7 @@ public enum Platform: Equatable {
         guard confstr(name, tmp.baseAddress, len) == len else { return nil }
         let value = String(cString: tmp.baseAddress!)
         guard value.hasSuffix(AbsolutePath.root.pathString) else { return nil }
-        return resolveSymlinks(AbsolutePath(value))
+        return try? resolveSymlinks(AbsolutePath(validating: value))
     }
     #endif
 }

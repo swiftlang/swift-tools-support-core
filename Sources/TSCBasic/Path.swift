@@ -59,21 +59,12 @@ public struct AbsolutePath: Hashable {
         _impl = impl
     }
 
-    /// Initializes the AbsolutePath from `absStr`, which must be an absolute
-    /// path (i.e. it must begin with a path separator; this initializer does
-    /// not interpret leading `~` characters as home directory specifiers).
-    /// The input string will be normalized if needed, as described in the
-    /// documentation for AbsolutePath.
-    public init(_ absStr: String) {
-        self.init(PathImpl(normalizingAbsolutePath: absStr))
-    }
-
     /// Initializes an AbsolutePath from a string that may be either absolute
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
-    public init(_ str: String, relativeTo basePath: AbsolutePath) {
+    public init(validating str: String, relativeTo basePath: AbsolutePath) throws {
         if PathImpl(string: str).isAbsolute {
-            self.init(str)
+            try self.init(validating: str)
         } else {
 #if os(Windows)
             assert(!basePath.pathString.isEmpty)
@@ -115,7 +106,11 @@ public struct AbsolutePath: Hashable {
         self.init(absPath, RelativePath(relStr))
     }
 
-    /// Convenience initializer that verifies that the path is absolute.
+    /// Initializes the AbsolutePath from `absStr`, which must be an absolute
+    /// path (i.e. it must begin with a path separator; this initializer does
+    /// not interpret leading `~` characters as home directory specifiers).
+    /// The input string will be normalized if needed, as described in the
+    /// documentation for AbsolutePath.
     public init(validating path: String) throws {
         try self.init(PathImpl(validatingAbsolutePath: path))
     }
@@ -1064,4 +1059,18 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
         return true
     }
     return false
+}
+
+// MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
+
+extension AbsolutePath {
+    @available(*, deprecated, message: "use throwing variant instead")
+    public init(_ absStr: String) {
+        try! self.init(validating: absStr)
+    }
+
+    @available(*, deprecated, message: "use throwing variant instead")
+    public init(_ str: String, relativeTo basePath: AbsolutePath) {
+        try! self.init(validating: str, relativeTo: basePath)
+    }
 }

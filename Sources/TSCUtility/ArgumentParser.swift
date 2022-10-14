@@ -257,7 +257,7 @@ public struct PathArgument: ArgumentKind {
     public init(argument: String) throws {
         // FIXME: This should check for invalid paths.
         if let cwd = localFileSystem.currentWorkingDirectory {
-            path = AbsolutePath(argument, relativeTo: cwd)
+            path = try AbsolutePath(validating: argument, relativeTo: cwd)
         } else {
             path = try AbsolutePath(validating: argument)
         }

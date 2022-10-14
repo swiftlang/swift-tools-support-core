@@ -26,7 +26,7 @@ class ProcessEnvTests: XCTestCase {
 
     func testChdir() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let path = resolveSymlinks(tmpdir)
+            let path = try resolveSymlinks(tmpdir)
             try ProcessEnv.chdir(path)
             XCTAssertEqual(ProcessEnv.cwd, path)
         }

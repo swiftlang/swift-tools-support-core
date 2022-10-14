@@ -47,12 +47,14 @@ public struct PCFileFinder {
     ///
     /// By default, this is combined with the search paths inferred from
     /// `pkg-config` itself.
-    static let searchPaths = [
-        AbsolutePath("/usr/local/lib/pkgconfig"),
-        AbsolutePath("/usr/local/share/pkgconfig"),
-        AbsolutePath("/usr/lib/pkgconfig"),
-        AbsolutePath("/usr/share/pkgconfig"),
-    ]
+    static func searchPaths() throws -> [AbsolutePath] {
+        return try [
+            AbsolutePath(validating: "/usr/local/lib/pkgconfig"),
+            AbsolutePath(validating: "/usr/local/share/pkgconfig"),
+            AbsolutePath(validating: "/usr/lib/pkgconfig"),
+            AbsolutePath(validating: "/usr/share/pkgconfig"),
+        ]
+    }
 
     /// Get search paths from `pkg-config` itself to locate `.pc` files.
     ///
@@ -70,7 +72,7 @@ public struct PCFileFinder {
                 }
                 let searchPaths = try Process.checkNonZeroExit(
                 args: pkgConfigPath, "--variable", "pc_path", "pkg-config").spm_chomp()
-                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").compactMap({ try? AbsolutePath(validating: String($0)) })
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []
@@ -94,7 +96,7 @@ public struct PCFileFinder {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        for path in OrderedSet(customSearchPaths + PCFileFinder.pkgConfigPaths! + PCFileFinder.searchPaths) {
+        for path in try OrderedSet(customSearchPaths + PCFileFinder.pkgConfigPaths! + PCFileFinder.searchPaths()) {
             let pcFile = path.appending(component: name + ".pc")
             if fileSystem.isFile(pcFile) {
                 return pcFile
@@ -215,7 +217,7 @@ public struct PkgConfig {
 
     private static var envSearchPaths: [AbsolutePath] {
         if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
-            return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
+            return configPath.split(separator: ":").compactMap({ try? AbsolutePath(validating: String($0)) })
         }
         return []
     }
