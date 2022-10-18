@@ -26,13 +26,11 @@ add_library(TSCUtility
   misc.swift
   Netrc.swift
   OSLog.swift
-  PersistenceCache.swift
   PkgConfig.swift
   Platform.swift
   PolymorphicCodable.swift
   ProgressAnimation.swift
   SerializedDiagnostics.swift
-  SQLite.swift
   SimplePersistence.swift
   StringExtensions.swift
   StringMangling.swift
@@ -55,8 +53,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   if(CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
     target_link_directories(TSCUtility PRIVATE /usr/local/lib)
   endif()
-  target_link_libraries(TSCUtility PRIVATE
-    SQLite::SQLite3)
   if(Foundation_FOUND)
     target_link_libraries(TSCUtility PUBLIC
       FoundationNetworking)
