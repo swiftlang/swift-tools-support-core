@@ -187,13 +187,13 @@ public protocol FileSystem: AnyObject {
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws
 
     /// Get the home directory of current user
-    var homeDirectory: AbsolutePath { get }
+    var homeDirectory: AbsolutePath { get throws }
 
     /// Get the caches directory of current user
     var cachesDirectory: AbsolutePath? { get }
 
     /// Get the temp directory
-    var tempDirectory: AbsolutePath { get }
+    var tempDirectory: AbsolutePath { get throws }
 
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
@@ -317,7 +317,9 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
-        let path = resolveSymlinks(path)
+        guard let path = try? resolveSymlinks(path) else {
+            return false
+        }
         let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
         return attrs?[.type] as? FileAttributeType == .typeRegular
     }
@@ -353,7 +355,7 @@ private class LocalFileSystem: FileSystem {
         let fsr: UnsafePointer<Int8> = cwdStr.fileSystemRepresentation
         defer { fsr.deallocate() }
 
-        return try? AbsolutePath(validating: String(cString: fsr))
+        return try? AbsolutePath(String(cString: fsr))
 #endif
     }
 
@@ -368,19 +370,23 @@ private class LocalFileSystem: FileSystem {
     }
 
     var homeDirectory: AbsolutePath {
-        return AbsolutePath(NSHomeDirectory())
+        get throws {
+            return try AbsolutePath(validating: NSHomeDirectory())
+        }
     }
 
     var cachesDirectory: AbsolutePath? {
-        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { try? AbsolutePath(validating: $0.path) }
     }
 
     var tempDirectory: AbsolutePath {
-        let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
-        if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
-            return path
+        get throws {
+            let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+            if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
+                return path
+            }
+            return try AbsolutePath(validating: NSTemporaryDirectory())
         }
-        return AbsolutePath(NSTemporaryDirectory())
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -664,7 +670,7 @@ public class InMemoryFileSystem: FileSystem {
             case .directory, .file:
                 return node
             case .symlink(let destination):
-                let destination = AbsolutePath(destination, relativeTo: path.parentDirectory)
+                let destination = try AbsolutePath(validating: destination, relativeTo: path.parentDirectory)
                 return followSymlink ? try getNodeInternal(destination) : node
             case .none:
                 return nil
@@ -745,7 +751,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+        return try? AbsolutePath(validating: "/")
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
@@ -753,16 +759,20 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public var homeDirectory: AbsolutePath {
-        // FIXME: Maybe we should allow setting this when creating the fs.
-        return AbsolutePath("/home/user")
+        get throws {
+            // FIXME: Maybe we should allow setting this when creating the fs.
+            return try AbsolutePath(validating: "/home/user")
+        }
     }
 
     public var cachesDirectory: AbsolutePath? {
-        return self.homeDirectory.appending(component: "caches")
+        return try? self.homeDirectory.appending(component: "caches")
     }
 
     public var tempDirectory: AbsolutePath {
-        return AbsolutePath("/tmp")
+        get throws {
+            return try AbsolutePath(validating: "/tmp")
+        }
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -978,7 +988,7 @@ public class InMemoryFileSystem: FileSystem {
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         let resolvedPath: AbsolutePath = try lock.withLock {
             if case let .symlink(destination) = try getNode(path)?.contents {
-                return AbsolutePath(destination, relativeTo: path.parentDirectory)
+                return try AbsolutePath(validating: destination, relativeTo: path.parentDirectory)
             } else {
                 return path
             }
@@ -1023,48 +1033,69 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     /// Adjust the input path for the underlying file system.
-    private func formUnderlyingPath(_ path: AbsolutePath) -> AbsolutePath {
+    private func formUnderlyingPath(_ path: AbsolutePath) throws -> AbsolutePath {
         if path == AbsolutePath.root {
             return root
         } else {
             // FIXME: Optimize?
-            return AbsolutePath(String(path.pathString.dropFirst(1)), relativeTo: root)
+            return try AbsolutePath(validating: String(path.pathString.dropFirst(1)), relativeTo: root)
         }
     }
 
     // MARK: FileSystem Implementation
 
     public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
-        return underlyingFileSystem.exists(formUnderlyingPath(path), followSymlink: followSymlink)
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.exists(underlying, followSymlink: followSymlink)
     }
 
     public func isDirectory(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isDirectory(underlying)
     }
 
     public func isFile(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isFile(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isFile(underlying)
     }
 
     public func isSymlink(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isSymlink(underlying)
     }
 
     public func isReadable(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isReadable(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isReadable(underlying)
     }
 
     public func isWritable(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isWritable(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isWritable(underlying)
     }
 
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.isExecutableFile(formUnderlyingPath(path))
+        guard let underlying = try? formUnderlyingPath(path) else {
+            return false
+        }
+        return underlyingFileSystem.isExecutableFile(underlying)
     }
 
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+        return try? AbsolutePath(validating: "/")
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
@@ -1088,13 +1119,13 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        let path = formUnderlyingPath(path)
+        let path = try formUnderlyingPath(path)
         return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
 
     public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
-        let path = formUnderlyingPath(path)
-        let destination = formUnderlyingPath(destination)
+        let path = try formUnderlyingPath(path)
+        let destination = try formUnderlyingPath(destination)
         return try underlyingFileSystem.createSymbolicLink(path, pointingAt: destination, relative: relative)
     }
 
@@ -1103,7 +1134,7 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        let path = formUnderlyingPath(path)
+        let path = try formUnderlyingPath(path)
         return try underlyingFileSystem.writeFileContents(path, bytes: bytes)
     }
 

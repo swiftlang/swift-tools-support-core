@@ -20,7 +20,7 @@ typealias Process = TSCBasic.Process
 
 class ProcessTests: XCTestCase {
     func script(_ name: String) -> String {
-        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
+        return AbsolutePath(path: #file).parentDirectory.appending(components: "processInputs", name).pathString
     }
 
     func testBasics() throws {

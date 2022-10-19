@@ -49,13 +49,13 @@ public struct Netrc {
     /// Reads file at path or default location, and returns parsed Netrc representation
     /// - Parameter fileURL: Location of netrc file, defaults to `~/.netrc`
     /// - Returns: `Netrc` container with parsed connection settings, or error
-    public static func load(fromFileAtPath filePath: AbsolutePath? = nil) -> Result<Netrc, Netrc.Error> {
-        let filePath = filePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
+    public static func load(fromFileAtPath filePath: AbsolutePath? = nil) throws -> Result<Netrc, Netrc.Error> {
+        let filePath = try filePath ?? AbsolutePath(validating: "\(NSHomeDirectory())/.netrc")
         
         guard FileManager.default.fileExists(atPath: filePath.pathString) else { return .failure(.fileNotFound(filePath)) }
-        guard FileManager.default.isReadableFile(atPath: filePath.pathString),
-              let fileContents = try? String(contentsOf: filePath.asURL, encoding: .utf8) else { return .failure(.unreadableFile(filePath)) }
-        
+        guard FileManager.default.isReadableFile(atPath: filePath.pathString) else { return .failure(.unreadableFile(filePath)) }
+
+        let fileContents = try String(contentsOf: filePath.asURL, encoding: .utf8)
         return Netrc.from(fileContents)
     }
     

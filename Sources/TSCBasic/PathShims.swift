@@ -21,7 +21,7 @@ import TSCLibc
 import Foundation
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
-public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
+public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
 #if os(Windows)
     let handle: HANDLE = path.pathString.withCString(encodedAs: UTF16.self) {
       CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ), nil,
@@ -29,12 +29,12 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     }
     if handle == INVALID_HANDLE_VALUE { return path }
     defer { CloseHandle(handle) }
-    return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: 261) {
+    return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: 261) {
       let dwLength: DWORD =
             GetFinalPathNameByHandleW(handle, $0.baseAddress!, DWORD($0.count),
                                       DWORD(FILE_NAME_NORMALIZED))
       let path = String(decodingCString: $0.baseAddress!, as: UTF16.self)
-      return try! AbsolutePath(validating: path)
+      return try AbsolutePath(path)
     }
 #else
     let pathStr = path.pathString
@@ -51,7 +51,7 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
         // null-terminated UTF-8 data referenced by the given pointer.
         resultPtr.deallocate()
         // FIXME: We should measure if it's really more efficient to compare the strings first.
-        return result == pathStr ? path : AbsolutePath(result)
+        return result == pathStr ? path : try AbsolutePath(validating: result)
     }
 
     return path
@@ -70,13 +70,6 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
     let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
     try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
-}
-
-/// The current working directory of the processs.
-@available(*, deprecated, renamed: "localFileSystem.currentWorkingDirectory")
-public var currentWorkingDirectory: AbsolutePath {
-    let cwdStr = FileManager.default.currentDirectoryPath
-    return AbsolutePath(cwdStr)
 }
 
 /**

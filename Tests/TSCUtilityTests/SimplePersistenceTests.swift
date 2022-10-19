@@ -32,14 +32,14 @@ fileprivate class Foo: SimplePersistanceProtocol {
 
     func restore(from json: JSON) throws {
         self.int = try json.get("int")
-        self.path = try AbsolutePath(json.get("path"))
+        self.path = try AbsolutePath(validating: json.get("path"))
     }
 
     func restore(from json: JSON, supportedSchemaVersion: Int) throws {
         switch supportedSchemaVersion {
         case 0:
             self.int = try json.get("old_int")
-            self.path = try AbsolutePath(json.get("old_path"))
+            self.path = try AbsolutePath(validating: json.get("old_path"))
         default:
             fatalError()
         }
@@ -119,7 +119,7 @@ class SimplePersistenceTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
         let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
-        let foo = Foo(int: 1, path: AbsolutePath("/hello"), fileSystem: fs)
+        let foo = Foo(int: 1, path: AbsolutePath(path: "/hello"), fileSystem: fs)
         // Restoring right now should return false because state is not present.
         XCTAssertFalse(try foo.restore())
 
@@ -133,7 +133,7 @@ class SimplePersistenceTests: XCTestCase {
         foo.int = 5
         XCTAssertTrue(try foo.restore())
         XCTAssertEqual(foo.int, 1)
-        XCTAssertEqual(foo.path, AbsolutePath("/hello"))
+        XCTAssertEqual(foo.path, AbsolutePath(path: "/hello"))
 
         // Modify state's schema version.
         let newJSON = JSON(["version": 2])
@@ -194,14 +194,14 @@ class SimplePersistenceTests: XCTestCase {
                 """
         }
 
-        let foo = Foo(int: 1, path: AbsolutePath("/hello"), fileSystem: fs)
-        XCTAssertEqual(foo.path, AbsolutePath("/hello"))
+        let foo = Foo(int: 1, path: AbsolutePath(path: "/hello"), fileSystem: fs)
+        XCTAssertEqual(foo.path, AbsolutePath(path: "/hello"))
         XCTAssertEqual(foo.int, 1)
 
         // Load from an older but supported schema state file.
         XCTAssertTrue(try foo.restore())
 
-        XCTAssertEqual(foo.path, AbsolutePath("/oldpath"))
+        XCTAssertEqual(foo.path, AbsolutePath(path: "/oldpath"))
         XCTAssertEqual(foo.int, 4)
     }
 }

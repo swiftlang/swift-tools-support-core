@@ -25,7 +25,7 @@ extension InMemoryFileSystem {
         self.init()
 
         for (path, contents) in files {
-            let path = AbsolutePath(path)
+            let path = try! AbsolutePath(validating: path)
             try! createDirectory(path.parentDirectory, recursive: true)
             try! writeFileContents(path, bytes: contents)
         }
@@ -52,7 +52,7 @@ extension FileSystem {
         do {
             try createDirectory(root, recursive: true)
             for path in files {
-                let path = AbsolutePath(String(path.dropFirst()), relativeTo: root)
+                let path = try AbsolutePath(validating: String(path.dropFirst()), relativeTo: root)
                 try createDirectory(path.parentDirectory, recursive: true)
                 try writeFileContents(path, bytes: "")
             }
@@ -70,5 +70,21 @@ extension FileSystem {
         } catch {
             print(String(describing: error))
         }
+    }
+}
+
+public extension AbsolutePath {
+    init(path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+
+    init(path: StaticString, relativeTo basePath: AbsolutePath) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString, relativeTo: basePath)
     }
 }

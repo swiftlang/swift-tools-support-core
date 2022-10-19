@@ -180,7 +180,7 @@ public final class FileLock {
     
     public static func withLock<T>(fileToLock: AbsolutePath, lockFilesDirectory: AbsolutePath? = nil, type: LockType = .exclusive, body: () throws -> T) throws -> T {
         // unless specified, we use the tempDirectory to store lock files
-        let lockFilesDirectory = lockFilesDirectory ?? localFileSystem.tempDirectory
+        let lockFilesDirectory = try lockFilesDirectory ?? localFileSystem.tempDirectory
         if !localFileSystem.exists(lockFilesDirectory) {
             throw FileSystemError(.noEntry, lockFilesDirectory)
         }
@@ -188,7 +188,7 @@ public final class FileLock {
             throw FileSystemError(.notDirectory, lockFilesDirectory)
         }
         // use the parent path to generate unique filename in temp
-        var lockFileName = (resolveSymlinks(fileToLock.parentDirectory)
+        var lockFileName = try (resolveSymlinks(fileToLock.parentDirectory)
                                 .appending(component: fileToLock.basename))
                                 .components.joined(separator: "_")
                                 .replacingOccurrences(of: ":", with: "_") + ".lock"

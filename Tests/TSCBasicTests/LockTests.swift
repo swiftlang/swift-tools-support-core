@@ -115,31 +115,33 @@ class LockTests: XCTestCase {
     func testFileLockLocation() throws {
         do {
             let fileName = UUID().uuidString
-            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            let fileToLock = try localFileSystem.homeDirectory.appending(component: fileName)
             try localFileSystem.withLock(on: fileToLock, type: .exclusive) {}
             
             // lock file expected at temp when lockFilesDirectory set to nil
             // which is the case when going through localFileSystem
-            let lockFile = try localFileSystem.getDirectoryContents(localFileSystem.tempDirectory)
+            let tempDirectory = try localFileSystem.tempDirectory
+            let lockFile = try localFileSystem.getDirectoryContents(tempDirectory)
                 .first(where: { $0.contains(fileName) })
-            XCTAssertNotNil(lockFile, "expected lock file at \(localFileSystem.tempDirectory)")
+            XCTAssertNotNil(lockFile, "expected lock file at \(tempDirectory)")
         }
         
         do {
             let fileName = UUID().uuidString
-            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+            let fileToLock = try localFileSystem.homeDirectory.appending(component: fileName)
             try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: nil, body: {})
             
             // lock file expected at temp when lockFilesDirectory set to nil
-            let lockFile = try localFileSystem.getDirectoryContents(localFileSystem.tempDirectory)
+            let tempDirectory = try localFileSystem.tempDirectory
+            let lockFile = try localFileSystem.getDirectoryContents(tempDirectory)
                 .first(where: { $0.contains(fileName) })
-            XCTAssertNotNil(lockFile, "expected lock file at \(localFileSystem.tempDirectory)")
+            XCTAssertNotNil(lockFile, "expected lock file at \(tempDirectory)")
         }
         
         do {
             try withTemporaryDirectory { tempDir in
                 let fileName = UUID().uuidString
-                let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
+                let fileToLock = try localFileSystem.homeDirectory.appending(component: fileName)
                 try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: tempDir, body: {})
                 
                 // lock file expected at specified directory when lockFilesDirectory is set to a valid directory
@@ -151,8 +153,8 @@ class LockTests: XCTestCase {
         
         do {
             let fileName = UUID().uuidString
-            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
-            let lockFilesDirectory = localFileSystem.homeDirectory.appending(component: UUID().uuidString)
+            let fileToLock = try localFileSystem.homeDirectory.appending(component: fileName)
+            let lockFilesDirectory = try localFileSystem.homeDirectory.appending(component: UUID().uuidString)
             XCTAssertThrows(FileSystemError(.noEntry, lockFilesDirectory)) {
                 try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: lockFilesDirectory, body: {})
             }
@@ -160,8 +162,8 @@ class LockTests: XCTestCase {
         
         do {
             let fileName = UUID().uuidString
-            let fileToLock = localFileSystem.homeDirectory.appending(component: fileName)
-            let lockFilesDirectory = localFileSystem.homeDirectory.appending(component: UUID().uuidString)
+            let fileToLock = try localFileSystem.homeDirectory.appending(component: fileName)
+            let lockFilesDirectory = try localFileSystem.homeDirectory.appending(component: UUID().uuidString)
             try localFileSystem.writeFileContents(lockFilesDirectory, bytes: [])
             XCTAssertThrows(FileSystemError(.notDirectory, lockFilesDirectory)) {
                 try FileLock.withLock(fileToLock: fileToLock, lockFilesDirectory: lockFilesDirectory, body: {})

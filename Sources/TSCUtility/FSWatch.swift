@@ -761,7 +761,7 @@ private func callback(
     let eventPaths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] ?? []
 
     // Compute the set of paths that were changed.
-    let paths = eventPaths.map({ AbsolutePath($0) })
+    let paths = eventPaths.compactMap({ try? AbsolutePath(validating: $0) })
 
     eventStream.callbacksQueue.async {
         eventStream.delegate.pathsDidReceiveEvent(paths)

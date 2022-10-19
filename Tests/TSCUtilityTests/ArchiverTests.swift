@@ -23,7 +23,7 @@ class ArchiverTests: XCTestCase {
             let expectation = XCTestExpectation(description: "success")
 
             let archiver = ZipArchiver()
-            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.zip")
+            let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "archive.zip")
             archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
                 XCTAssertResultSuccess(result) { _ in
                     let content = tmpdir.appending(component: "file")
@@ -42,8 +42,8 @@ class ArchiverTests: XCTestCase {
 
         let fileSystem = InMemoryFileSystem()
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let archive = AbsolutePath("/archive.zip")
-        archiver.extract(from: archive, to: AbsolutePath("/"), completion: { result in
+        let archive = AbsolutePath(path: "/archive.zip")
+        archiver.extract(from: archive, to: AbsolutePath(path: "/"), completion: { result in
             XCTAssertResultFailure(result, equals: FileSystemError(.noEntry, archive))
             expectation.fulfill()
         })
@@ -56,8 +56,8 @@ class ArchiverTests: XCTestCase {
 
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip")
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let destination = AbsolutePath("/destination")
-        archiver.extract(from: AbsolutePath("/archive.zip"), to: destination, completion: { result in
+        let destination = AbsolutePath(path: "/destination")
+        archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination, completion: { result in
             XCTAssertResultFailure(result, equals: FileSystemError(.notDirectory, destination))
             expectation.fulfill()
         })
@@ -70,8 +70,8 @@ class ArchiverTests: XCTestCase {
 
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip", "/destination")
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let destination = AbsolutePath("/destination")
-        archiver.extract(from: AbsolutePath("/archive.zip"), to: destination, completion: { result in
+        let destination = AbsolutePath(path: "/destination")
+        archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination, completion: { result in
             XCTAssertResultFailure(result, equals: FileSystemError(.notDirectory, destination))
             expectation.fulfill()
         })
@@ -84,7 +84,7 @@ class ArchiverTests: XCTestCase {
             let expectation = XCTestExpectation(description: "failure")
 
             let archiver = ZipArchiver()
-            let inputArchivePath = AbsolutePath(#file).parentDirectory
+            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
                 XCTAssertResultFailure(result) { error in

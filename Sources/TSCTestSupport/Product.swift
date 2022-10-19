@@ -35,11 +35,11 @@ extension Product {
     public var path: AbsolutePath {
       #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return AbsolutePath(AbsolutePath(bundle.bundlePath).parentDirectory, self.exec)
+            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, self.exec)
         }
         fatalError()
       #else
-        return AbsolutePath(CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
+        return try! AbsolutePath(CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
             .parentDirectory.appending(self.exec)
       #endif
     }
@@ -118,7 +118,7 @@ extension Product {
         let packagesPath = packageRoot.appending(components: ".build", "checkouts")
         for name in try localFileSystem.getDirectoryContents(packagesPath) {
             if name.hasPrefix(packageName) {
-                return AbsolutePath(name, relativeTo: packagesPath)
+                return try AbsolutePath(validating: name, relativeTo: packagesPath)
             }
         }
         throw SwiftPMProductError.packagePathNotFound

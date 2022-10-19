@@ -53,7 +53,7 @@ private extension TempFileError {
 ///
 /// - Returns: Path to directory in which temporary file should be created.
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
-    let tmpDir = dir ?? localFileSystem.tempDirectory
+    let tmpDir = try dir ?? localFileSystem.tempDirectory
     guard localFileSystem.isDirectory(tmpDir) else {
         throw TempFileError.couldNotFindTmpDir(tmpDir.pathString)
     }
@@ -87,7 +87,7 @@ public struct TemporaryFile {
         // Determine in which directory to create the temporary file.
         self.dir = try determineTempDirectory(dir)
         // Construct path to the temporary file.
-        let path = AbsolutePath(prefix + ".XXXXXX" + suffix, relativeTo: self.dir)
+        let path = try AbsolutePath(validating: prefix + ".XXXXXX" + suffix, relativeTo: self.dir)
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
@@ -98,7 +98,7 @@ public struct TemporaryFile {
         // If mkstemps failed then throw error.
         if fd == -1 { throw TempFileError(errno: errno) }
 
-        self.path = AbsolutePath(String(cString: template))
+        self.path = try AbsolutePath(validating: String(cString: template))
         fileHandle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 }
@@ -236,7 +236,7 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) throws -> Result
 ) throws -> Result {
     // Construct path to the temporary directory.
-    let templatePath = try AbsolutePath(prefix + ".XXXXXX", relativeTo: determineTempDirectory(dir))
+    let templatePath = try AbsolutePath(validating: prefix + ".XXXXXX", relativeTo: determineTempDirectory(dir))
 
     // Convert templatePath to a C style string terminating with null char to be an valid input
     // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
@@ -247,7 +247,7 @@ public func withTemporaryDirectory<Result>(
         throw MakeDirectoryError(errno: errno)
     }
 
-    return try body(AbsolutePath(String(cString: template))) { path in
+    return try body(AbsolutePath(validating: String(cString: template))) { path in
         _ = try? FileManager.default.removeItem(atPath: path.pathString)
     }
 }
