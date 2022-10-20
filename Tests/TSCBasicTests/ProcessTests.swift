@@ -19,10 +19,6 @@ typealias ProcessID = TSCBasic.Process.ProcessID
 typealias Process = TSCBasic.Process
 
 class ProcessTests: XCTestCase {
-    func script(_ name: String) -> String {
-        return AbsolutePath(path: #file).parentDirectory.appending(components: "processInputs", name).pathString
-    }
-
     func testBasics() throws {
         do {
             let process = Process(args: "echo", "hello")
@@ -34,7 +30,7 @@ class ProcessTests: XCTestCase {
         }
 
         do {
-            let process = Process(args: script("exit4"))
+            let process = Process(scriptName: "exit4")
             try process.launch()
             let result = try process.waitUntilExit()
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
@@ -100,7 +96,7 @@ class ProcessTests: XCTestCase {
         }
 
         do {
-            let output = try Process.checkNonZeroExit(args: script("exit4"))
+            let output = try Process.checkNonZeroExit(scriptName: "exit4")
             XCTFail("Unexpected success \(output)")
         } catch ProcessResult.Error.nonZeroExit(let result) {
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
@@ -162,7 +158,7 @@ class ProcessTests: XCTestCase {
                 try testWithTemporaryDirectory { tmpdir in
                     let file = tmpdir.appending(component: "pidfile")
                     let waitFile = tmpdir.appending(component: "waitFile")
-                    let process = Process(args: self.script("print-pid"), file.pathString, waitFile.pathString)
+                    let process = Process(scriptName: "print-pid", arguments: [file.pathString, waitFile.pathString])
                     try processes.add(process)
                     try process.launch()
                     guard waitForFile(waitFile) else {
@@ -190,7 +186,7 @@ class ProcessTests: XCTestCase {
                 try testWithTemporaryDirectory { tmpdir in
                     let file = tmpdir.appending(component: "pidfile")
                     let waitFile = tmpdir.appending(component: "waitFile")
-                    let process = Process(args: self.script("subprocess"), file.pathString, waitFile.pathString)
+                    let process = Process(scriptName: "subprocess", arguments: [file.pathString, waitFile.pathString])
                     try processes.add(process)
                     try process.launch()
                     guard waitForFile(waitFile) else {
@@ -255,7 +251,7 @@ class ProcessTests: XCTestCase {
 
     func testStdin() throws {
         var stdout = [UInt8]()
-        let process = Process(args: script("in-to-out"), outputRedirection: .stream(stdout: { stdoutBytes in
+        let process = Process(scriptName: "in-to-out", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout += stdoutBytes
         }, stderr: { _ in }))
         let stdinStream = try process.launch()
@@ -273,14 +269,14 @@ class ProcessTests: XCTestCase {
     func testStdoutStdErr() throws {
         // A simple script to check that stdout and stderr are captured separatly.
         do {
-            let result = try Process.popen(args: script("simple-stdout-stderr"))
+            let result = try Process.popen(scriptName: "simple-stdout-stderr")
             XCTAssertEqual(try result.utf8Output(), "simple output\n")
             XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
         }
 
         // A long stdout and stderr output.
         do {
-            let result = try Process.popen(args: script("long-stdout-stderr"))
+            let result = try Process.popen(scriptName: "long-stdout-stderr")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -288,7 +284,7 @@ class ProcessTests: XCTestCase {
 
         // This script will block if the streams are not read.
         do {
-            let result = try Process.popen(args: script("deadlock-if-blocking-io"))
+            let result = try Process.popen(scriptName: "deadlock-if-blocking-io")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -298,7 +294,7 @@ class ProcessTests: XCTestCase {
     func testStdoutStdErrRedirected() throws {
         // A simple script to check that stdout and stderr are captured in the same location.
         do {
-            let process = Process(args: script("simple-stdout-stderr"), outputRedirection: .collect(redirectStderr: true))
+            let process = Process(scriptName: "simple-stdout-stderr", outputRedirection: .collect(redirectStderr: true))
             try process.launch()
             let result = try process.waitUntilExit()
             XCTAssertEqual(try result.utf8Output(), "simple error\nsimple output\n")
@@ -307,7 +303,7 @@ class ProcessTests: XCTestCase {
 
         // A long stdout and stderr output.
         do {
-            let process = Process(args: script("long-stdout-stderr"), outputRedirection: .collect(redirectStderr: true))
+            let process = Process(scriptName: "long-stdout-stderr", outputRedirection: .collect(redirectStderr: true))
             try process.launch()
             let result = try process.waitUntilExit()
 
@@ -320,7 +316,7 @@ class ProcessTests: XCTestCase {
     func testStdoutStdErrStreaming() throws {
         var stdout = [UInt8]()
         var stderr = [UInt8]()
-        let process = Process(args: script("long-stdout-stderr"), outputRedirection: .stream(stdout: { stdoutBytes in
+        let process = Process(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout += stdoutBytes
         }, stderr: { stderrBytes in
             stderr += stderrBytes
@@ -336,7 +332,7 @@ class ProcessTests: XCTestCase {
     func testStdoutStdErrStreamingRedirected() throws {
         var stdout = [UInt8]()
         var stderr = [UInt8]()
-        let process = Process(args: script("long-stdout-stderr"), outputRedirection: .stream(stdout: { stdoutBytes in
+        let process = Process(scriptName: "long-stdout-stderr", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout += stdoutBytes
         }, stderr: { stderrBytes in
             stderr += stderrBytes
@@ -384,5 +380,41 @@ class ProcessTests: XCTestCase {
                 XCTAssertEqual(try result.utf8Output(), "child")
             }
         }
+    }
+}
+
+fileprivate extension Process {
+    private static func env() -> [String:String] {
+        var env = ProcessEnv.vars
+        #if os(macOS)
+        // Many of these tests use Python which might not be in the default `PATH` when running these tests from Xcode.
+        env["PATH"] = "\(env["PATH"] ?? ""):/usr/local/bin"
+        #endif
+        return env
+    }
+
+    private static func script(_ name: String) -> String {
+        return AbsolutePath(path: #file).parentDirectory.appending(components: "processInputs", name).pathString
+    }
+
+    convenience init(scriptName: String, arguments: [String] = [], outputRedirection: OutputRedirection = .collect) {
+        self.init(arguments: [Self.script(scriptName)] + arguments, environment: Self.env(), outputRedirection: outputRedirection)
+    }
+
+    static func checkNonZeroExit(
+        scriptName: String,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        return try checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
+    }
+
+    @discardableResult
+    static func popen(
+        scriptName: String,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        return try popen(arguments: [script(scriptName)], environment: Self.env(), loggingHandler: loggingHandler)
     }
 }
