@@ -12,6 +12,7 @@
 // for BuildSupport style logic yet.
 //
 /// Build-tool independent flags.
+@available(*, deprecated, message: "replace with SwiftPM `PackageModel.BuildFlags`")
 public struct BuildFlags: Encodable {
 
     /// Flags to pass to the C compiler.
