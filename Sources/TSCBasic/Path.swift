@@ -41,7 +41,7 @@ import var Foundation.NSLocalizedDescriptionKey
 /// normalization, because it is normally the responsibility of the shell and
 /// not the program being invoked (e.g. when invoking `cd ~`, it is the shell
 /// that evaluates the tilde; the `cd` command receives an absolute path).
-public struct AbsolutePath: Hashable {
+public struct AbsolutePath: Hashable, Sendable {
     /// Check if the given name is a valid individual path component.
     ///
     /// This only checks with regard to the semantics enforced by `AbsolutePath`
@@ -231,7 +231,7 @@ public struct AbsolutePath: Hashable {
 /// This string manipulation may change the meaning of a path if any of the
 /// path components are symbolic links on disk.  However, the file system is
 /// never accessed in any way when initializing a RelativePath.
-public struct RelativePath: Hashable {
+public struct RelativePath: Hashable, Sendable {
     /// Private implementation details, shared with the AbsolutePath struct.
     fileprivate let _impl: PathImpl
 
@@ -462,7 +462,7 @@ extension Path {
 }
 
 #if os(Windows)
-private struct WindowsPath: Path {
+private struct WindowsPath: Path, Sendable {
     let string: String
 
     // NOTE: this is *NOT* a root path.  It is a drive-relative path that needs
@@ -611,7 +611,7 @@ private struct WindowsPath: Path {
     }
 }
 #else
-private struct UNIXPath: Path {
+private struct UNIXPath: Path, Sendable {
     let string: String
 
     static let root = Self(string: "/")
