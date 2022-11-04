@@ -1,5 +1,9 @@
 #if defined(__linux__)
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* for posix_spawn_file_actions_addchdir_np */
+#endif
+
 #include <errno.h>
 
 #include "process.h"
