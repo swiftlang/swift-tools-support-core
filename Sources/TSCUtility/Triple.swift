@@ -40,6 +40,7 @@ public struct Triple: Encodable, Equatable {
         case x86_64
         case x86_64h
         case i686
+        case powerpc
         case powerpc64le
         case s390x
         case aarch64
