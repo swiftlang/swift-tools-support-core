@@ -115,15 +115,21 @@ public func ~=(patterns: [StringPattern], input: [String]) -> Bool {
     return matchAny(patterns[...], input: input[...])
 }
 
-private func XCTAssertMatchImpl<Pattern, Value>(_ result: Bool, _ value: Value, _ pattern: Pattern, file: StaticString, line: UInt) {
-    XCTAssert(result, "unexpected failure matching '\(value)' against pattern \(pattern)", file: file, line: line)
+private func XCTAssertMatchImpl<Pattern, Value>(_ result: Bool, _ value: Value, _ pattern: Pattern, negativeMatch: Bool = false, file: StaticString, line: UInt) {
+    let message: String
+    if negativeMatch {
+        message = "did not expect '\(value)' to match pattern \(pattern)"
+    } else {
+        message = "unexpected failure matching '\(value)' against pattern \(pattern)"
+    }
+    XCTAssert(result, message, file: file, line: line)
 }
 
 public func XCTAssertMatch(_ value: String, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
     XCTAssertMatchImpl(pattern ~= value, value, pattern, file: file, line: line)
 }
 public func XCTAssertNoMatch(_ value: String, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
-    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, file: file, line: line)
+    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, negativeMatch: true, file: file, line: line)
 }
 
 public func XCTAssertMatch(_ value: String?, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
@@ -134,12 +140,12 @@ public func XCTAssertMatch(_ value: String?, _ pattern: StringPattern, file: Sta
 }
 public func XCTAssertNoMatch(_ value: String?, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
     guard let value = value else { return }
-    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, file: file, line: line)
+    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, negativeMatch: true, file: file, line: line)
 }
 
 public func XCTAssertMatch(_ value: [String], _ pattern: [StringPattern], file: StaticString = #file, line: UInt = #line) {
     XCTAssertMatchImpl(pattern ~= value, value, pattern, file: file, line: line)
 }
 public func XCTAssertNoMatch(_ value: [String], _ pattern: [StringPattern], file: StaticString = #file, line: UInt = #line) {
-    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, file: file, line: line)
+    XCTAssertMatchImpl(!(pattern ~= value), value, pattern, negativeMatch: true, file: file, line: line)
 }
