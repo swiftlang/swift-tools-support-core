@@ -414,7 +414,7 @@ public final class Process {
     }
 
     @_disfavoredOverload
-    @available(*, deprecated, message: "user version without verbosity flag")
+    @available(*, deprecated, message: "use version without verbosity flag")
     public convenience init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
