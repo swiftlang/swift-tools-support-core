@@ -54,6 +54,23 @@ class GraphAlgorithmsTests: XCTestCase {
         XCTAssertEqual([1, 2], transitiveClosure(1, [1: [2], 2: [1]]))
     }
 
+    func testLayeredAllToAllGraph() throws {
+        let count = 100
+        let items = Array(0...count)
+        let layers = (0...count).flatMap { layerNumber in
+            items.map {
+                (
+                    $0 + 1000 * layerNumber,
+                    layerNumber == count ? [] : items.map {
+                        $0 + 1000 * (layerNumber + 1)
+                    }
+                )
+            }
+        }
+        
+        XCTAssertNotCycle(findCycle(1, Dictionary(uniqueKeysWithValues: layers)))
+    }
+
     func testTopologicalSort() throws {
         // A trival graph.
         XCTAssertEqual([1, 2], try topologicalSort(1, [1: [2]]))
