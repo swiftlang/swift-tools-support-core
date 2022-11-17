@@ -87,4 +87,18 @@ public extension AbsolutePath {
         }
         try! self.init(validating: pathString, relativeTo: basePath)
     }
+
+    init(base: AbsolutePath, _ relStr: StaticString) {
+        self.init(base, RelativePath(path: relStr))
+    }
+}
+
+public extension RelativePath {
+    init(path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+
 }
