@@ -119,7 +119,7 @@ class SimplePersistenceTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
         let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
-        let foo = Foo(int: 1, path: AbsolutePath(path: "/hello"), fileSystem: fs)
+        let foo = Foo(int: 1, path: AbsolutePath(static: "/hello"), fileSystem: fs)
         // Restoring right now should return false because state is not present.
         XCTAssertFalse(try foo.restore())
 
@@ -133,7 +133,7 @@ class SimplePersistenceTests: XCTestCase {
         foo.int = 5
         XCTAssertTrue(try foo.restore())
         XCTAssertEqual(foo.int, 1)
-        XCTAssertEqual(foo.path, AbsolutePath(path: "/hello"))
+        XCTAssertEqual(foo.path, AbsolutePath(static: "/hello"))
 
         // Modify state's schema version.
         let newJSON = JSON(["version": 2])
@@ -194,14 +194,14 @@ class SimplePersistenceTests: XCTestCase {
                 """
         }
 
-        let foo = Foo(int: 1, path: AbsolutePath(path: "/hello"), fileSystem: fs)
-        XCTAssertEqual(foo.path, AbsolutePath(path: "/hello"))
+        let foo = Foo(int: 1, path: AbsolutePath(static: "/hello"), fileSystem: fs)
+        XCTAssertEqual(foo.path, AbsolutePath(static: "/hello"))
         XCTAssertEqual(foo.int, 1)
 
         // Load from an older but supported schema state file.
         XCTAssertTrue(try foo.restore())
 
-        XCTAssertEqual(foo.path, AbsolutePath(path: "/oldpath"))
+        XCTAssertEqual(foo.path, AbsolutePath(static: "/oldpath"))
         XCTAssertEqual(foo.int, 4)
     }
 }

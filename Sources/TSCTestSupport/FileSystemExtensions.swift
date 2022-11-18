@@ -73,32 +73,32 @@ extension FileSystem {
     }
 }
 
-public extension AbsolutePath {
-    init(path: StaticString) {
+extension AbsolutePath {
+    @available(*, deprecated, message: "use init(static:) instead")
+    public init(path: StaticString) {
+        self.init(static: path)
+    }
+
+    public init(static path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString)
     }
 
-    init(path: StaticString, relativeTo basePath: AbsolutePath) {
+    @available(*, deprecated, message: "use init(static: relativeTo:) instead")
+    public init(path: StaticString, relativeTo basePath: AbsolutePath) {
+        self.init(static: path, relativeTo: basePath)
+    }
+
+    public init(static path: StaticString, relativeTo basePath: AbsolutePath) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString, relativeTo: basePath)
     }
 
-    init(base: AbsolutePath, _ relStr: StaticString) {
-        self.init(base, RelativePath(path: relStr))
+    public init(base: AbsolutePath, _ relStr: StaticString) {
+        self.init(base, RelativePath(static: relStr))
     }
-}
-
-public extension RelativePath {
-    init(path: StaticString) {
-        let pathString = path.withUTF8Buffer {
-            String(decoding: $0, as: UTF8.self)
-        }
-        try! self.init(validating: pathString)
-    }
-
 }

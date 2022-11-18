@@ -102,7 +102,7 @@ public struct AbsolutePath: Hashable, Sendable {
     }
 
     /// Convenience initializer that appends a string to a relative path.
-    public init(_ absPath: AbsolutePath, _ relStr: String) throws {
+    public init(_ absPath: AbsolutePath, validating relStr: String) throws {
         try self.init(absPath, RelativePath(validating: relStr))
     }
 
@@ -259,6 +259,13 @@ public struct RelativePath: Hashable, Sendable {
         self.init(PathImpl(normalizingRelativePath: string))
     }*/
 
+    public init(static path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+
     /// Convenience initializer that verifies that the path is relative.
     public init(validating path: String) throws {
         try self.init(PathImpl(validatingRelativePath: path))
@@ -339,6 +346,8 @@ public struct RelativePath: Hashable, Sendable {
         appending(components: names)
     }
 }
+
+
 
 extension AbsolutePath: Codable {
     public func encode(to encoder: Encoder) throws {
@@ -802,7 +811,7 @@ private struct UNIXPath: Path, Sendable {
 
     init(validatingRelativePath path: String) throws {
         switch path.first {
-        case "/", "~":
+        case "/": //, "~":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(normalizingRelativePath: path)
@@ -898,7 +907,7 @@ extension PathValidationError: CustomStringConvertible {
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
         case .invalidRelativePath(let path):
-            return "invalid relative path '\(path)'; relative path should not begin with '\(AbsolutePath.root.pathString)' or '~'"
+            return "invalid relative path '\(path)'; relative path should not begin with '\(AbsolutePath.root.pathString)'"
         }
     }
 }
@@ -1056,6 +1065,11 @@ extension AbsolutePath {
     @available(*, deprecated, message: "use throwing `init(validating:relativeTo:)` variant instead")
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: str, relativeTo: basePath)
+    }
+
+    @available(*, deprecated, message: "use throwing variant instead")
+    public init(_ absPath: AbsolutePath, _ relStr: String) {
+        try! self.init(absPath, validating: relStr)
     }
 }
 

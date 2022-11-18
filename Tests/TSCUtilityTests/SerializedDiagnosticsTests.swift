@@ -15,7 +15,7 @@ import TSCUtility
 
 final class SerializedDiagnosticsTests: XCTestCase {
   func testReadSwiftDiagnosticWithNote() throws {
-    let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
+    let serializedDiagnosticsPath = AbsolutePath(static: #file).parentDirectory
       .appending(components: "Inputs", "multiblock.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
     let serializedDiags = try SerializedDiagnostics(bytes: contents)
@@ -97,7 +97,7 @@ final class SerializedDiagnosticsTests: XCTestCase {
   }
 
   func testReadSwiftSerializedDiags() throws {
-    let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
+    let serializedDiagnosticsPath = AbsolutePath(static: #file).parentDirectory
         .appending(components: "Inputs", "serialized.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
     let serializedDiags = try SerializedDiagnostics(bytes: contents)
@@ -145,7 +145,7 @@ final class SerializedDiagnosticsTests: XCTestCase {
   }
 
   func testReadDiagsWithNoLocation() throws {
-    let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
+    let serializedDiagnosticsPath = AbsolutePath(static: #file).parentDirectory
         .appending(components: "Inputs", "no-location.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
     let serializedDiags = try SerializedDiagnostics(bytes: contents)
@@ -174,7 +174,7 @@ final class SerializedDiagnosticsTests: XCTestCase {
   }
 
   func testReadClangSerializedDiags() throws {
-    let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
+    let serializedDiagnosticsPath = AbsolutePath(static: #file).parentDirectory
         .appending(components: "Inputs", "clang.dia")
     let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
     let serializedDiags = try SerializedDiagnostics(bytes: contents)
