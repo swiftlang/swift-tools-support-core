@@ -955,6 +955,8 @@ extension Process {
         queue: DispatchQueue? = nil,
         completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
     ) {
+        let completionQueue = queue ?? Self.sharedCompletionQueue
+
         do {
             let process = Process(
                 arguments: arguments,
@@ -962,11 +964,13 @@ extension Process {
                 outputRedirection: .collect,
                 loggingHandler: loggingHandler
             )
-            process.completionQueue = queue ?? Self.sharedCompletionQueue
+            process.completionQueue = completionQueue
             try process.launch()
             process.waitUntilExit(completion)
         } catch {
-            completion(.failure(error))
+            completionQueue.async {
+                completion(.failure(error))
+            }
         }
     }
 
