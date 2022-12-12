@@ -14,10 +14,16 @@
 ///                   should be passed to the async method's completion handler.
 /// - Returns: The value wrapped by the async method's result.
 /// - Throws: The error wrapped by the async method's result
+#if compiler(>=5.7)
+@available(*, noasync)
+#endif
 public func tsc_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     return try tsc_await(body).get()
 }
 
+#if compiler(>=5.7)
+@available(*, noasync)
+#endif
 public func tsc_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
     let condition = Condition()
     var result: T? = nil
