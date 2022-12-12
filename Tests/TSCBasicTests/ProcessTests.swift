@@ -62,7 +62,7 @@ class ProcessTests: XCTestCase {
         }
     }
 
-    func testPopenAsync() throws {
+    func testPopenLegacyAsync() throws {
         #if os(Windows)
         let args = ["where.exe", "where"]
         let answer = "C:\\Windows\\System32\\where.exe"
@@ -89,6 +89,25 @@ class ProcessTests: XCTestCase {
         }
     }
 
+    func testPopenAsync() async throws {
+        #if os(Windows)
+        let args = ["where.exe", "where"]
+        let answer = "C:\\Windows\\System32\\where.exe"
+        #else
+        let args = ["whoami"]
+        let answer = NSUserName()
+        #endif
+        let processResult: ProcessResult
+        do {
+            processResult = try await Process.popen(arguments: args)
+        } catch let error {
+            XCTFail("error = \(error)")
+            return
+        }
+        let output = try processResult.utf8Output()
+        XCTAssertTrue(output.hasPrefix(answer))
+    }
+
     func testCheckNonZeroExit() throws {
         do {
             let output = try Process.checkNonZeroExit(args: "echo", "hello")
@@ -97,6 +116,20 @@ class ProcessTests: XCTestCase {
 
         do {
             let output = try Process.checkNonZeroExit(scriptName: "exit4")
+            XCTFail("Unexpected success \(output)")
+        } catch ProcessResult.Error.nonZeroExit(let result) {
+            XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+        }
+    }
+
+    func testCheckNonZeroExitAsync() async throws {
+        do {
+            let output = try await Process.checkNonZeroExit(args: "echo", "hello")
+            XCTAssertEqual(output, "hello\n")
+        }
+
+        do {
+            let output = try await Process.checkNonZeroExit(scriptName: "exit4")
             XCTFail("Unexpected success \(output)")
         } catch ProcessResult.Error.nonZeroExit(let result) {
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
@@ -249,6 +282,26 @@ class ProcessTests: XCTestCase {
         XCTAssertEqual(result2, "hello\n")
     }
 
+    @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+    func testThreadSafetyOnWaitUntilExitAsync() async throws {
+        let process = Process(args: "echo", "hello")
+        try process.launch()
+
+        let t1 = Task {
+            try await process.waitUntilExit().utf8Output()
+        }
+
+        let t2 = Task {
+            try await process.waitUntilExit().utf8Output()
+        }
+
+        let result1 = try await t1.value
+        let result2 = try await t2.value
+
+        XCTAssertEqual(result1, "hello\n")
+        XCTAssertEqual(result2, "hello\n")
+    }
+
     func testStdin() throws {
         var stdout = [UInt8]()
         let process = Process(scriptName: "in-to-out", outputRedirection: .stream(stdout: { stdoutBytes in
@@ -285,6 +338,31 @@ class ProcessTests: XCTestCase {
         // This script will block if the streams are not read.
         do {
             let result = try Process.popen(scriptName: "deadlock-if-blocking-io")
+            let count = 16 * 1024
+            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
+            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+        }
+    }
+
+    func testStdoutStdErrAsync() async throws {
+        // A simple script to check that stdout and stderr are captured separatly.
+        do {
+            let result = try await Process.popen(scriptName: "simple-stdout-stderr")
+            XCTAssertEqual(try result.utf8Output(), "simple output\n")
+            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
+        }
+
+        // A long stdout and stderr output.
+        do {
+            let result = try await Process.popen(scriptName: "long-stdout-stderr")
+            let count = 16 * 1024
+            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
+            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+        }
+
+        // This script will block if the streams are not read.
+        do {
+            let result = try await Process.popen(scriptName: "deadlock-if-blocking-io")
             let count = 16 * 1024
             XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
@@ -401,6 +479,9 @@ fileprivate extension Process {
         self.init(arguments: [Self.script(scriptName)] + arguments, environment: Self.env(), outputRedirection: outputRedirection)
     }
 
+    #if compiler(>=5.7)
+    @available(*, noasync)
+    #endif
     static func checkNonZeroExit(
         scriptName: String,
         environment: [String: String] = ProcessEnv.vars,
@@ -409,6 +490,17 @@ fileprivate extension Process {
         return try checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
     }
 
+    static func checkNonZeroExit(
+        scriptName: String,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) async throws -> String {
+        return try await checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
+    }
+
+    #if compiler(>=5.7)
+    @available(*, noasync)
+    #endif
     @discardableResult
     static func popen(
         scriptName: String,
@@ -416,5 +508,14 @@ fileprivate extension Process {
         loggingHandler: LoggingHandler? = .none
     ) throws -> ProcessResult {
         return try popen(arguments: [script(scriptName)], environment: Self.env(), loggingHandler: loggingHandler)
+    }
+
+    @discardableResult
+    static func popen(
+        scriptName: String,
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) async throws -> ProcessResult {
+        return try await popen(arguments: [script(scriptName)], environment: Self.env(), loggingHandler: loggingHandler)
     }
 }
