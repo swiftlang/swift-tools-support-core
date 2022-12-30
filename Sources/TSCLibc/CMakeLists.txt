@@ -6,20 +6,9 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(TSCLibc
+add_library(TSCLibc STATIC
   libc.swift)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-  target_compile_options(TSCLibc PRIVATE
-    -autolink-force-load)
-endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCLibc PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-install(TARGETS TSCLibc
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-
-set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCLibc)
