@@ -12,6 +12,7 @@ import TSCBasic
 import Foundation
 
 /// Recognized Platform types.
+@available(*, deprecated, message: "moved to SourceKit-LSP")
 public enum Platform: Equatable {
     case android
     case darwin
