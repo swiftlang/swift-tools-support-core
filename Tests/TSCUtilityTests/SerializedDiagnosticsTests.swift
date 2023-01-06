@@ -163,6 +163,16 @@ final class SerializedDiagnosticsTests: XCTestCase {
     XCTAssertEqual(diag.fixIts.count, 0)
   }
 
+  func testReadDiagsWithUnknownRecord() throws {
+    let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
+        .appending(components: "Inputs", "string_init_ambig.dia")
+    let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
+    let serializedDiags = try SerializedDiagnostics(bytes: contents)
+
+    XCTAssertEqual(serializedDiags.versionNumber, 2)
+    XCTAssertEqual(serializedDiags.diagnostics.count, 35)
+  }
+
   func testReadClangSerializedDiags() throws {
     let serializedDiagnosticsPath = AbsolutePath(path: #file).parentDirectory
         .appending(components: "Inputs", "clang.dia")
