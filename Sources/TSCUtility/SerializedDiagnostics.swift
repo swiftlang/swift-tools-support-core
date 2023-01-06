@@ -129,7 +129,8 @@ extension SerializedDiagnostics {
           }
 
         case .version, nil:
-          throw Error.unexpectedRecord
+          // Ignore unknown records, for future compatibility
+          continue
         }
       }
 
