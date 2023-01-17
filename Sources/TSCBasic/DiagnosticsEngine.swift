@@ -200,7 +200,7 @@ public struct StringDiagnostic: DiagnosticData {
     }
 }
 
-/// Represents a diagnostic location whic is unknown.
+/// Represents a diagnostic location which is unknown.
 public final class UnknownLocation: DiagnosticLocation {
     /// The singleton instance.
     public static let location = UnknownLocation()
