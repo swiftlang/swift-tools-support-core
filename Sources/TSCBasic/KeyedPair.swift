@@ -50,3 +50,5 @@ public struct KeyedPair<T, K: Hashable>: Hashable {
         return lhs.key == rhs.key
     }
 }
+
+extension KeyedPair: Sendable where T: Sendable, K: Sendable {}

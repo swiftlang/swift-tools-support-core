@@ -20,7 +20,7 @@ import TSCBasic
 /// @see Destination.target
 /// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 ///
-public struct Triple: Encodable, Equatable {
+public struct Triple: Encodable, Equatable, Sendable {
     public let tripleString: String
 
     public let arch: Arch
@@ -36,7 +36,7 @@ public struct Triple: Encodable, Equatable {
         case unknownOS(os: String)
     }
 
-    public enum Arch: String, Encodable {
+    public enum Arch: String, Encodable, Sendable {
         case x86_64
         case x86_64h
         case i686
@@ -59,12 +59,12 @@ public struct Triple: Encodable, Equatable {
         case mips64el
     }
 
-    public enum Vendor: String, Encodable {
+    public enum Vendor: String, Encodable, Sendable {
         case unknown
         case apple
     }
 
-    public enum OS: String, Encodable, CaseIterable {
+    public enum OS: String, Encodable, CaseIterable, Sendable {
         case darwin
         case macOS = "macosx"
         case linux
@@ -73,7 +73,7 @@ public struct Triple: Encodable, Equatable {
         case openbsd
     }
 
-    public enum ABI: Encodable, Equatable, RawRepresentable {
+    public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
         case unknown
         case android
         case other(name: String)
