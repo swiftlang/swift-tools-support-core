@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,6 +9,10 @@
  */
 
 import Foundation
+
+// FIXME: this conformance can be removed when TSC starts requiring more recent versions of the compiler.
+extension FileAttributeType: @unchecked Sendable {}
+extension Date: @unchecked Sendable {}
 
 /// File system information for a particular file.
 public struct FileInfo: Equatable, Codable, Sendable {
