@@ -11,7 +11,7 @@
 import Foundation
 
 /// File system information for a particular file.
-public struct FileInfo: Equatable, Codable {
+public struct FileInfo: Equatable, Codable, Sendable {
 
     /// The device number.
     public let device: UInt64
