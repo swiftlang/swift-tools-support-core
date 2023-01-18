@@ -23,7 +23,7 @@ import Foundation
 /// strings or and by eliminating wasted space in growable arrays). For
 /// construction of byte arrays, clients should use the `WritableByteStream` class
 /// and then convert to a `ByteString` when complete.
-public struct ByteString: ExpressibleByArrayLiteral, Hashable {
+public struct ByteString: ExpressibleByArrayLiteral, Hashable, Sendable {
     /// The buffer contents.
     @usableFromInline
     internal var _bytes: [UInt8]
