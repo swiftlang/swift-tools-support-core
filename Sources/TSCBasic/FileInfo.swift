@@ -10,9 +10,10 @@
 
 import Foundation
 
-// FIXME: this conformance can be removed when TSC starts requiring more recent versions of the compiler.
-extension FileAttributeType: @unchecked Sendable {}
-extension Date: @unchecked Sendable {}
+#if swift(<5.6)
+extension FileAttributeType: UnsafeSendable {}
+extension Date: UnsafeSendable {}
+#endif
 
 /// File system information for a particular file.
 public struct FileInfo: Equatable, Codable, Sendable {
