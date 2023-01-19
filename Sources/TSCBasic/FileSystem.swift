@@ -111,9 +111,9 @@ public extension FileSystemError {
 }
 
 /// Defines the file modes.
-public enum FileMode {
+public enum FileMode: Sendable {
 
-    public enum Option: Int {
+    public enum Option: Int, Sendable {
         case recursive
         case onlyFiles
     }
@@ -122,17 +122,17 @@ public enum FileMode {
     case userWritable
     case executable
 
-    internal var setMode: (Int16) -> Int16 {
+    public func setMode(_ originalMode: Int16) -> Int16 {
         switch self {
         case .userUnWritable:
             // r-x rwx rwx
-            return {$0 & 0o577}
+            return originalMode & 0o577
         case .userWritable:
             // -w- --- ---
-            return {$0 | 0o200}
+            return originalMode | 0o200
         case .executable:
             // --x --x --x
-            return {$0 | 0o111}
+            return originalMode | 0o111
         }
     }
 }
