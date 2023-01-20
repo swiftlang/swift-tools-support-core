@@ -84,7 +84,7 @@ public final class DiagnosticsEngine: CustomStringConvertible {
 
     public typealias DiagnosticsHandler = (Diagnostic) -> Void
 
-    /// Queue to protect concurrent mutations to the diagnositcs engine.
+    /// Queue to protect concurrent mutations to the diagnostics engine.
     private let queue = DispatchQueue(label: "\(DiagnosticsEngine.self)")
 
     /// Queue for dispatching handlers.
