@@ -1064,12 +1064,12 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 // MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
 
 extension AbsolutePath {
-    @available(*, deprecated, message: "use throwing variant instead")
+    @available(*, deprecated, message: "use throwing `init(validating:)` variant instead")
     public init(_ absStr: String) {
         try! self.init(validating: absStr)
     }
 
-    @available(*, deprecated, message: "use throwing variant instead")
+    @available(*, deprecated, message: "use throwing `init(validating:relativeTo:)` variant instead")
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: str, relativeTo: basePath)
     }
