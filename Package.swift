@@ -10,7 +10,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-
 import PackageDescription
 import class Foundation.ProcessInfo
 
