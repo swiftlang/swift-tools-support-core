@@ -149,7 +149,7 @@ extension SerializedDiagnostics {
     }
   }
 
-  public struct SourceLocation: Equatable {
+  public struct SourceLocation: Equatable, Sendable {
     /// The filename associated with the diagnostic.
     public var filename: String
     public var line: UInt64
