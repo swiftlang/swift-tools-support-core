@@ -11,14 +11,14 @@
 import Dispatch
 
 /// The payload of a diagnostic.
-public protocol DiagnosticData: CustomStringConvertible {
+public protocol DiagnosticData: Sendable, CustomStringConvertible {
 }
 
 extension DiagnosticData {
     public var localizedDescription: String { self.description }
 }
 
-public protocol DiagnosticLocation: CustomStringConvertible {
+public protocol DiagnosticLocation: Sendable, CustomStringConvertible {
 }
 
 public struct Diagnostic: CustomStringConvertible {
