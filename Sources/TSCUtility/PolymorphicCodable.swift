@@ -42,6 +42,8 @@ public struct PolymorphicCodable<T: PolymorphicCodableProtocol>: Codable {
     }
 }
 
+extension PolymorphicCodable: Sendable where T: Sendable {}
+
 @propertyWrapper
 public struct PolymorphicCodableArray<T: PolymorphicCodableProtocol>: Codable {
     public let value: [PolymorphicCodable<T>]
@@ -54,3 +56,5 @@ public struct PolymorphicCodableArray<T: PolymorphicCodableProtocol>: Codable {
         return value.map{ $0.value }
     }
 }
+
+extension PolymorphicCodableArray: Sendable where T: Sendable {}
