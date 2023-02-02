@@ -22,7 +22,7 @@ public final class TerminalController {
         /// The terminal is a TTY.
         case tty
 
-        /// TERM enviornment variable is set to "dumb".
+        /// TERM environment variable is set to "dumb".
         case dumb
 
         /// The terminal is a file stream.
