@@ -64,7 +64,7 @@ public final class ProcessSet {
     /// Terminate all the processes. This method blocks until all processes in the set are terminated.
     ///
     /// A process set cannot be used once it has been asked to terminate.
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     public func terminate() {

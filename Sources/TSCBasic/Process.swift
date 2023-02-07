@@ -835,7 +835,7 @@ public final class Process {
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     @discardableResult
@@ -1060,7 +1060,7 @@ extension Process {
     ///   - loggingHandler: Handler for logging messages
     ///   - queue: Queue to use for callbacks
     ///   - completion: A completion handler to return the process result
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     static public func popen(
@@ -1097,7 +1097,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     @discardableResult
@@ -1124,7 +1124,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     @discardableResult
@@ -1144,7 +1144,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     @discardableResult
@@ -1176,7 +1176,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.7)
+    #if compiler(>=5.8)
     @available(*, noasync)
     #endif
     @discardableResult
