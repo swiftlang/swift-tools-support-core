@@ -36,7 +36,15 @@ public struct Triple: Encodable, Equatable {
         case unknownOS(os: String)
     }
 
-    public enum Arch: String, Encodable {
+    public enum ARMCore: String, Encodable, CaseIterable {
+        case a = "a"
+        case r = "r"
+        case m = "m"
+        case k = "k"
+        case s = "s"
+    }
+
+    public enum Arch: Encodable {
         case x86_64
         case x86_64h
         case i686
@@ -45,7 +53,7 @@ public struct Triple: Encodable, Equatable {
         case s390x
         case aarch64
         case amd64
-        case armv7
+        case armv7(core: ARMCore?)
         case armv6
         case armv5
         case arm
@@ -117,7 +125,7 @@ public struct Triple: Encodable, Equatable {
             throw Error.badFormat(triple: string)
         }
 
-        guard let arch = Arch(rawValue: components[0]) else {
+        guard let arch = Triple.parseArch(components[0]) else {
             throw Error.unknownArch(arch: components[0])
         }
 
@@ -139,6 +147,43 @@ public struct Triple: Encodable, Equatable {
         self.osVersion = osVersion
         self.abi = abi ?? .unknown
         self.abiVersion = abiVersion
+    }
+
+    fileprivate static func parseArch(_ string: String) -> Arch? {
+        let candidates: [String:Arch] = [
+            "x86_64h": .x86_64h,
+            "x86_64": .x86_64,
+            "i686": .i686,
+            "powerpc64le": .powerpc64le,
+            "s390x": .s390x,
+            "aarch64": .aarch64,
+            "amd64": .amd64,
+            "armv7": .armv7(core: nil),
+            "armv6": .armv6,
+            "armv5": .armv5,
+            "arm": .arm,
+            "arm64": .arm64,
+            "arm64e": .arm64e,
+            "wasm32": .wasm32,
+        ]
+        if let match = candidates.first(where: { string.hasPrefix($0.key) })?.value {
+            if case let .armv7(core: _) = match {
+                if string.hasPrefix("armv7a") {
+                    return .armv7(core: .a)
+                } else if string.hasPrefix("armv7r") {
+                    return .armv7(core: .r)
+                } else if string.hasPrefix("armv7m") {
+                    return .armv7(core: .m)
+                } else if string.hasPrefix("armv7k") {
+                    return .armv7(core: .k)
+                } else if string.hasPrefix("armv7s") {
+                    return .armv7(core: .s)
+                }
+                return .armv7(core: nil)
+            }
+            return match
+        }
+        return nil
     }
 
     fileprivate static func parseOS(_ string: String) -> OS? {
@@ -207,6 +252,7 @@ public struct Triple: Encodable, Equatable {
                 fatalError("Failed to get target info (\(error))")
             #endif
         }
+
         // Parse the compiler's JSON output.
         let parsedTargetInfo: JSON
         do {
@@ -285,6 +331,78 @@ extension Triple {
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
             return ".resources"
+        }
+    }
+}
+
+extension Triple.Arch: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .x86_64:
+            return "x86_64"
+        case .x86_64h:
+            return "x86_64h"
+        case .i686:
+            return "i686"
+        case .powerpc64le:
+            return "powerpc64le"
+        case .s390x:
+            return "s390x"
+        case .aarch64:
+            return "aarch64"
+        case .amd64:
+            return "amd64"
+        case .armv7(.none):
+            return "armv7"
+        case let .armv7(core: .some(core)):
+            return "armv7\(core)"
+        case .armv6:
+            return "armv6"
+        case .armv5:
+            return "armv5"
+        case .arm:
+            return "arm"
+        case .arm64:
+            return "arm64"
+        case .arm64e:
+            return "arm64e"
+        case .wasm32:
+            return "wasm32"
+        }
+    }
+}
+
+extension Triple.Arch: Equatable {
+    public static func == (_ lhs: Triple.Arch, _ rhs: Triple.Arch) -> Bool {
+        switch (lhs, rhs) {
+            case (.x86_64, .x86_64):
+                return true
+            case (.x86_64h, .x86_64h):
+                return true
+            case (.i686, .i686):
+                return true
+            case (.powerpc64le, .powerpc64le):
+                return true
+            case (.s390x, .s390x):
+                return true
+            case (.armv7(.none), .armv7(.none)):
+                return true
+            case let (.armv7(.some(lhs)), .armv7(.some(rhs))) where lhs == rhs:
+                return true
+            case (.armv6, .armv6):
+                return true
+            case (.armv5, .armv5):
+                return true
+            case (.arm, .arm):
+                return true
+            case (.arm64, .arm64):
+                return true
+            case (.arm64e, .arm64e):
+                return true
+            case (.wasm32, .wasm32):
+                return true
+            default:
+                return false
         }
     }
 }

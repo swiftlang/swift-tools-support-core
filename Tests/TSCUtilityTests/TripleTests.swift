@@ -40,6 +40,12 @@ class TripleTests : XCTestCase {
         let linuxWithABIVersion = try? Triple("x86_64-unknown-linux-gnu42")
         XCTAssertEqual(linuxWithABIVersion!.abi, .other(name: "gnu"))
         XCTAssertEqual(linuxWithABIVersion!.abiVersion, "42")
+
+        let androidArm = try? Triple("armv7a-unknown-linux-androideabi")
+        XCTAssertEqual(androidArm!.arch, .armv7(core: .a))
+
+        let watchOS = try? Triple("armv7k-apple-watchos")
+        XCTAssertEqual(watchOS!.arch, .armv7(core: .k))
     }
 
     func testEquality() throws {
