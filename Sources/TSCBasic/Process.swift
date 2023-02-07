@@ -21,12 +21,10 @@ import Foundation
 import TSCLibc
 import Dispatch
 
-import _Concurrency
-
 /// Process result data which is available after process termination.
-public struct ProcessResult: CustomStringConvertible, Sendable {
+public struct ProcessResult: CustomStringConvertible {
 
-    public enum Error: Swift.Error, Sendable {
+    public enum Error: Swift.Error {
         /// The output is not a valid UTF8 sequence.
         case illegalUTF8Sequence
 
@@ -34,7 +32,7 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
         case nonZeroExit(ProcessResult)
     }
 
-    public enum ExitStatus: Equatable, Sendable {
+    public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
 #if os(Windows)
@@ -127,18 +125,12 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     }
 }
 
-#if swift(<5.6)
-extension Process: UnsafeSendable {}
-#else
-extension Process: @unchecked Sendable {}
-#endif
-
 /// Process allows spawning new subprocesses and working with them.
 ///
 /// Note: This class is thread safe.
 public final class Process {
     /// Errors when attempting to invoke a process
-    public enum Error: Swift.Error, Sendable {
+    public enum Error: Swift.Error {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
 
@@ -815,29 +807,7 @@ public final class Process {
     #endif // POSIX implementation
     }
 
-    /// Executes the process I/O state machine, returning the result when finished.
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    @discardableResult
-    public func waitUntilExit() async throws -> ProcessResult {
-        #if compiler(>=5.6)
-        return try await withCheckedThrowingContinuation { continuation in
-            waitUntilExit(continuation.resume(with:))
-        }
-        #else
-        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
-            return try await withCheckedThrowingContinuation { continuation in
-                waitUntilExit(continuation.resume(with:))
-            }
-        } else {
-            preconditionFailure("Unsupported with Swift 5.5 on this OS version")
-        }
-        #endif
-    }
-
     /// Blocks the calling process until the subprocess finishes execution.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
         let group = DispatchGroup()
@@ -969,88 +939,6 @@ public final class Process {
 }
 
 extension Process {
-    /// Execute a subprocess and returns the result when it finishes execution
-    ///
-    /// - Parameters:
-    ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
-    ///     will be inherited.
-    ///   - loggingHandler: Handler for logging messages
-    @available(macOS 10.15, *)
-    static public func popen(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> ProcessResult {
-        let process = Process(
-            arguments: arguments,
-            environment: environment,
-            outputRedirection: .collect,
-            loggingHandler: loggingHandler
-        )
-        try process.launch()
-        return try await process.waitUntilExit()
-    }
-
-    /// Execute a subprocess and returns the result when it finishes execution
-    ///
-    /// - Parameters:
-    ///   - args: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
-    ///     will be inherited.
-    ///   - loggingHandler: Handler for logging messages
-    @available(macOS 10.15, *)
-    static public func popen(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> ProcessResult {
-        try await popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
-    }
-
-    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
-    ///
-    /// - Parameters:
-    ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
-    ///     will be inherited.
-    ///   - loggingHandler: Handler for logging messages
-    /// - Returns: The process output (stdout + stderr).
-    @available(macOS 10.15, *)
-    @discardableResult
-    static public func checkNonZeroExit(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> String {
-        let result = try await popen(arguments: arguments, environment: environment, loggingHandler: loggingHandler)
-        // Throw if there was a non zero termination.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
-        return try result.utf8Output()
-    }
-
-    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
-    ///
-    /// - Parameters:
-    ///   - args: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
-    ///     will be inherited.
-    ///   - loggingHandler: Handler for logging messages
-    /// - Returns: The process output (stdout + stderr).
-    @available(macOS 10.15, *)
-    @discardableResult
-    static public func checkNonZeroExit(
-        args: String...,
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> String {
-        try await checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
-    }
-}
-
-extension Process {
     /// Execute a subprocess and calls completion block when it finishes execution
     ///
     /// - Parameters:
@@ -1060,9 +948,6 @@ extension Process {
     ///   - loggingHandler: Handler for logging messages
     ///   - queue: Queue to use for callbacks
     ///   - completion: A completion handler to return the process result
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     static public func popen(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
@@ -1097,9 +982,6 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     @discardableResult
     static public func popen(
         arguments: [String],
@@ -1124,9 +1006,6 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     @discardableResult
     static public func popen(
         args: String...,
@@ -1144,9 +1023,6 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
@@ -1176,9 +1052,6 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
