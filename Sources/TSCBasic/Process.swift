@@ -835,9 +835,9 @@ public final class Process {
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
         let group = DispatchGroup()
@@ -1060,9 +1060,9 @@ extension Process {
     ///   - loggingHandler: Handler for logging messages
     ///   - queue: Queue to use for callbacks
     ///   - completion: A completion handler to return the process result
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     static public func popen(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
@@ -1097,9 +1097,9 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     @discardableResult
     static public func popen(
         arguments: [String],
@@ -1124,9 +1124,9 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     @discardableResult
     static public func popen(
         args: String...,
@@ -1144,9 +1144,9 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
@@ -1176,9 +1176,9 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    #if compiler(>=5.8)
-    @available(*, noasync)
-    #endif
+//    #if compiler(>=5.8)
+//    @available(*, noasync)
+//    #endif
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
