@@ -49,6 +49,8 @@ public struct CodableResult<Success, Failure>: Codable where Success: Codable, F
     }
 }
 
+extension CodableResult: Sendable where Success: Sendable, Failure: Sendable {}
+
 extension CodableResult where Failure == StringError {
     public init(body: () throws -> Success) {
         do {

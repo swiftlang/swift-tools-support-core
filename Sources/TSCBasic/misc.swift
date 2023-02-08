@@ -264,6 +264,8 @@ public struct CodableRange<Bound> where Bound: Comparable & Codable {
     }
 }
 
+extension CodableRange: Sendable where Bound: Sendable {}
+
 extension CodableRange: Codable {
     private enum CodingKeys: String, CodingKey {
         case lowerBound, upperBound

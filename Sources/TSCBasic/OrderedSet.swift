@@ -128,3 +128,5 @@ public func == <T>(lhs: OrderedSet<T>, rhs: OrderedSet<T>) -> Bool {
 }
 
 extension OrderedSet: Hashable where Element: Hashable { }
+
+extension OrderedSet: Sendable where Element: Sendable { }

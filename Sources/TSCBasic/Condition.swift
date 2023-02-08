@@ -50,3 +50,7 @@ public struct Condition {
         return try body()
     }
 }
+
+#if compiler(>=5.7)
+extension Condition: Sendable {}
+#endif

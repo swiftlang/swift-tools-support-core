@@ -123,3 +123,5 @@ extension OrderedDictionary: RandomAccessCollection {
         return (key, value)
     }
 }
+
+extension OrderedDictionary: Sendable where Key: Sendable, Value: Sendable {}

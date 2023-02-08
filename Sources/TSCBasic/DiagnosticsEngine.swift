@@ -21,9 +21,9 @@ extension DiagnosticData {
 public protocol DiagnosticLocation: Sendable, CustomStringConvertible {
 }
 
-public struct Diagnostic: CustomStringConvertible {
+public struct Diagnostic: CustomStringConvertible, Sendable {
     /// The behavior associated with this diagnostic.
-    public enum Behavior {
+    public enum Behavior: Sendable {
         /// An error which will halt the operation.
         case error
 
@@ -38,7 +38,7 @@ public struct Diagnostic: CustomStringConvertible {
         case ignored
     }
 
-    public struct Message {
+    public struct Message: Sendable {
         /// The diagnostic's behavior.
         public let behavior: Behavior
 
@@ -191,7 +191,7 @@ extension Diagnostic.Message {
     }
 }
 
-public struct StringDiagnostic: DiagnosticData {
+public struct StringDiagnostic: DiagnosticData, Sendable {
     /// The diagnostic description.
     public let description: String
 

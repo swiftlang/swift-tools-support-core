@@ -10,7 +10,7 @@
 
 import Foundation
 
-public enum TracingEventType: String, Codable {
+public enum TracingEventType: String, Codable, Sendable {
     case asyncBegin
     case asyncEnd
 }
@@ -51,7 +51,7 @@ public protocol TracingEventProtocol {
     )
 }
 
-public protocol TracingCollectionProtocol {
+public protocol TracingCollectionProtocol: Sendable {
     var events: [TracingEventProtocol] { get set }
     init(_ events: [TracingEventProtocol])
 }
@@ -62,7 +62,7 @@ extension TracingCollectionProtocol {
     }
 }
 
-public struct TracingEvent: TracingEventProtocol, Codable {
+public struct TracingEvent: TracingEventProtocol, Codable, Sendable {
     public let cat: String
     public let name: String
     public let id: String
@@ -135,12 +135,36 @@ public struct TracingEvent: TracingEventProtocol, Codable {
     #endif
 }
 
-public class TracingCollection: TracingCollectionProtocol {
-    public var events: [TracingEventProtocol] = []
+public final class TracingCollection {
+    private let lock = NSLock()
+    private var _events: [TracingEventProtocol] = []
+
+    public var events: [TracingEventProtocol] {
+        get {
+            return self.lock.withLock {
+                self._events
+            }
+        }
+
+        set {
+            self.lock.withLock {
+                self._events = newValue
+            }
+        }
+    }
+
     public required init(_ events: [TracingEventProtocol] = []) {
         self.events = events
     }
 }
+
+#if compiler(>=5.7)
+extension TracingCollection: @unchecked /* because self-locked */ Sendable {}
+extension TracingCollection: TracingCollectionProtocol {}
+#else
+extension TracingCollection: UnsafeSendable {}
+extension TracingCollection: TracingCollectionProtocol {}
+#endif
 
 extension Context {
     public static func withTracing(_ collection: TracingCollectionProtocol) -> Context {
@@ -154,10 +178,7 @@ extension Context {
 
     public var tracing: TracingCollectionProtocol? {
         get {
-            guard let collection = self[ObjectIdentifier(TracingCollectionProtocol.self)] as? TracingCollectionProtocol else {
-                return nil
-            }
-            return collection
+            return self[ObjectIdentifier(TracingCollectionProtocol.self), as: TracingCollectionProtocol.self]
         }
         set {
             self[ObjectIdentifier(TracingCollectionProtocol.self)] = newValue

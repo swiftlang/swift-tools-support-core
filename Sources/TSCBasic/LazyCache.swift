@@ -30,6 +30,7 @@ import class Foundation.NSLock
 /// ```
 ///
 /// See: https://bugs.swift.org/browse/SR-1042
+@available(*, deprecated, message: "This implementation does not work -- https://github.com/apple/swift-tools-support-core/issues/385")
 public struct LazyCache<Class, T> {
     // FIXME: It would be nice to avoid a per-instance lock, but this type isn't
     // intended for creating large numbers of instances of. We also really want
@@ -57,3 +58,8 @@ public struct LazyCache<Class, T> {
         }
     }
 }
+
+#if swift(>=5.6)
+@available(*, unavailable) // until https://github.com/apple/swift-tools-support-core/issues/385 is fixed
+extension LazyCache: Sendable {}
+#endif

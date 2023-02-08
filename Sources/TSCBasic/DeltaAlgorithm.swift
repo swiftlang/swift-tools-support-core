@@ -27,7 +27,7 @@
 /// It is not an error to provide a predicate that does not satisfy these
 /// requirements, and the algorithm will generally produce reasonable results.
 /// However, it may run substantially more tests than with a good predicate.
-public struct DeltaAlgorithm<Change: Hashable> {
+public struct DeltaAlgorithm<Change: Hashable>: Sendable {
 
     public init() {}
 

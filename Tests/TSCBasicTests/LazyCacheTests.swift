@@ -13,6 +13,7 @@ import XCTest
 import TSCBasic
 
 class LazyCacheTests: XCTestCase {
+    @available(*, deprecated, message: "LazyCache's implementation is broken -- https://github.com/apple/swift-tools-support-core/issues/385")
     func testBasics() {
         class Foo {
             var numCalls = 0

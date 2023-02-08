@@ -11,7 +11,7 @@ import Foundation
 import TSCBasic
 
 /// Represents diagnostics serialized in a .dia file by the Swift compiler or Clang.
-public struct SerializedDiagnostics {
+public struct SerializedDiagnostics: Sendable {
   public enum Error: Swift.Error {
     case badMagic
     case unexpectedTopLevelRecord
@@ -61,7 +61,7 @@ extension SerializedDiagnostics.Error: CustomNSError {
 extension SerializedDiagnostics {
   public struct Diagnostic {
 
-    public enum Level: UInt64 {
+    public enum Level: UInt64, Sendable {
       case ignored, note, warning, error, fatal, remark
     }
     /// The diagnostic message text.
@@ -168,7 +168,7 @@ extension SerializedDiagnostics {
     }
   }
 
-  public struct FixIt {
+  public struct FixIt: Sendable {
     /// Start location.
     public var start: SourceLocation
     /// End location.
@@ -177,6 +177,12 @@ extension SerializedDiagnostics {
     public var text: String
   }
 }
+
+#if compiler(>=5.7)
+extension SerializedDiagnostics.Diagnostic: Sendable {}
+#else
+extension SerializedDiagnostics.Diagnostic: UnsafeSendable {}
+#endif
 
 extension SerializedDiagnostics {
   private struct Reader: BitstreamVisitor {

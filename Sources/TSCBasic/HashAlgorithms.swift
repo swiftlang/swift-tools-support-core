@@ -12,7 +12,7 @@
 import CryptoKit
 #endif
 
-public protocol HashAlgorithm {
+public protocol HashAlgorithm: Sendable {
 
     /// Hashes the input bytes, returning the digest.
     ///
@@ -31,7 +31,7 @@ extension HashAlgorithm {
 /// SHA-256 implementation from Secure Hash Algorithm 2 (SHA-2) set of
 /// cryptographic hash functions (FIPS PUB 180-2).
 ///  Uses CryptoKit where available
-public struct SHA256: HashAlgorithm {
+public struct SHA256: HashAlgorithm, Sendable {
     private let underlying: HashAlgorithm
 
     public init() {
@@ -197,7 +197,7 @@ struct InternalSHA256: HashAlgorithm {
 #if canImport(CryptoKit)
 @available(*, deprecated, message: "use SHA256 which abstract over platform differences")
 @available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
-public struct CryptoKitSHA256: HashAlgorithm {
+public struct CryptoKitSHA256: HashAlgorithm, Sendable {
     let underlying = _CryptoKitSHA256()
     public init() {}
     public func hash(_ bytes: ByteString) -> ByteString {
