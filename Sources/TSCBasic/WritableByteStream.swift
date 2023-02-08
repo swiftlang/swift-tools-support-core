@@ -349,7 +349,7 @@ public final class ThreadSafeOutputByteStream: WritableByteStream {
 }
 
 
-#if swift(<5.7)
+#if swift(<5.6)
 extension ThreadSafeOutputByteStream: UnsafeSendable {}
 #else
 extension ThreadSafeOutputByteStream: @unchecked Sendable {}
