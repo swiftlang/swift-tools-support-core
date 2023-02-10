@@ -89,6 +89,7 @@ class ProcessTests: XCTestCase {
         }
     }
 
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testPopenAsync() async throws {
         #if os(Windows)
         let args = ["where.exe", "where"]
@@ -122,6 +123,7 @@ class ProcessTests: XCTestCase {
         }
     }
 
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testCheckNonZeroExitAsync() async throws {
         do {
             let output = try await Process.checkNonZeroExit(args: "echo", "hello")
@@ -344,6 +346,7 @@ class ProcessTests: XCTestCase {
         }
     }
 
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     func testStdoutStdErrAsync() async throws {
         // A simple script to check that stdout and stderr are captured separatly.
         do {
@@ -490,6 +493,7 @@ fileprivate extension Process {
         return try checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
     }
 
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     static func checkNonZeroExit(
         scriptName: String,
         environment: [String: String] = ProcessEnv.vars,
@@ -510,6 +514,7 @@ fileprivate extension Process {
         return try popen(arguments: [script(scriptName)], environment: Self.env(), loggingHandler: loggingHandler)
     }
 
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @discardableResult
     static func popen(
         scriptName: String,
