@@ -976,7 +976,7 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
-    @available(macOS 10.15, *)
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     static public func popen(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
@@ -999,7 +999,7 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
-    @available(macOS 10.15, *)
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     static public func popen(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
@@ -1016,7 +1016,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    @available(macOS 10.15, *)
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
@@ -1039,7 +1039,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-    @available(macOS 10.15, *)
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
