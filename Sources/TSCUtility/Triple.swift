@@ -9,8 +9,12 @@
  */
 
 import protocol Foundation.CustomNSError
+import struct Foundation.Data
+import class Foundation.JSONDecoder
 import var Foundation.NSLocalizedDescriptionKey
-import TSCBasic
+
+import struct TSCBasic.AbsolutePath
+import class TSCBasic.Process
 
 /// Triple - Helper class for working with Destination.target values
 ///
@@ -191,6 +195,14 @@ public struct Triple: Encodable, Equatable, Sendable {
 
     public static let macOS = try! Triple("x86_64-apple-macosx")
 
+    private struct TargetInfo: Codable {
+        struct Target: Codable {
+            let triple: String
+        }
+
+        let target: Target
+    }
+
     /// Determine the versioned host triple using the Swift compiler.
     public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) -> Triple {
         // Call the compiler to get the target info JSON.
@@ -208,24 +220,20 @@ public struct Triple: Encodable, Equatable, Sendable {
             #endif
         }
         // Parse the compiler's JSON output.
-        let parsedTargetInfo: JSON
+        guard let data = compilerOutput.data(using: .utf8) else {
+            fatalError("Failed to parse target info.\nRaw compiler output: \(compilerOutput)")
+        }
+        let targetInfo: TargetInfo
         do {
-            parsedTargetInfo = try JSON(string: compilerOutput)
+            targetInfo = try JSONDecoder().decode(TargetInfo.self, from: data)
         } catch {
             fatalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
         }
-        // Get the triple string from the parsed JSON.
-        let tripleString: String
-        do {
-            tripleString = try parsedTargetInfo.get("target").get("triple")
-        } catch {
-            fatalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
-        }
         // Parse the triple string.
         do {
-            return try Triple(tripleString)
+            return try Triple(targetInfo.target.triple)
         } catch {
-            fatalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
+            fatalError("Failed to parse triple string (\(error)).\nTriple string: \(targetInfo.target.triple)")
         }
     }
 

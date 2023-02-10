@@ -269,21 +269,7 @@ extension Version: ExpressibleByStringLiteral {
     }
 }
 
-extension Version: JSONMappable, JSONSerializable {
-    public init(json: JSON) throws {
-        guard case .string(let string) = json else {
-            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
-        }
-        guard let version = Version(string) else {
-            throw JSON.MapError.custom(key: nil, message: "Invalid version string \(string)")
-        }
-        self.init(version)
-    }
-
-    public func toJSON() -> JSON {
-        return .string(description)
-    }
-
+extension Version {
     init(_ version: Version) {
         self.init(
             version.major, version.minor, version.patch,
