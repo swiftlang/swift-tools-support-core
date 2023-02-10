@@ -295,6 +295,99 @@ public extension FileSystem {
     }
 }
 
+private extension FileManager {
+    func _lstatFile(atPath path: String, withFileSystemRepresentation fsRep: UnsafePointer<Int8>? = nil) throws -> stat {
+        let _fsRep: UnsafePointer<CChar>
+        if fsRep == nil {
+            _fsRep = try __fileSystemRepresentation(withPath: path)
+        } else {
+            _fsRep = fsRep!
+        }
+
+        defer {
+            if fsRep == nil { _fsRep.deallocate() }
+        }
+
+        var statInfo = stat()
+        guard lstat(_fsRep, &statInfo) == 0 else {
+            throw _NSErrorWithErrno(errno, reading: true, path: path)
+        }
+        return statInfo
+    }
+
+    func __fileSystemRepresentation(withPath path: String) throws -> UnsafePointer<CChar> {
+        let len = CFStringGetMaximumSizeOfFileSystemRepresentation(path._cfObject)
+        if len != kCFNotFound {
+            let buf = UnsafeMutablePointer<CChar>.allocate(capacity: len)
+            buf.initialize(repeating: 0, count: len)
+            if path._nsObject._getFileSystemRepresentation(buf, maxLength: len) {
+                return UnsafePointer(buf)
+            }
+            buf.deinitialize(count: len)
+            buf.deallocate()
+        }
+        throw NSError(domain: NSCocoaErrorDomain, code: CocoaError.fileReadInvalidFileName.rawValue, userInfo: [NSFilePathErrorKey: path])
+    }
+}
+
+private func _NSErrorWithErrno(_ posixErrno : Int32, reading : Bool, path : String? = nil, url : URL? = nil, extraUserInfo : [String : Any]? = nil) -> NSError {
+    var cocoaError : CocoaError.Code
+    if reading {
+        switch posixErrno {
+            case EFBIG: cocoaError = .fileReadTooLarge
+            case ENOENT: cocoaError = .fileReadNoSuchFile
+            case EPERM, EACCES: cocoaError = .fileReadNoPermission
+            case ENAMETOOLONG: cocoaError = .fileReadUnknown
+            default: cocoaError = .fileReadUnknown
+        }
+    } else {
+        switch posixErrno {
+            case ENOENT: cocoaError = .fileNoSuchFile
+            case EPERM, EACCES: cocoaError = .fileWriteNoPermission
+            case ENAMETOOLONG: cocoaError = .fileWriteInvalidFileName
+#if os(Windows)
+            case ENOSPC: cocoaError = .fileWriteOutOfSpace
+#else
+            case EDQUOT, ENOSPC: cocoaError = .fileWriteOutOfSpace
+#endif
+            case EROFS: cocoaError = .fileWriteVolumeReadOnly
+            case EEXIST: cocoaError = .fileWriteFileExists
+            default: cocoaError = .fileWriteUnknown
+        }
+    }
+
+    var userInfo = extraUserInfo ?? [String : Any]()
+    if let path = path {
+        userInfo[NSFilePathErrorKey] = path._nsObject
+    } else if let url = url {
+        userInfo[NSURLErrorKey] = url
+    }
+
+    userInfo[NSUnderlyingErrorKey] = NSError(domain: NSPOSIXErrorDomain, code: Int(posixErrno))
+
+    return NSError(domain: NSCocoaErrorDomain, code: cocoaError.rawValue, userInfo: userInfo)
+}
+
+private extension NSString {
+    typealias SwiftType = String
+    var _cfObject: CFString { return unsafeBitCast(self, to: CFString.self) }
+    var _swiftObject: String { return String._unconditionallyBridgeFromObjectiveC(self) }
+
+    func _getFileSystemRepresentation(_ cname: UnsafeMutablePointer<CChar>, maxLength max: Int) -> Bool {
+        guard self.length > 0 else {
+            return false
+        }
+        return CFStringGetFileSystemRepresentation(self._cfObject, cname, max)
+    }
+}
+
+private extension String {
+    typealias NSType = NSString
+    typealias CFType = CFString
+    var _nsObject: NSType { return _bridgeToObjectiveC() }
+    var _cfObject: CFType { return _nsObject._cfObject }
+}
+
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
 
@@ -325,6 +418,11 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
+        guard let s = try? FileManager.default._lstatFile(atPath: path.pathString) else {
+            return false
+        }
+        return (s.st_mode & S_IFMT) == S_IFLNK
+
         let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
         return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
     }
