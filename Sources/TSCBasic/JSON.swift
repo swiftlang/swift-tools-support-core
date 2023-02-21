@@ -49,6 +49,7 @@ public enum JSON {
 }
 
 /// A JSON representation of an element.
+@available(*, deprecated, message: "use `Codable` instead")
 public protocol JSONSerializable {
 
     /// Return a JSON representation.
@@ -283,59 +284,69 @@ extension JSON {
 // MARK: - JSONSerializable helpers.
 
 extension JSON {
+    @available(*, deprecated, message: "use `Codable` instead")
     public init(_ dict: [String: JSONSerializable]) {
         self = .dictionary(dict.mapValues({ $0.toJSON() }))
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Int: JSONSerializable {
     public func toJSON() -> JSON {
         return .int(self)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Double: JSONSerializable {
     public func toJSON() -> JSON {
         return .double(self)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension String: JSONSerializable {
     public func toJSON() -> JSON {
         return .string(self)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Bool: JSONSerializable {
     public func toJSON() -> JSON {
         return .bool(self)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension AbsolutePath: JSONSerializable {
     public func toJSON() -> JSON {
         return .string(pathString)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension RelativePath: JSONSerializable {
     public func toJSON() -> JSON {
         return .string(pathString)
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Array: JSONSerializable where Element: JSONSerializable {
     public func toJSON() -> JSON {
         return .array(self.map({ $0.toJSON() }))
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Dictionary: JSONSerializable where Key == String, Value: JSONSerializable {
     public func toJSON() -> JSON {
         return .dictionary(self.mapValues({ $0.toJSON() }))
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Optional where Wrapped: JSONSerializable {
     public func toJSON() -> JSON {
         switch self {
@@ -345,12 +356,14 @@ extension Optional where Wrapped: JSONSerializable {
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension Sequence where Iterator.Element: JSONSerializable {
     public func toJSON() -> JSON {
         return .array(map({ $0.toJSON() }))
     }
 }
 
+@available(*, deprecated, message: "use `Codable` instead")
 extension JSON: JSONSerializable {
     public func toJSON() -> JSON {
         return self
