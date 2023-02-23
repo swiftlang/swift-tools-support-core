@@ -235,7 +235,7 @@ public struct Triple: Encodable, Equatable, Sendable {
 }
 
 extension Triple {
-    /// The file prefix for dynamcic libraries
+    /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
         switch os {
         case .windows:
