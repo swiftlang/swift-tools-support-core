@@ -168,7 +168,8 @@ private extension JSONMessageStreamingParser {
         do {
             return try decoder.decode(Message.self, from: data)
         } catch {
-            throw ParsingError(reason: "unexpected JSON message: \(ByteString(buffer).cString)", underlyingError: error)
+            let message = ByteString(Array(data)).cString
+            throw ParsingError(reason: "unexpected JSON message: \(message)", underlyingError: error)
         }
     }
 }
