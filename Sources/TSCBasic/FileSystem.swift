@@ -1159,8 +1159,19 @@ public class RerootedFileSystemView: FileSystem {
     }
 }
 
+private var _localFileSystem: some FileSystem = LocalFileSystem()
+
 /// Public access to the local FS proxy.
-public var localFileSystem: FileSystem = LocalFileSystem()
+public var localFileSystem: some FileSystem {
+    get {
+         return _localFileSystem
+    }
+
+    @available(*, deprecated, message: "This global should never be mutable and is supposed to be read-only")
+    set {
+        _localFileSystem = newValue
+    }
+}
 
 extension FileSystem {
     /// Print the filesystem tree of the given path.
