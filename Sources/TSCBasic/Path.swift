@@ -527,7 +527,7 @@ private struct WindowsPath: Path, Sendable {
         self.string = string
     }
 
-    private func repr(_ path: String) {
+    private static func repr(_ path: String) -> String {
         guard !path.isEmpty else { return "" }
         let representation: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { representation.deallocate() }
@@ -535,7 +535,7 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(normalizingAbsolutePath path: String) {
-        self.init(string: repr(path).withCString(encodedAs: UTF16.self) { pwszPath in
+        self.init(string: Self.repr(path).withCString(encodedAs: UTF16.self) { pwszPath in
           var canonical: PWSTR!
           _ = PathAllocCanonicalize(pwszPath,
                                     ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
@@ -545,7 +545,7 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(validatingAbsolutePath path: String) throws {
-        let realpath = repr(path)
+        let realpath = Self.repr(path)
         if !Self.isAbsolutePath(realpath) {
             throw PathValidationError.invalidAbsolutePath(path)
         }
@@ -568,7 +568,7 @@ private struct WindowsPath: Path, Sendable {
         if path.isEmpty || path == "." {
             self.init(string: ".")
         } else {
-            let realpath: String = repr(path)
+            let realpath: String = Self.repr(path)
             // Treat a relative path as an invalid relative path...
             if Self.isAbsolutePath(realpath) ||
                     realpath.first == "~" || realpath.first == "\\" {
