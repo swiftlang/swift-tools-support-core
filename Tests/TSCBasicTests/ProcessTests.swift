@@ -470,7 +470,7 @@ fileprivate extension Process {
     }
 
     private static func script(_ name: String) -> String {
-        return AbsolutePath(static: #file).parentDirectory.appending(components: "processInputs", name).pathString
+        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
     }
 
     convenience init(scriptName: String, arguments: [String] = [], outputRedirection: OutputRedirection = .collect) {

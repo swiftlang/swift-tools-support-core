@@ -33,7 +33,7 @@ final class BitstreamTests: XCTestCase {
             }
         }
 
-        let bitstreamPath = AbsolutePath(static: #file).parentDirectory
+        let bitstreamPath = AbsolutePath(#file).parentDirectory
             .appending(components: "Inputs", "serialized.dia")
         let contents = try localFileSystem.readFileContents(bitstreamPath)
         var visitor = LoggingVisitor()
@@ -126,7 +126,7 @@ final class BitstreamTests: XCTestCase {
             }
         }
 
-        let bitstreamPath = AbsolutePath(static: #file).parentDirectory
+        let bitstreamPath = AbsolutePath(#file).parentDirectory
             .appending(components: "Inputs", "serialized.dia")
         let contents = try localFileSystem.readFileContents(bitstreamPath)
         var visitor = LoggingVisitor()

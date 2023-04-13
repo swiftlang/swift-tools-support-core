@@ -259,12 +259,13 @@ public struct RelativePath: Hashable, Sendable {
         self.init(PathImpl(normalizingRelativePath: string))
     }*/
 
+    /*
     public init(static path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString)
-    }
+    }*/
 
     /// Convenience initializer that verifies that the path is relative.
     public init(validating path: String) throws {
@@ -1057,16 +1058,19 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 // MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
 
 extension AbsolutePath {
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing `init(validating:)` variant instead")
     public init(_ absStr: String) {
         try! self.init(validating: absStr)
     }
 
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing `init(validating:relativeTo:)` variant instead")
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: str, relativeTo: basePath)
     }
 
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing variant instead")
     public init(_ absPath: AbsolutePath, _ relStr: String) {
         try! self.init(absPath, validating: relStr)
@@ -1076,6 +1080,7 @@ extension AbsolutePath {
 // MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
 
 extension RelativePath {
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing variant instead")
     public init(_ string: String) {
         try! self.init(validating: string)

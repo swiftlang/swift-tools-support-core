@@ -74,12 +74,8 @@ extension FileSystem {
 }
 
 extension AbsolutePath {
-    @available(*, deprecated, message: "use init(static:) instead")
+    @available(*, deprecated, message: "use direct string instead")
     public init(path: StaticString) {
-        self.init(static: path)
-    }
-
-    public init(static path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
@@ -88,17 +84,57 @@ extension AbsolutePath {
 
     @available(*, deprecated, message: "use init(static: relativeTo:) instead")
     public init(path: StaticString, relativeTo basePath: AbsolutePath) {
-        self.init(static: path, relativeTo: basePath)
-    }
-
-    public init(static path: StaticString, relativeTo basePath: AbsolutePath) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString, relativeTo: basePath)
     }
 
+
     public init(base: AbsolutePath, _ relStr: StaticString) {
-        self.init(base, RelativePath(static: relStr))
+        let pathString = relStr.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        self.init(base, RelativePath(stringLiteral: pathString))
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath {
+    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+        try! self.init(validating: path, relativeTo: basePath)
+    }
+}
+
+extension RelativePath {
+    @available(*, deprecated, message: "use direct string instead")
+    public init(static path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+}
+
+extension RelativePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension RelativePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
     }
 }

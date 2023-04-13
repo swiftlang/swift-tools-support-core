@@ -17,7 +17,7 @@ import TSCTestSupport
 class ProcessSetTests: XCTestCase {
   #if !os(Windows) // Signals are not supported in Windows
     func script(_ name: String) -> String {
-        return AbsolutePath(static: #file).parentDirectory.appending(components: "processInputs", name).pathString
+        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
     }
 
     func testSigInt() throws {
