@@ -466,12 +466,7 @@ class ProcessTests: XCTestCase {
 
 fileprivate extension Process {
     private static func env() -> [String:String] {
-        var env = ProcessEnv.vars
-        #if os(macOS)
-        // Many of these tests use Python which might not be in the default `PATH` when running these tests from Xcode.
-        env["PATH"] = "\(env["PATH"] ?? ""):/usr/local/bin"
-        #endif
-        return env
+        return ProcessEnv.vars
     }
 
     private static func script(_ name: String) -> String {
