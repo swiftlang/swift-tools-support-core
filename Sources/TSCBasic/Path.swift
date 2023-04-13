@@ -240,33 +240,6 @@ public struct RelativePath: Hashable, Sendable {
         _impl = impl
     }
 
-    /// Private initializer for constructing a relative path without performing
-    /// normalization or canonicalization.  This will construct a path without
-    /// an anchor and thus may be invalid.
-    ///
-    /*
-    fileprivate init(unsafeUncheckedPath string: String) {
-        self.init(PathImpl(string: string))
-    }*/
-
-    /// Initializes the RelativePath from `str`, which must be a relative path
-    /// (which means that it must not begin with a path separator or a tilde).
-    /// An empty input path is allowed, but will be normalized to a single `.`
-    /// character.  The input string will be normalized if needed, as described
-    /// in the documentation for RelativePath.
-    /*public init(_ string: String) {
-        // Normalize the relative string and store it as our Path.
-        self.init(PathImpl(normalizingRelativePath: string))
-    }*/
-
-    /*
-    public init(static path: StaticString) {
-        let pathString = path.withUTF8Buffer {
-            String(decoding: $0, as: UTF8.self)
-        }
-        try! self.init(validating: pathString)
-    }*/
-
     /// Convenience initializer that verifies that the path is relative.
     public init(validating path: String) throws {
         try self.init(PathImpl(validatingRelativePath: path))
@@ -441,12 +414,6 @@ protocol Path: Hashable {
     /// Creates a path from its normalized string representation.
     init(string: String)
 
-    /// Creates a path from an absolute string representation and normalizes it.
-    //init(normalizingAbsolutePath: String)
-
-    /// Creates a path from an relative string representation and normalizes it.
-    //init(normalizingRelativePath: String)
-
     /// Creates a path from a string representation, validates that it is a valid absolute path and normalizes it.
     init(validatingAbsolutePath: String) throws
 
@@ -544,6 +511,17 @@ private struct WindowsPath: Path, Sendable {
         let representation: UnsafePointer<Int8> = path.fileSystemRepresentation
         defer { representation.deallocate() }
         return String(cString: representation)
+    }
+
+    init(validatingAbsolutePath path: String) throws {
+        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let realpath = String(cString: fsr)
+        if !Self.isAbsolutePath(realpath) {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+        self.init(normalizingAbsolutePath: path)
     }
 
     init(validatingRelativePath path: String) throws {
@@ -812,7 +790,7 @@ private struct UNIXPath: Path, Sendable {
 
     init(validatingRelativePath path: String) throws {
         switch path.first {
-        case "/": //, "~":
+        case "/":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(normalizingRelativePath: path)

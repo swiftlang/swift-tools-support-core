@@ -82,7 +82,7 @@ extension AbsolutePath {
         try! self.init(validating: pathString)
     }
 
-    @available(*, deprecated, message: "use init(static: relativeTo:) instead")
+    @available(*, deprecated, message: "use init(: relativeTo:) instead")
     public init(path: StaticString, relativeTo basePath: AbsolutePath) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
