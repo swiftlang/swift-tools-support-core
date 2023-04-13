@@ -91,6 +91,7 @@ extension AbsolutePath {
     }
 
 
+    @available(*, deprecated, message: "use direct string instead")
     public init(base: AbsolutePath, _ relStr: StaticString) {
         let pathString = relStr.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)

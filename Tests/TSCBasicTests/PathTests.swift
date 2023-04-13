@@ -27,7 +27,7 @@ class PathTests: XCTestCase {
 
     func testStringInitialization() throws {
         let abs1 = AbsolutePath("/")
-        let abs2 = AbsolutePath(base: abs1, ".")
+        let abs2 = AbsolutePath(abs1, ".")
         XCTAssertEqual(abs1, abs2)
         let rel3 = "."
         let abs3 = try AbsolutePath(abs2, validating: rel3)
