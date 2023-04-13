@@ -1159,10 +1159,10 @@ public class RerootedFileSystemView: FileSystem {
     }
 }
 
-private var _localFileSystem: some FileSystem = LocalFileSystem()
+private var _localFileSystem: any FileSystem = LocalFileSystem()
 
 /// Public access to the local FS proxy.
-public var localFileSystem: some FileSystem {
+public var localFileSystem: any FileSystem {
     get {
          return _localFileSystem
     }
