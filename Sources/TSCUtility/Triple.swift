@@ -20,6 +20,7 @@ import TSCBasic
 /// @see Destination.target
 /// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 ///
+@available(*, deprecated, message: "use `Basics.Triple` if you're libSwiftPM client, create application-specific `Triple` type otherwise")
 public struct Triple: Encodable, Equatable, Sendable {
     public let tripleString: String
 
