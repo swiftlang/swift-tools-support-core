@@ -146,7 +146,7 @@ public enum FileMode: Sendable {
 /// substitute a virtual file system or redirect file system operations.
 ///
 /// - Note: All of these APIs are synchronous and can block.
-public protocol FileSystem: AnyObject {
+public protocol FileSystem: AnyObject, Sendable {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
 
@@ -548,8 +548,6 @@ private class LocalFileSystem: FileSystem {
     }
 }
 
-// FIXME: This class does not yet support concurrent mutation safely.
-//
 /// Concrete FileSystem implementation which simulates an empty disk.
 public class InMemoryFileSystem: FileSystem {
 
@@ -1008,6 +1006,9 @@ public class InMemoryFileSystem: FileSystem {
     }
 }
 
+// Internal state of `InMemoryFileSystem` is protected with a lock in all of its `public` methods.
+extension InMemoryFileSystem: @unchecked Sendable {}
+
 /// A rerooted view on an existing FileSystem.
 ///
 /// This is a simple wrapper which creates a new FileSystem view into a subtree
@@ -1159,6 +1160,10 @@ public class RerootedFileSystemView: FileSystem {
     }
 }
 
+// `RerootedFileSystemView` doesn't hold any internal state and can be considered `Sendable` since
+// `underlyingFileSystem` is required to be `Sendable`.
+extension RerootedFileSystemView: @unchecked Sendable {}
+
 private var _localFileSystem: any FileSystem = LocalFileSystem()
 
 /// Public access to the local FS proxy.
@@ -1167,11 +1172,14 @@ public var localFileSystem: any FileSystem {
          return _localFileSystem
     }
 
-    @available(*, deprecated, message: "This global should never be mutable and is supposed to be read-only")
+    @available(*, deprecated, message: "This global should never be mutable and is supposed to be read-only. Deprecated in Apr 2023.")
     set {
         _localFileSystem = newValue
     }
 }
+
+// `LocalFileSystem` doesn't hold any internal state and all of its underlying operations are blocking.
+extension LocalFileSystem: @unchecked Sendable {}
 
 extension FileSystem {
     /// Print the filesystem tree of the given path.

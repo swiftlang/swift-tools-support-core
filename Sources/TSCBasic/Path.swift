@@ -527,18 +527,29 @@ private struct WindowsPath: Path, Sendable {
         self.string = string
     }
 
-    init(normalizingAbsolutePath path: String) {
-        let normalized: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { normalized.deallocate() }
+    private static func repr(_ path: String) -> String {
+        guard !path.isEmpty else { return "" }
+        let representation: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { representation.deallocate() }
+        return String(cString: representation)
+    }
 
-        self.init(string: String(cString: normalized)
-                              .withCString(encodedAs: UTF16.self) { pwszPath in
+    init(normalizingAbsolutePath path: String) {
+        self.init(string: Self.repr(path).withCString(encodedAs: UTF16.self) { pwszPath in
           var canonical: PWSTR!
           _ = PathAllocCanonicalize(pwszPath,
                                     ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
                                     &canonical)
           return String(decodingCString: canonical, as: UTF16.self)
         })
+    }
+
+    init(validatingAbsolutePath path: String) throws {
+        let realpath = Self.repr(path)
+        if !Self.isAbsolutePath(realpath) {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+        self.init(normalizingAbsolutePath: path)
     }
 
     init(normalizingRelativePath path: String) {
@@ -553,28 +564,18 @@ private struct WindowsPath: Path, Sendable {
         }
     }
 
-    init(validatingAbsolutePath path: String) throws {
-        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { fsr.deallocate() }
-
-        let realpath = String(cString: fsr)
-        if !Self.isAbsolutePath(realpath) {
-            throw PathValidationError.invalidAbsolutePath(path)
-        }
-        self.init(normalizingAbsolutePath: path)
-    }
-
     init(validatingRelativePath path: String) throws {
-        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { fsr.deallocate() }
-
-        let realpath: String = String(cString: fsr)
-        // Treat a relative path as an invalid relative path...
-        if Self.isAbsolutePath(realpath) ||
-                realpath.first == "~" || realpath.first == "\\" {
-            throw PathValidationError.invalidRelativePath(path)
+        if path.isEmpty || path == "." {
+            self.init(string: ".")
+        } else {
+            let realpath: String = Self.repr(path)
+            // Treat a relative path as an invalid relative path...
+            if Self.isAbsolutePath(realpath) ||
+                    realpath.first == "~" || realpath.first == "\\" {
+                throw PathValidationError.invalidRelativePath(path)
+            }
+            self.init(normalizingRelativePath: path)
         }
-        self.init(normalizingRelativePath: path)
     }
 
     func suffix(withDot: Bool) -> String? {
