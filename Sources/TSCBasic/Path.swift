@@ -514,14 +514,11 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(validatingAbsolutePath path: String) throws {
-        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
-        defer { fsr.deallocate() }
-
-        let realpath = String(cString: fsr)
+        let realpath = Self.repr(path)
         if !Self.isAbsolutePath(realpath) {
             throw PathValidationError.invalidAbsolutePath(path)
         }
-        self.init(normalizingAbsolutePath: path)
+        self.init(string: realpath)
     }
 
     init(validatingRelativePath path: String) throws {
@@ -530,11 +527,10 @@ private struct WindowsPath: Path, Sendable {
         } else {
             let realpath: String = Self.repr(path)
             // Treat a relative path as an invalid relative path...
-            if Self.isAbsolutePath(realpath) ||
-                    realpath.first == "~" || realpath.first == "\\" {
+            if Self.isAbsolutePath(realpath) || realpath.first == "\\" {
                 throw PathValidationError.invalidRelativePath(path)
             }
-            self.init(normalizingRelativePath: path)
+            self.init(string: realpath)
         }
     }
 
