@@ -296,8 +296,7 @@ public extension FileSystem {
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
-private class LocalFileSystem: FileSystem {
-
+private final class LocalFileSystem: FileSystem {
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // Our semantics doesn't consider directories.
         return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
@@ -549,8 +548,7 @@ private class LocalFileSystem: FileSystem {
 }
 
 /// Concrete FileSystem implementation which simulates an empty disk.
-public class InMemoryFileSystem: FileSystem {
-
+public final class InMemoryFileSystem: FileSystem {
     /// Private internal representation of a file system node.
     /// Not threadsafe.
     private class Node {
@@ -589,7 +587,7 @@ public class InMemoryFileSystem: FileSystem {
 
     /// Private internal representation the contents of a directory.
     /// Not threadsafe.
-    private class DirectoryContents {
+    private final class DirectoryContents {
         var entries: [String: Node]
 
         init(entries: [String: Node] = [:]) {
@@ -1021,7 +1019,7 @@ extension InMemoryFileSystem: @unchecked Sendable {}
 /// is designed for situations where a client is only interested in the contents
 /// *visible* within a subpath and is agnostic to the actual location of those
 /// contents.
-public class RerootedFileSystemView: FileSystem {
+public final class RerootedFileSystemView: FileSystem {
     /// The underlying file system.
     private var underlyingFileSystem: FileSystem
 
