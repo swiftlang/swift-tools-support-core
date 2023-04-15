@@ -1162,8 +1162,19 @@ public final class RerootedFileSystemView: FileSystem {
 // `underlyingFileSystem` is required to be `Sendable`.
 extension RerootedFileSystemView: @unchecked Sendable {}
 
+private var _localFileSystem: any FileSystem = LocalFileSystem()
+
 /// Public access to the local FS proxy.
-public var localFileSystem: FileSystem = LocalFileSystem()
+public var localFileSystem: any FileSystem {
+    get {
+         return _localFileSystem
+    }
+
+    @available(*, deprecated, message: "This global should never be mutable and is supposed to be read-only. Deprecated in Apr 2023.")
+    set {
+        _localFileSystem = newValue
+    }
+}
 
 // `LocalFileSystem` doesn't hold any internal state and all of its underlying operations are blocking.
 extension LocalFileSystem: @unchecked Sendable {}
