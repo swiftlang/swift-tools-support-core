@@ -1162,10 +1162,10 @@ public final class RerootedFileSystemView: FileSystem {
 // `underlyingFileSystem` is required to be `Sendable`.
 extension RerootedFileSystemView: @unchecked Sendable {}
 
-private var _localFileSystem: any FileSystem = LocalFileSystem()
+private var _localFileSystem: FileSystem = LocalFileSystem()
 
 /// Public access to the local FS proxy.
-public var localFileSystem: any FileSystem {
+public var localFileSystem: FileSystem {
     get {
          return _localFileSystem
     }
