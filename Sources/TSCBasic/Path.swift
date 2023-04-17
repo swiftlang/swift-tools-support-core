@@ -321,8 +321,6 @@ public struct RelativePath: Hashable, Sendable {
     }
 }
 
-
-
 extension AbsolutePath: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
