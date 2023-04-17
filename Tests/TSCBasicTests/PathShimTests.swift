@@ -36,17 +36,17 @@ class WalkTests : XCTestCase {
     func testNonRecursive() throws {
       #if os(Android)
         let root = "/system"
-        var expected = [
-            AbsolutePath(path: "\(root)/usr"),
-            AbsolutePath(path: "\(root)/bin"),
-            AbsolutePath(path: "\(root)/xbin")
+        var expected: [AbsolutePath] = [
+            "\(root)/usr",
+            "\(root)/bin",
+            "\(root)/xbin"
         ]
       #else
         let root = ""
-        var expected = [
-            AbsolutePath(path: "/usr"),
-            AbsolutePath(path: "/bin"),
-            AbsolutePath(path: "/sbin")
+        var expected: [AbsolutePath] = [
+            "/usr",
+            "/bin",
+            "/sbin"
         ]
       #endif
         for x in try walk(AbsolutePath(validating: "\(root)/"), recursively: false) {
@@ -63,7 +63,7 @@ class WalkTests : XCTestCase {
     }
 
     func testRecursive() {
-        let root = AbsolutePath(path: #file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
+        let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
             root.appending(component: "TSCBasic"),
             root.appending(component: "TSCUtility")

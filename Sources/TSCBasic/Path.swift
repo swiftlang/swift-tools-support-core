@@ -90,7 +90,7 @@ public struct AbsolutePath: Hashable, Sendable {
 
             self.init(String(decodingCString: pwszResult, as: UTF16.self))
 #else
-            self.init(basePath, RelativePath(str))
+            try self.init(basePath, RelativePath(validating: str))
 #endif
         }
     }
@@ -102,8 +102,8 @@ public struct AbsolutePath: Hashable, Sendable {
     }
 
     /// Convenience initializer that appends a string to a relative path.
-    public init(_ absPath: AbsolutePath, _ relStr: String) {
-        self.init(absPath, RelativePath(relStr))
+    public init(_ absPath: AbsolutePath, validating relStr: String) throws {
+        try self.init(absPath, RelativePath(validating: relStr))
     }
 
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
@@ -238,23 +238,6 @@ public struct RelativePath: Hashable, Sendable {
     /// Private initializer when the backing storage is known.
     private init(_ impl: PathImpl) {
         _impl = impl
-    }
-
-    /// Private initializer for constructing a relative path without performing
-    /// normalization or canonicalization.  This will construct a path without
-    /// an anchor and thus may be invalid.
-    fileprivate init(unsafeUncheckedPath string: String) {
-        self.init(PathImpl(string: string))
-    }
-
-    /// Initializes the RelativePath from `str`, which must be a relative path
-    /// (which means that it must not begin with a path separator or a tilde).
-    /// An empty input path is allowed, but will be normalized to a single `.`
-    /// character.  The input string will be normalized if needed, as described
-    /// in the documentation for RelativePath.
-    public init(_ string: String) {
-        // Normalize the relative string and store it as our Path.
-        self.init(PathImpl(normalizingRelativePath: string))
     }
 
     /// Convenience initializer that verifies that the path is relative.
@@ -429,12 +412,6 @@ protocol Path: Hashable {
     /// Creates a path from its normalized string representation.
     init(string: String)
 
-    /// Creates a path from an absolute string representation and normalizes it.
-    init(normalizingAbsolutePath: String)
-
-    /// Creates a path from an relative string representation and normalizes it.
-    init(normalizingRelativePath: String)
-
     /// Creates a path from a string representation, validates that it is a valid absolute path and normalizes it.
     init(validatingAbsolutePath: String) throws
 
@@ -534,34 +511,12 @@ private struct WindowsPath: Path, Sendable {
         return String(cString: representation)
     }
 
-    init(normalizingAbsolutePath path: String) {
-        self.init(string: Self.repr(path).withCString(encodedAs: UTF16.self) { pwszPath in
-          var canonical: PWSTR!
-          _ = PathAllocCanonicalize(pwszPath,
-                                    ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue),
-                                    &canonical)
-          return String(decodingCString: canonical, as: UTF16.self)
-        })
-    }
-
     init(validatingAbsolutePath path: String) throws {
         let realpath = Self.repr(path)
         if !Self.isAbsolutePath(realpath) {
             throw PathValidationError.invalidAbsolutePath(path)
         }
-        self.init(normalizingAbsolutePath: path)
-    }
-
-    init(normalizingRelativePath path: String) {
-        if path.isEmpty || path == "." {
-            self.init(string: ".")
-        } else {
-            var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
-            _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
-                PathCanonicalizeW(&buffer, $0)
-            }
-            self.init(string: String(decodingCString: buffer, as: UTF16.self))
-        }
+        self.init(string: realpath)
     }
 
     init(validatingRelativePath path: String) throws {
@@ -570,11 +525,10 @@ private struct WindowsPath: Path, Sendable {
         } else {
             let realpath: String = Self.repr(path)
             // Treat a relative path as an invalid relative path...
-            if Self.isAbsolutePath(realpath) ||
-                    realpath.first == "~" || realpath.first == "\\" {
+            if Self.isAbsolutePath(realpath) || realpath.first == "\\" {
                 throw PathValidationError.invalidRelativePath(path)
             }
-            self.init(normalizingRelativePath: path)
+            self.init(string: realpath)
         }
     }
 
@@ -597,7 +551,7 @@ private struct WindowsPath: Path, Sendable {
             }
         }
         defer { LocalFree(result) }
-        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+        return Self(string: String(decodingCString: result!, as: UTF16.self))
     }
 
     func appending(relativePath: Self) -> Self {
@@ -608,7 +562,7 @@ private struct WindowsPath: Path, Sendable {
             }
         }
         defer { LocalFree(result) }
-        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+        return Self(string: String(decodingCString: result!, as: UTF16.self))
     }
 }
 #else
@@ -830,7 +784,7 @@ private struct UNIXPath: Path, Sendable {
 
     init(validatingRelativePath path: String) throws {
         switch path.first {
-        case "/", "~":
+        case "/":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(normalizingRelativePath: path)
@@ -875,9 +829,9 @@ private struct UNIXPath: Path, Sendable {
         }
 
         if self == Self.root {
-            return PathImpl(string: "/" + name)
+            return Self(string: "/" + name)
         } else {
-            return PathImpl(string: string + "/" + name)
+            return Self(string: string + "/" + name)
         }
     }
 
@@ -900,12 +854,12 @@ private struct UNIXPath: Path, Sendable {
         // the beginning of the path only.
         if relativePathString.hasPrefix(".") {
             if newPathString.hasPrefix("/") {
-                return PathImpl(normalizingAbsolutePath: newPathString)
+                return Self(normalizingAbsolutePath: newPathString)
             } else {
-                return PathImpl(normalizingRelativePath: newPathString)
+                return Self(normalizingRelativePath: newPathString)
             }
         } else {
-            return PathImpl(string: newPathString)
+            return Self(string: newPathString)
         }
     }
 }
@@ -926,7 +880,7 @@ extension PathValidationError: CustomStringConvertible {
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
         case .invalidRelativePath(let path):
-            return "invalid relative path '\(path)'; relative path should not begin with '\(AbsolutePath.root.pathString)' or '~'"
+            return "invalid relative path '\(path)'; relative path should not begin with '\(AbsolutePath.root.pathString)'"
         }
     }
 }
@@ -956,10 +910,16 @@ extension AbsolutePath {
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
 #if os(Windows)
-            result = RelativePath(unsafeUncheckedPath: relComps.joined(separator: "\\"))
+            let pathString = relComps.joined(separator: "\\")
 #else
-            result = RelativePath(relComps.joined(separator: "/"))
+            let pathString = relComps.joined(separator: "/")
 #endif
+            do {
+                result = try RelativePath(validating: pathString)
+            } catch {
+                preconditionFailure("invalid relative path computed from \(pathString)")
+            }
+
         } else {
             // General case, in which we might well need `..` components to go
             // "up" before we can go "down" the directory tree.
@@ -975,10 +935,15 @@ extension AbsolutePath {
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
 #if os(Windows)
-            result = RelativePath(unsafeUncheckedPath: relComps.joined(separator: "\\"))
+            let pathString = relComps.joined(separator: "\\")
 #else
-            result = RelativePath(relComps.joined(separator: "/"))
+            let pathString = relComps.joined(separator: "/")
 #endif
+            do {
+                result = try RelativePath(validating: pathString)
+            } catch {
+                preconditionFailure("invalid relative path computed from \(pathString)")
+            }
         }
 
         assert(AbsolutePath(base, result) == self)
@@ -1065,13 +1030,31 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 // MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
 
 extension AbsolutePath {
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing `init(validating:)` variant instead")
     public init(_ absStr: String) {
         try! self.init(validating: absStr)
     }
 
+    @_disfavoredOverload
     @available(*, deprecated, message: "use throwing `init(validating:relativeTo:)` variant instead")
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: str, relativeTo: basePath)
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use throwing variant instead")
+    public init(_ absPath: AbsolutePath, _ relStr: String) {
+        try! self.init(absPath, validating: relStr)
+    }
+}
+
+// MARK: - `AbsolutePath` backwards compatibility, delete after deprecation period.
+
+extension RelativePath {
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use throwing variant instead")
+    public init(_ string: String) {
+        try! self.init(validating: string)
     }
 }

@@ -19,7 +19,7 @@ class PathPerfTests: XCTestCasePerf {
     @available(*, deprecated)
     func testJoinPerf_X100000() {
       #if canImport(Darwin)
-        let absPath = AbsolutePath(path: "/hello/little")
+        let absPath = AbsolutePath("/hello/little")
         let relPath = RelativePath("world")
         let N = 100000
         self.measure {
