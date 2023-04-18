@@ -11,6 +11,7 @@
 import TSCUtility
 import XCTest
 
+@available(*, deprecated)
 class TripleTests : XCTestCase {
     func testTriple() {
         let linux = try? Triple("x86_64-unknown-linux-gnu")

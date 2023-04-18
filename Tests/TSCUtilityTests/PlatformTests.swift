@@ -14,6 +14,7 @@ import TSCTestSupport
 
 @testable import TSCUtility
 
+@available(*, deprecated)
 final class PlatformTests: XCTestCase {
     func testFindCurrentPlatformDebian() {
         let fs = InMemoryFileSystem(files: ["/etc/debian_version": "xxx"])
