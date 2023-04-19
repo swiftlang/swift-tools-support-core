@@ -235,6 +235,7 @@ public struct Triple: Encodable, Equatable, Sendable {
     }
 }
 
+@available(*, deprecated)
 extension Triple {
     /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
@@ -290,6 +291,7 @@ extension Triple {
     }
 }
 
+@available(*, deprecated)
 extension Triple.Error: CustomNSError {
     public var errorUserInfo: [String : Any] {
         return [NSLocalizedDescriptionKey: "\(self)"]
