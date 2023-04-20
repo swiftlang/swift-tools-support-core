@@ -146,7 +146,7 @@ public enum FileMode: Sendable {
 /// substitute a virtual file system or redirect file system operations.
 ///
 /// - Note: All of these APIs are synchronous and can block.
-public protocol FileSystem: AnyObject, Sendable {
+public protocol FileSystem: Sendable {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
 
@@ -296,7 +296,7 @@ public extension FileSystem {
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
-private final class LocalFileSystem: FileSystem {
+private struct LocalFileSystem: FileSystem {
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // Our semantics doesn't consider directories.
         return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
@@ -1175,9 +1175,6 @@ public var localFileSystem: FileSystem {
         _localFileSystem = newValue
     }
 }
-
-// `LocalFileSystem` doesn't hold any internal state and all of its underlying operations are blocking.
-extension LocalFileSystem: @unchecked Sendable {}
 
 extension FileSystem {
     /// Print the filesystem tree of the given path.
