@@ -860,6 +860,17 @@ class FileSystemTests: XCTestCase {
         try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
     }
 
+    func testQuarantineAttribute() throws {
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+            let filePath = tempDir.appending(component: "quarantined")
+            try localFileSystem.writeFileContents(filePath, bytes: "")
+            try Process.checkNonZeroExit(args: "xattr", "-w", "com.apple.quarantine", "foo", filePath.pathString)
+            XCTAssertTrue(localFileSystem.hasQuarantineAttribute(filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-d", "com.apple.quarantine", filePath.pathString)
+            XCTAssertFalse(localFileSystem.hasQuarantineAttribute(filePath))
+        }
+    }
+
     private func _testFileSystemFileLock(fileSystem fs: FileSystem, fileA: AbsolutePath, fileB: AbsolutePath, lockFile: AbsolutePath) throws {
         // write initial value, since reader may start before writers and files would not exist
         try fs.writeFileContents(fileA, bytes: "0")
