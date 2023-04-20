@@ -348,7 +348,7 @@ private final class LocalFileSystem: FileSystem {
     }
 
     func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool {
-#if os(macOS)
+#if canImport(Darwin)
         let bufLength = getxattr(path.pathString, "com.apple.quarantine", nil, 0, 0, 0)
 
         return bufLength > 0

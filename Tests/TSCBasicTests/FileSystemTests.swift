@@ -860,6 +860,7 @@ class FileSystemTests: XCTestCase {
         try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
     }
 
+#if canImport(Darwin)
     func testQuarantineAttribute() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
             let filePath = tempDir.appending(component: "quarantined")
@@ -870,6 +871,7 @@ class FileSystemTests: XCTestCase {
             XCTAssertFalse(localFileSystem.hasQuarantineAttribute(filePath))
         }
     }
+#endif
 
     private func _testFileSystemFileLock(fileSystem fs: FileSystem, fileA: AbsolutePath, fileB: AbsolutePath, lockFile: AbsolutePath) throws {
         // write initial value, since reader may start before writers and files would not exist
