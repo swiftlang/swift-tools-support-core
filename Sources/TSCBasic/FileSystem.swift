@@ -349,7 +349,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func hasAttribute(name: String, _ path: AbsolutePath) -> Bool {
-#if canImport(Darwin) || canImport(Glibc)
+#if canImport(Darwin)
         let bufLength = getxattr(path.pathString, name, nil, 0, 0, 0)
 
         return bufLength > 0
