@@ -34,7 +34,12 @@ class WritableByteStreamTests: XCTestCase {
     func testStreamOperator() {
         let stream = BufferedOutputByteStream()
 
-        stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5]
+        stream
+            .send("Hello")
+            .send(Character(","))
+            .send(Character(" "))
+            .send([UInt8]("wor".utf8))
+            .send([UInt8]("world".utf8)[3..<5])
         
         XCTAssertEqual(stream.position, "Hello, world".utf8.count)
         XCTAssertEqual(stream.bytes, "Hello, world")
@@ -47,15 +52,15 @@ class WritableByteStreamTests: XCTestCase {
             let bigBlock = [UInt8](repeating: 1, count: blockSize)
 
             var stream = BufferedOutputByteStream()
-            stream <<< smallBlock <<< bigBlock
+            stream.send(smallBlock).send(bigBlock)
             XCTAssertEqual(stream.bytes, ByteString(smallBlock + bigBlock))
 
             stream = BufferedOutputByteStream()
-            stream <<< bigBlock <<< smallBlock
+            stream.send(bigBlock).send(smallBlock)
             XCTAssertEqual(stream.bytes, ByteString(bigBlock + smallBlock))
 
             stream = BufferedOutputByteStream()
-            stream <<< bigBlock <<< bigBlock
+            stream.send(bigBlock).send(bigBlock)
             XCTAssertEqual(stream.bytes, ByteString(bigBlock + bigBlock))
         }
     }
@@ -77,34 +82,34 @@ class WritableByteStreamTests: XCTestCase {
 
         // Test other random types.
         var stream = BufferedOutputByteStream()
-        stream <<< Format.asJSON(false)
+        stream.send(Format.asJSON(false))
         XCTAssertEqual(stream.bytes, "false")
 
         stream = BufferedOutputByteStream()
-        stream  <<< Format.asJSON(1 as Int)
+        stream .send(Format.asJSON(1 as Int))
         XCTAssertEqual(stream.bytes, "1")
 
         stream = BufferedOutputByteStream()
-        stream <<< Format.asJSON(1.2 as Double)
+        stream.send(Format.asJSON(1.2 as Double))
         XCTAssertEqual(stream.bytes, "1.2")
     }
     
     func testFormattedOutput() {
         do {
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asJSON("\n")
+            stream.send(Format.asJSON("\n"))
             XCTAssertEqual(stream.bytes, "\"\\n\"")
         }
         
         do {
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asJSON(["hello", "world\n"])
+            stream.send(Format.asJSON(["hello", "world\n"]))
             XCTAssertEqual(stream.bytes, "[\"hello\",\"world\\n\"]")
         }
         
         do {
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asJSON(["hello": "world\n"])
+            stream.send(Format.asJSON(["hello": "world\n"]))
             XCTAssertEqual(stream.bytes, "{\"hello\":\"world\\n\"}")
         }
 
@@ -114,13 +119,13 @@ class WritableByteStreamTests: XCTestCase {
                 init(_ value: String) { self.value = value }
             }
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asJSON([MyThing("hello"), MyThing("world\n")], transform: { $0.value })
+            stream.send(Format.asJSON([MyThing("hello"), MyThing("world\n")], transform: { $0.value }))
             XCTAssertEqual(stream.bytes, "[\"hello\",\"world\\n\"]")
         }
 
         do {
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asSeparatedList(["hello", "world"], separator: ", ")
+            stream.send(Format.asSeparatedList(["hello", "world"], separator: ", "))
             XCTAssertEqual(stream.bytes, "hello, world")
         }
         
@@ -130,25 +135,25 @@ class WritableByteStreamTests: XCTestCase {
                 init(_ value: String) { self.value = value }
             }
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asSeparatedList([MyThing("hello"), MyThing("world")], transform: { $0.value }, separator: ", ")
+            stream.send(Format.asSeparatedList([MyThing("hello"), MyThing("world")], transform: { $0.value }, separator: ", "))
             XCTAssertEqual(stream.bytes, "hello, world")
         }
 
         do {
             var stream = BufferedOutputByteStream()
-            stream <<< Format.asRepeating(string: "foo", count: 1)
+            stream.send(Format.asRepeating(string: "foo", count: 1))
             XCTAssertEqual(stream.bytes, "foo")
 
             stream = BufferedOutputByteStream()
-            stream <<< Format.asRepeating(string: "foo", count: 0)
+            stream.send(Format.asRepeating(string: "foo", count: 0))
             XCTAssertEqual(stream.bytes, "")
 
             stream = BufferedOutputByteStream()
-            stream <<< Format.asRepeating(string: "x", count: 4)
+            stream.send(Format.asRepeating(string: "x", count: 4))
             XCTAssertEqual(stream.bytes, "xxxx")
 
             stream = BufferedOutputByteStream()
-            stream <<< Format.asRepeating(string: "foo", count: 3)
+            stream.send(Format.asRepeating(string: "foo", count: 3))
             XCTAssertEqual(stream.bytes, "foofoofoo")
         }
     }
@@ -161,11 +166,11 @@ class WritableByteStreamTests: XCTestCase {
             }
 
             let stream = try LocalFileOutputByteStream(tempFile.path)
-            stream <<< "Hello"
+            stream.send("Hello")
             stream.flush()
             XCTAssertEqual(read(), "Hello")
 
-            stream <<< " World"
+            stream.send(" World")
             try stream.close()
 
             XCTAssertEqual(read(), "Hello World")
@@ -196,7 +201,7 @@ class WritableByteStreamTests: XCTestCase {
 
         let t1 = Thread {
             for _ in 0..<1000 {
-                threadSafeStream <<< "Hello"
+                threadSafeStream.send("Hello")
             }
         }
         threads.append(t1)

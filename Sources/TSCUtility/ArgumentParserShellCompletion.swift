@@ -29,18 +29,18 @@ extension ArgumentParser {
         switch shell {
         case .bash:
             // Information about how to include this function in a completion script.
-            stream <<< """
+            stream.send("""
                 # Generates completions for \(commandName)
                 #
                 # Parameters
                 # - the start position of this parser; set to 1 if unknown
 
-                """
+                """)
             generateBashSwiftTool(name: name, on: stream)
 
         case .zsh:
             // Information about how to include this function in a completion script.
-            stream <<< """
+            stream.send("""
                 # Generates completions for \(commandName)
                 #
                 # In the final compdef file, set the following file header:
@@ -49,7 +49,7 @@ extension ArgumentParser {
                 #     local context state state_descr line
                 #     typeset -A opt_args
 
-                """
+                """)
 
             generateZshSwiftTool(name: name, on: stream)
         }
@@ -59,11 +59,11 @@ extension ArgumentParser {
     // MARK: - BASH
 
     fileprivate func generateBashSwiftTool(name: String, on stream: WritableByteStream) {
-        stream <<< """
+        stream.send("""
             function \(name)
             {
 
-            """
+            """)
 
         // Suggest positional arguments. Beware that this forces positional arguments
         // before options. For example [swift package pin <TAB>] expects a name as the
@@ -71,13 +71,13 @@ extension ArgumentParser {
         // the positional argument; [swift package pin MyPackage <TAB>] will list them
         // just fine.
         for (index, argument) in positionalArguments.enumerated() {
-            stream <<< "    if [[ $COMP_CWORD == $(($1+\(index))) ]]; then\n"
+            stream.send("    if [[ $COMP_CWORD == $(($1+\(index))) ]]; then\n")
             generateBashCompletion(argument, on: stream)
-            stream <<< "    fi\n"
+            stream.send("    fi\n")
         }
 
         // Suggest subparsers in addition to other arguments.
-        stream <<< "    if [[ $COMP_CWORD == $1 ]]; then\n"
+        stream.send("    if [[ $COMP_CWORD == $1 ]]; then\n")
         var completions = [String]()
         for (subName, _) in subparsers {
             completions.append(subName)
@@ -88,37 +88,37 @@ extension ArgumentParser {
                 completions.append(shortName)
             }
         }
-        stream <<< """
+        stream.send("""
                     COMPREPLY=( $(compgen -W "\(completions.joined(separator: " "))" -- $cur) )
                     return
                 fi
 
-            """
+            """)
 
         // Suggest completions based on previous word.
         generateBashCasePrev(on: stream)
 
         // Forward completions to subparsers.
-        stream <<< "    case ${COMP_WORDS[$1]} in\n"
+        stream.send("    case ${COMP_WORDS[$1]} in\n")
         for (subName, _) in subparsers {
-            stream <<< """
+            stream.send("""
                         (\(subName))
                             \(name)_\(subName) $(($1+1))
                             return
                         ;;
 
-                """
+                """)
         }
-        stream <<< "    esac\n"
+        stream.send("    esac\n")
 
         // In all other cases (no positional / previous / subparser), suggest
         // this parsers completions.
-        stream <<< """
+        stream.send("""
                 COMPREPLY=( $(compgen -W "\(completions.joined(separator: " "))" -- $cur) )
             }
 
 
-            """
+            """)
 
         for (subName, subParser) in subparsers {
             subParser.generateBashSwiftTool(name: "\(name)_\(subName)", on: stream)
@@ -126,42 +126,42 @@ extension ArgumentParser {
     }
 
     fileprivate func generateBashCasePrev(on stream: WritableByteStream) {
-        stream <<< "    case $prev in\n"
+        stream.send("    case $prev in\n")
         for argument in optionArguments {
             let flags = [argument.name] + (argument.shortName.map({ [$0] }) ?? [])
-            stream <<< "        (\(flags.joined(separator: "|")))\n"
+            stream.send("        (\(flags.joined(separator: "|")))\n")
             generateBashCompletion(argument, on: stream)
-            stream <<< "        ;;\n"
+            stream.send("        ;;\n")
         }
-        stream <<< "    esac\n"
+        stream.send("    esac\n")
     }
 
     fileprivate func generateBashCompletion(_ argument: AnyArgument, on stream: WritableByteStream) {
         switch argument.completion {
         case .none:
             // return; no value to complete
-            stream <<< "            return\n"
+            stream.send("            return\n")
         case .unspecified:
             break
         case .values(let values):
             let x = values.map({ $0.value }).joined(separator: " ")
-            stream <<< """
+            stream.send("""
                             COMPREPLY=( $(compgen -W "\(x)" -- $cur) )
                             return
 
-                """
+                """)
         case .filename:
-            stream <<< """
+            stream.send("""
                             _filedir
                             return
 
-                """
+                """)
         case .function(let name):
-            stream <<< """
+            stream.send("""
                             \(name)
                             return
 
-                """
+                """)
         }
     }
 
@@ -169,15 +169,15 @@ extension ArgumentParser {
 
     private func generateZshSwiftTool(name: String, on stream: WritableByteStream) {
         // Completions are provided by zsh's _arguments builtin.
-        stream <<< """
+        stream.send("""
             \(name)() {
                 arguments=(
 
-            """
+            """)
         for argument in positionalArguments {
-            stream <<< "        \""
+            stream.send("        \"")
             generateZshCompletion(argument, on: stream)
-            stream <<< "\"\n"
+            stream.send("\"\n")
         }
         for argument in optionArguments {
             generateZshArgument(argument, on: stream)
@@ -185,58 +185,58 @@ extension ArgumentParser {
 
         // Use a simple state-machine when dealing with sub parsers.
         if subparsers.count > 0 {
-            stream <<< """
+            stream.send("""
                         '(-): :->command'
                         '(-)*:: :->arg'
 
-                """
+                """)
         }
 
-        stream <<< """
+        stream.send("""
                 )
                 _arguments $arguments && return
 
-            """
+            """)
 
         // Handle the state set by the state machine.
         if subparsers.count > 0 {
-            stream <<< """
+            stream.send("""
                     case $state in
                         (command)
                             local modes
                             modes=(
 
-                """
+                """)
             for (subName, subParser) in subparsers {
-                stream <<< """
+                stream.send("""
                                     '\(subName):\(subParser.overview)'
 
-                    """
+                    """)
             }
-            stream <<< """
+            stream.send("""
                             )
                             _describe "mode" modes
                             ;;
                         (arg)
                             case ${words[1]} in
 
-                """
+                """)
             for (subName, _) in subparsers {
-                stream <<< """
+                stream.send("""
                                     (\(subName))
                                         \(name)_\(subName)
                                         ;;
 
-                    """
+                    """)
             }
-            stream <<< """
+            stream.send("""
                             esac
                             ;;
                     esac
 
-                """
+                """)
         }
-       stream <<< "}\n\n"
+       stream.send("}\n\n")
 
         for (subName, subParser) in subparsers {
             subParser.generateZshSwiftTool(name: "\(name)_\(subName)", on: stream)
@@ -245,10 +245,10 @@ extension ArgumentParser {
 
     /// Generates an option argument for `_arguments`, complete with description and completion values.
     fileprivate func generateZshArgument(_ argument: AnyArgument, on stream: WritableByteStream) {
-        stream <<< "        \""
+        stream.send("        \"")
         switch argument.shortName {
-        case .none: stream <<< "\(argument.name)"
-        case let shortName?: stream <<< "(\(argument.name) \(shortName))\"{\(argument.name),\(shortName)}\""
+        case .none: stream.send("\(argument.name)")
+        case let shortName?: stream.send("(\(argument.name) \(shortName))\"{\(argument.name),\(shortName)}\"")
         }
 
         let description = removeDefaultRegex
@@ -256,10 +256,10 @@ extension ArgumentParser {
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "[", with: "\\[")
             .replacingOccurrences(of: "]", with: "\\]")
-        stream <<< "[\(description)]"
+        stream.send("[\(description)]")
 
         generateZshCompletion(argument, on: stream)
-        stream <<< "\"\n"
+        stream.send("\"\n")
     }
 
     /// Generates completion values, as part of an item for `_arguments`.
@@ -269,16 +269,16 @@ extension ArgumentParser {
             .replacingOccurrences(of: "\"", with: "\\\"")
 
         switch argument.completion {
-        case .none: stream <<< ":\(message): "
+        case .none: stream.send(":\(message): ")
         case .unspecified: break
-        case .filename: stream <<< ":\(message):_files"
+        case .filename: stream.send(":\(message):_files")
         case let .values(values):
-            stream <<< ": :{_values ''"
+            stream.send(": :{_values ''")
             for (value, description) in values {
-                stream <<< " '\(value)[\(description)]'"
+                stream.send(" '\(value)[\(description)]'")
             }
-            stream <<< "}"
-        case .function(let name): stream <<< ":\(message):\(name)"
+            stream.send("}")
+        case .function(let name): stream.send(":\(message):\(name)")
         }
     }
 }

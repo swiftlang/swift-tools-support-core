@@ -32,7 +32,7 @@ class SHA256Tests: XCTestCase {
         let byte = "f"
         let stream = BufferedOutputByteStream()
         for _ in 0..<20000 {
-            stream <<< byte
+            stream.send(byte)
         }
         XCTAssertEqual(sha256.hash(stream.bytes).hexadecimalRepresentation, "23d00697ba26b4140869bab958431251e7e41982794d41b605b6a1d5dee56abf")
     }

@@ -51,7 +51,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<10 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
-                    stream <<< sequence
+                    stream.send(sequence)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -66,7 +66,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<10 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 20) {
-                    stream <<< byte
+                    stream.send(byte)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -80,7 +80,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<1 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 20) {
-                    stream <<< Character("X")
+                    stream.send(Character("X"))
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -97,7 +97,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<100 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
-                    stream <<< bytes16
+                    stream.send(bytes16)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -116,7 +116,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<100 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
-                    stream <<< bytes16
+                    stream.send(bytes16)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -133,7 +133,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<1000 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
-                    stream <<< bytes1k
+                    stream.send(bytes1k)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -150,7 +150,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<10 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
-                    stream <<< string16
+                    stream.send(string16)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -167,7 +167,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             for _ in 0..<100 {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
-                    stream <<< bytes1k
+                    stream.send(bytes1k)
                 }
                 XCTAssertEqual(stream.bytes.count, 1 << 20)
             }
@@ -206,10 +206,10 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
                 let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
                     for string in listOfStrings {
-                        stream <<< Format.asJSON(string)
+                        stream.send(Format.asJSON(string))
                     }
-                    stream <<< Format.asJSON(listOfStrings)
-                    stream <<< Format.asJSON(listOfThings, transform: { $0.value })
+                    stream.send(Format.asJSON(listOfStrings))
+                    stream.send(Format.asJSON(listOfThings, transform: { $0.value }))
                 }
                 XCTAssertGreaterThan(stream.bytes.count, 1000)
             }

@@ -48,12 +48,12 @@ class FileSystemTests: XCTestCase {
                 let executableSym = tempDirPath.appending(component: "exec-sym")
                 try! fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
                 let stream = BufferedOutputByteStream()
-                stream <<< """
+                stream.send("""
                     #!/bin/sh
                     set -e
                     exit
 
-                    """
+                    """)
                 try! fs.writeFileContents(executable, bytes: stream.bytes)
                 try! Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
                 XCTAssertTrue(fs.isExecutableFile(executable))
