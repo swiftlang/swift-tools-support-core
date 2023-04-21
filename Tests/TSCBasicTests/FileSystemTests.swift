@@ -860,8 +860,8 @@ class FileSystemTests: XCTestCase {
         try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
     }
 
-#if canImport(Darwin) || canImport(Glibc)
-    func testQuarantineAttribute() throws {
+#if canImport(Darwin)
+    func testHasAttribute() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
             let filePath = tempDir.appending(component: "quarantined")
             let attributeName = "com.apple.quarantine"
