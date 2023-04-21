@@ -168,9 +168,9 @@ public protocol FileSystem: AnyObject {
     /// Check whether the given path is accessible and writable.
     func isWritable(_ path: AbsolutePath) -> Bool
 
-    /// Returns `true` if a given path has a quarantine attribute applied if when file system supports this attribute.
-    /// Returns `false` if such attribute is not applied or it isn't supported.
-    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool
+    /// Returns `true` if a given path has an attribute with a given name applied when file system supports this
+    /// attribute. Returns `false` if such attribute is not applied or it isn't supported.
+    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool
 
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
@@ -298,7 +298,7 @@ public extension FileSystem {
         throw FileSystemError(.unsupported, path)
     }
 
-    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool { false }
+    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool { false }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
@@ -348,9 +348,9 @@ private class LocalFileSystem: FileSystem {
         return FileInfo(attrs)
     }
 
-    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool {
-#if canImport(Darwin)
-        let bufLength = getxattr(path.pathString, "com.apple.quarantine", nil, 0, 0, 0)
+    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool {
+#if canImport(Darwin) || canImport(Glibc)
+        let bufLength = getxattr(path.pathString, name, nil, 0, 0, 0)
 
         return bufLength > 0
 #else

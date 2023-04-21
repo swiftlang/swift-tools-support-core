@@ -860,15 +860,16 @@ class FileSystemTests: XCTestCase {
         try _testFileSystemFileLock(fileSystem: fs, fileA: fileA, fileB: fileB, lockFile: lockFile)
     }
 
-#if canImport(Darwin)
+#if canImport(Darwin) || canImport(Glibc)
     func testQuarantineAttribute() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
             let filePath = tempDir.appending(component: "quarantined")
+            let attributeName = "com.apple.quarantine"
             try localFileSystem.writeFileContents(filePath, bytes: "")
-            try Process.checkNonZeroExit(args: "xattr", "-w", "com.apple.quarantine", "foo", filePath.pathString)
-            XCTAssertTrue(localFileSystem.hasQuarantineAttribute(filePath))
-            try Process.checkNonZeroExit(args: "xattr", "-d", "com.apple.quarantine", filePath.pathString)
-            XCTAssertFalse(localFileSystem.hasQuarantineAttribute(filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-w", attributeName, "foo", filePath.pathString)
+            XCTAssertTrue(localFileSystem.hasAttribute(name: attributeName, filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-d", attributeName, filePath.pathString)
+            XCTAssertFalse(localFileSystem.hasAttribute(name: attributeName, filePath))
         }
     }
 #endif
