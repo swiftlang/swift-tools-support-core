@@ -1021,7 +1021,11 @@ public final class InMemoryFileSystem: FileSystem {
 }
 
 // Internal state of `InMemoryFileSystem` is protected with a lock in all of its `public` methods.
+#if compiler(>=5.7)
 extension InMemoryFileSystem: @unchecked Sendable {}
+#else
+extension InMemoryFileSystem: UnsafeSendable {}
+#endif
 
 /// A rerooted view on an existing FileSystem.
 ///
@@ -1176,7 +1180,11 @@ public final class RerootedFileSystemView: FileSystem {
 
 // `RerootedFileSystemView` doesn't hold any internal state and can be considered `Sendable` since
 // `underlyingFileSystem` is required to be `Sendable`.
+#if compiler(>=5.7)
 extension RerootedFileSystemView: @unchecked Sendable {}
+#else
+extension RerootedFileSystemView: UnsafeSendable {}
+#endif
 
 private var _localFileSystem: FileSystem = LocalFileSystem()
 
