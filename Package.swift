@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.7
 
 /*
  This source file is part of the Swift.org open source project
@@ -18,7 +18,7 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v10_13)
+    macOSPlatform = .macOS("12.0")
 }
 
 let CMakeFiles = ["CMakeLists.txt"]
@@ -27,6 +27,7 @@ let package = Package(
     name: "swift-tools-support-core",
     platforms: [
         macOSPlatform,
+        .iOS("15.0")
     ],
     products: [
         .library(
