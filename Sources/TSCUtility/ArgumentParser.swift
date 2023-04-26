@@ -955,34 +955,33 @@ public final class ArgumentParser {
         /// Prints an argument on a stream if it has usage.
         func print(formatted argument: String, usage: String, on stream: WritableByteStream) {
             // Start with a new line and add some padding.
-            stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
+            stream.send("\n").send(Format.asRepeating(string: " ", count: padding))
             let count = argument.count
             // If the argument is longer than the max width, print the usage
             // on a new line. Otherwise, print the usage on the same line.
             if count >= maxWidth - padding {
-                stream <<< argument <<< "\n"
+                stream.send(argument).send("\n")
                 // Align full width because usage is to be printed on a new line.
-                stream <<< Format.asRepeating(string: " ", count: maxWidth + padding)
+                stream.send(Format.asRepeating(string: " ", count: maxWidth + padding))
             } else {
-                stream <<< argument
+                stream.send(argument)
                 // Align to the remaining empty space on the line.
-                stream <<< Format.asRepeating(string: " ", count: maxWidth - count)
+                stream.send(Format.asRepeating(string: " ", count: maxWidth - count))
             }
-            stream <<< usage
+            stream.send(usage)
         }
 
-        stream <<< "OVERVIEW: " <<< overview
+        stream.send("OVERVIEW: ").send(overview)
 
         if !usage.isEmpty {
-            stream <<< "\n\n"
+            stream.send("\n\n")
             // Get the binary name from command line arguments.
             let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
-            stream <<< "USAGE: " <<< (commandName ?? defaultCommandName) <<< " " <<< usage
+            stream.send("USAGE: ").send(commandName ?? defaultCommandName).send(" ").send(usage)
         }
 
         if optionArguments.count > 0 {
-            stream <<< "\n\n"
-            stream <<< "OPTIONS:"
+            stream.send("\n\nOPTIONS:")
             for argument in optionArguments.lazy.sorted(by: { $0.name < $1.name }) {
                 guard let usage = argument.usage else { continue }
                 // Create name with its shortname, if available.
@@ -997,8 +996,7 @@ public final class ArgumentParser {
         }
 
         if subparsers.keys.count > 0 {
-            stream <<< "\n\n"
-            stream <<< "SUBCOMMANDS:"
+            stream.send("\n\nSUBCOMMANDS:")
             for (command, parser) in subparsers.sorted(by: { $0.key < $1.key }) {
                 // Special case for hidden subcommands.
                 guard !parser.overview.isEmpty else { continue }
@@ -1007,8 +1005,7 @@ public final class ArgumentParser {
         }
 
         if positionalArguments.count > 0 {
-            stream <<< "\n\n"
-            stream <<< "POSITIONAL ARGUMENTS:"
+            stream.send("\n\nPOSITIONAL ARGUMENTS:")
             for argument in positionalArguments {
                 guard let usage = argument.usage else { continue }
                 print(formatted: argument.name, usage: usage, on: stream)
@@ -1016,11 +1013,11 @@ public final class ArgumentParser {
         }
         
         if let seeAlso = seeAlso {
-            stream <<< "\n\n"
-            stream <<< "SEE ALSO: \(seeAlso)"
+            stream.send("\n\n")
+            stream.send("SEE ALSO: \(seeAlso)")
         }
         
-        stream <<< "\n"
+        stream.send("\n")
         stream.flush()
     }
 }

@@ -26,9 +26,9 @@ class TemporaryFileTests: XCTestCase {
 
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
-            stream <<< "foo"
-            stream <<< "bar"
-            stream <<< "baz"
+            stream.send("foo")
+            stream.send("bar")
+            stream.send("baz")
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
 
             // Go to the beginning of the file.
@@ -50,9 +50,9 @@ class TemporaryFileTests: XCTestCase {
             
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
-            stream <<< "foo"
-            stream <<< "bar"
-            stream <<< "baz"
+            stream.send("foo")
+            stream.send("bar")
+            stream.send("baz")
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
             
             // Go to the beginning of the file.

@@ -42,8 +42,8 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
 
     public func update(step: Int, total: Int, text: String) {
         if let header = header, !hasDisplayedHeader {
-            stream <<< header
-            stream <<< "\n"
+            stream.send(header)
+            stream.send("\n")
             stream.flush()
             hasDisplayedHeader = true
         }
@@ -51,7 +51,7 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
         let percentage = step * 100 / total
         let roundedPercentage = Int(Double(percentage / 10).rounded(.down)) * 10
         if percentage != 100, !displayedPercentages.contains(roundedPercentage) {
-            stream <<< String(roundedPercentage) <<< ".. "
+            stream.send(String(roundedPercentage)).send(".. ")
             displayedPercentages.insert(roundedPercentage)
         }
 
@@ -60,7 +60,7 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
 
     public func complete(success: Bool) {
         if success {
-            stream <<< "OK"
+            stream.send("OK")
             stream.flush()
         }
     }
@@ -89,8 +89,8 @@ public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
 
         guard text != lastDisplayedText else { return }
 
-        stream <<< "[\(step)/\(total)] " <<< text
-        stream <<< "\n"
+        stream.send("[\(step)/\(total)] ").send(text)
+        stream.send("\n")
         stream.flush()
         lastDisplayedText = text
     }
@@ -171,15 +171,15 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
         assert(step <= total)
 
         if !hasDisplayedHeader, !header.isEmpty {
-            stream <<< header
-            stream <<< "\n"
+            stream.send(header)
+            stream.send("\n")
             stream.flush()
             hasDisplayedHeader = true
         }
 
         let percentage = step * 100 / total
-        stream <<< "\(percentage)%: " <<< text
-        stream <<< "\n"
+        stream.send("\(percentage)%: ").send(text)
+        stream.send("\n")
         stream.flush()
         lastDisplayedText = text
     }

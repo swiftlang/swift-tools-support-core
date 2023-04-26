@@ -458,7 +458,7 @@ private struct LocalFileSystem: FileSystem {
                 }
                 break
             }
-            data <<< tmpBuffer[0..<n]
+            data.send(tmpBuffer[0..<n])
         }
 
         return data.bytes

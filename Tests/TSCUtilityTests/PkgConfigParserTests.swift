@@ -127,10 +127,10 @@ final class PkgConfigParserTests: XCTestCase {
             try localFileSystem.createDirectory(fakePkgConfig.parentDirectory)
 
             let stream = BufferedOutputByteStream()
-            stream <<< """
+            stream.send("""
             #!/bin/sh
             echo "/Volumes/BestDrive/pkgconfig"
-            """
+            """)
             try localFileSystem.writeFileContents(fakePkgConfig, bytes: stream.bytes)
             // `FileSystem` does not support `chmod` on Linux, so we shell out instead.
             _ = try Process.popen(args: "chmod", "+x", fakePkgConfig.pathString)

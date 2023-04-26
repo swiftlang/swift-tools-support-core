@@ -50,7 +50,7 @@ class ProcessTests: XCTestCase {
         try withTemporaryFile { file in
             let count = 10_000
             let stream = BufferedOutputByteStream()
-            stream <<< Format.asRepeating(string: "a", count: count)
+            stream.send(Format.asRepeating(string: "a", count: count))
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
             #if os(Windows)
             let cat = "cat.exe"

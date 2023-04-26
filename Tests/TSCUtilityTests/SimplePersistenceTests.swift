@@ -183,7 +183,7 @@ class SimplePersistenceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
         try fs.writeFileContents(stateFile) {
-            $0 <<< """
+            $0.send("""
                 {
                     "version": 0,
                     "object": {
@@ -191,7 +191,7 @@ class SimplePersistenceTests: XCTestCase {
                         "old_int": 4
                     }
                 }
-                """
+                """)
         }
 
         let foo = Foo(int: 1, path: "/hello", fileSystem: fs)
