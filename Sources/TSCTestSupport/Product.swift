@@ -18,6 +18,7 @@ import TSCUtility
 import class Foundation.Bundle
 #endif
 
+@available(*, deprecated, message: "moved to SwiftPM")
 public enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
     case executionFailure(error: Swift.Error, output: String, stderr: String)
@@ -26,10 +27,12 @@ public enum SwiftPMProductError: Swift.Error {
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
+@available(*, deprecated, message: "moved to SwiftPM")
 public protocol Product {
     var exec: RelativePath { get }
 }
 
+@available(*, deprecated, message: "moved to SwiftPM")
 extension Product {
     /// Path to currently built binary.
     public var path: AbsolutePath {
