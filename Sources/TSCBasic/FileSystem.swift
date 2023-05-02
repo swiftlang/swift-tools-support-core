@@ -148,6 +148,7 @@ public enum FileMode: Sendable {
 /// - Note: All of these APIs are synchronous and can block.
 public protocol FileSystem: Sendable {
     /// Check whether the given path exists and is accessible.
+    @_disfavoredOverload
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
 
     /// Check whether the given path is accessible and a directory.
@@ -183,6 +184,7 @@ public protocol FileSystem: Sendable {
     /// The current working directory can be empty if e.g. the directory became
     /// unavailable while the current process was still working in it.
     /// This follows the POSIX `getcwd(3)` semantics.
+    @_disfavoredOverload
     var currentWorkingDirectory: AbsolutePath? { get }
 
     /// Change the current working directory.
@@ -191,12 +193,15 @@ public protocol FileSystem: Sendable {
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws
 
     /// Get the home directory of current user
+    @_disfavoredOverload
     var homeDirectory: AbsolutePath { get throws }
 
     /// Get the caches directory of current user
+    @_disfavoredOverload
     var cachesDirectory: AbsolutePath? { get }
 
     /// Get the temp directory
+    @_disfavoredOverload
     var tempDirectory: AbsolutePath { get throws }
 
     /// Create the given directory.
@@ -259,6 +264,7 @@ public protocol FileSystem: Sendable {
 /// methods).
 public extension FileSystem {
     /// exists override with default value.
+    @_disfavoredOverload
     func exists(_ path: AbsolutePath) -> Bool {
         return exists(path, followSymlink: true)
     }
@@ -275,6 +281,7 @@ public extension FileSystem {
 
     // Unless the file system type provides an override for this method, throw
     // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
+    @_disfavoredOverload
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         guard !atomically else {
             throw FileSystemError(.unsupported, path)
@@ -283,6 +290,7 @@ public extension FileSystem {
     }
 
     /// Write to a file from a stream producer.
+    @_disfavoredOverload
     func writeFileContents(_ path: AbsolutePath, body: (WritableByteStream) -> Void) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
