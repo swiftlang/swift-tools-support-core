@@ -208,9 +208,9 @@ public enum PackageLocation {
         public var description: String {
             let stream = BufferedOutputByteStream()
             if let name = name {
-                stream <<< "'\(name)' "
+                stream.send("'\(name)' ")
             }
-            stream <<< packagePath
+            stream.send(packagePath)
             return stream.bytes.description
         }
     }

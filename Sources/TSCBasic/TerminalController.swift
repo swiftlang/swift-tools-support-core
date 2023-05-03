@@ -166,13 +166,13 @@ public final class TerminalController {
 
     /// Clears the current line and moves the cursor to beginning of the line..
     public func clearLine() {
-        stream <<< clearLineString <<< "\r"
+        stream.send(clearLineString).send("\r")
         flush()
     }
 
     /// Moves the cursor y columns up.
     public func moveCursor(up: Int) {
-        stream <<< "\u{001B}[\(up)A"
+        stream.send("\u{001B}[\(up)A")
         flush()
     }
 
@@ -184,7 +184,7 @@ public final class TerminalController {
 
     /// Inserts a new line character into the stream.
     public func endLine() {
-        stream <<< "\n"
+        stream.send("\n")
         flush()
     }
 
@@ -198,9 +198,9 @@ public final class TerminalController {
     private func writeWrapped(_ string: String, inColor color: Color, bold: Bool = false, stream: WritableByteStream) {
         // Don't wrap if string is empty or color is no color.
         guard !string.isEmpty && color != .noColor else {
-            stream <<< string
+            stream.send(string)
             return
         }
-        stream <<< color.string <<< (bold ? boldString : "") <<< string <<< resetString
+        stream.send(color.string).send(bold ? boldString : "").send(string).send(resetString)
     }
 }

@@ -148,11 +148,11 @@ public final class DiagnosticsEngine: CustomStringConvertible {
 
     public var description: String {
         let stream = BufferedOutputByteStream()
-        stream <<< "["
+        stream.send("[")
         for diag in diagnostics {
-            stream <<< diag.description <<< ", "
+            stream.send(diag.description).send(", ")
         }
-        stream <<< "]"
+        stream.send("]")
         return stream.bytes.description
     }
 }

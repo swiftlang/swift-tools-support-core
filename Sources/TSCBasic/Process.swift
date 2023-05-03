@@ -389,7 +389,7 @@ public final class Process {
             outputRedirection: outputRedirection,
             startNewProcessGroup: startNewProcessGroup,
             loggingHandler: verbose ? { message in
-                stdoutStream <<< message <<< "\n"
+                stdoutStream.send(message).send("\n")
                 stdoutStream.flush()
             } : nil
         )
@@ -1276,13 +1276,13 @@ extension ProcessResult.Error: CustomStringConvertible {
             let stream = BufferedOutputByteStream()
             switch result.exitStatus {
             case .terminated(let code):
-                stream <<< "terminated(\(code)): "
+                stream.send("terminated(\(code)): ")
 #if os(Windows)
             case .abnormal(let exception):
-                stream <<< "abnormal(\(exception)): "
+                stream.send("abnormal(\(exception)): ")
 #else
             case .signalled(let signal):
-                stream <<< "signalled(\(signal)): "
+                stream.send("signalled(\(signal)): ")
 #endif
             }
 
@@ -1292,15 +1292,15 @@ extension ProcessResult.Error: CustomStringConvertible {
             if args.first == "sandbox-exec", args.count > 3 {
                 args = args.suffix(from: 3).map({$0})
             }
-            stream <<< args.map({ $0.spm_shellEscaped() }).joined(separator: " ")
+            stream.send(args.map({ $0.spm_shellEscaped() }).joined(separator: " "))
 
             // Include the output, if present.
             if let output = try? result.utf8Output() + result.utf8stderrOutput() {
                 // We indent the output to keep it visually separated from everything else.
                 let indentation = "    "
-                stream <<< " output:\n" <<< indentation <<< output.replacingOccurrences(of: "\n", with: "\n" + indentation)
+                stream.send(" output:\n").send(indentation).send(output.replacingOccurrences(of: "\n", with: "\n" + indentation))
                 if !output.hasSuffix("\n") {
-                    stream <<< "\n"
+                    stream.send("\n")
                 }
             }
 
@@ -1333,7 +1333,7 @@ extension FileHandle: WritableByteStream {
 extension Process {
     @available(*, deprecated)
     fileprivate static func logToStdout(_ message: String) {
-        stdoutStream <<< message <<< "\n"
+        stdoutStream.send(message).send("\n")
         stdoutStream.flush()
     }
 }

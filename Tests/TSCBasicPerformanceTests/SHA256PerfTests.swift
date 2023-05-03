@@ -20,7 +20,7 @@ class SHA256PerfTests: XCTestCasePerf {
         let byte = "f"
         let stream = BufferedOutputByteStream()
         for _ in 0..<20000 {
-            stream <<< byte
+            stream.send(byte)
         }
         measure {
             for _ in 0..<1000 {

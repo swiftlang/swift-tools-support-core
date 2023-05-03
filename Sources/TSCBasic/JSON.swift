@@ -126,41 +126,41 @@ extension JSON: ByteStreamable {
         let shouldIndent = indent != nil
         switch self {
         case .null:
-            stream <<< "null"
+            stream.send("null")
         case .bool(let value):
-            stream <<< Format.asJSON(value)
+            stream.send(Format.asJSON(value))
         case .int(let value):
-            stream <<< Format.asJSON(value)
+            stream.send(Format.asJSON(value))
         case .double(let value):
             // FIXME: What happens for NaN, etc.?
-            stream <<< Format.asJSON(value)
+            stream.send(Format.asJSON(value))
         case .string(let value):
-            stream <<< Format.asJSON(value)
+            stream.send(Format.asJSON(value))
         case .array(let contents):
-            stream <<< "[" <<< (shouldIndent ? "\n" : "")
+            stream.send("[").send(shouldIndent ? "\n" : "")
             for (i, item) in contents.enumerated() {
-                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
-                stream <<< indentStreamable(offset: 2)
+                if i != 0 { stream.send(",").send(shouldIndent ? "\n" : " ") }
+                stream.send(indentStreamable(offset: 2))
                 item.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
-            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "]"
+            stream.send(shouldIndent ? "\n" : "").send(indentStreamable()).send("]")
         case .dictionary(let contents):
             // We always output in a deterministic order.
-            stream <<< "{" <<< (shouldIndent ? "\n" : "")
+            stream.send("{").send(shouldIndent ? "\n" : "")
             for (i, key) in contents.keys.sorted().enumerated() {
-                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
-                stream <<< indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": "
+                if i != 0 { stream.send(",").send(shouldIndent ? "\n" : " ") }
+                stream.send(indentStreamable(offset: 2)).send(Format.asJSON(key)).send(": ")
                 contents[key]!.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
-            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
+            stream.send(shouldIndent ? "\n" : "").send(indentStreamable()).send("}")
         case .orderedDictionary(let contents):
-            stream <<< "{" <<< (shouldIndent ? "\n" : "")
+            stream.send("{").send(shouldIndent ? "\n" : "")
             for (i, item) in contents.enumerated() {
-                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
-                stream <<< indentStreamable(offset: 2) <<< Format.asJSON(item.key) <<< ": "
+                if i != 0 { stream.send(",").send(shouldIndent ? "\n" : " ") }
+                stream.send(indentStreamable(offset: 2)).send(Format.asJSON(item.key)).send(": ")
                 item.value.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
-            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
+            stream.send(shouldIndent ? "\n" : "").send(indentStreamable()).send("}")
         }
     }
 }

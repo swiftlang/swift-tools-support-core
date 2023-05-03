@@ -27,11 +27,11 @@ public protocol ByteStreamable {
 /// different output destinations, e.g., a file or an in memory buffer. This is
 /// loosely modeled on LLVM's llvm::raw_ostream class.
 ///
-/// The stream is generally used in conjunction with the custom streaming
-/// operator '<<<'. For example:
+/// The stream is generally used in conjunction with the `appending` function.
+/// For example:
 ///
 ///   let stream = BufferedOutputByteStream()
-///   stream <<< "Hello, world!"
+///   stream.appending("Hello, world!")
 ///
 /// would write the UTF8 encoding of "Hello, world!" to the stream.
 ///
@@ -39,7 +39,7 @@ public protocol ByteStreamable {
 /// in the `Format` struct (used for namespacing purposes). For example:
 /// 
 ///   let items = ["hello", "world"]
-///   stream <<< Format.asSeparatedList(items, separator: " ")
+///   stream.appending(Format.asSeparatedList(items, separator: " "))
 ///
 /// would write each item in the list to the stream, separating them with a
 /// space.
@@ -136,6 +136,34 @@ extension WritableByteStream {
                 write(hexdigit(character & 0xF))
             }
         }
+    }
+
+    // MARK: helpers that return `self`
+
+    // FIXME: This override shouldn't be necesary but removing it causes a 30% performance regression. This problem is
+    // tracked by the following bug: https://bugs.swift.org/browse/SR-8535
+    @discardableResult
+    public func send(_ value: ArraySlice<UInt8>) -> WritableByteStream {
+        value.write(to: self)
+        return self
+    }
+
+    @discardableResult
+    public func send(_ value: ByteStreamable) -> WritableByteStream {
+        value.write(to: self)
+        return self
+    }
+
+    @discardableResult
+    public func send(_ value: CustomStringConvertible) -> WritableByteStream {
+        value.description.write(to: self)
+        return self
+    }
+
+    @discardableResult
+    public func send(_ value: ByteStreamable & CustomStringConvertible) -> WritableByteStream {
+        value.write(to: self)
+        return self
     }
 }
 
@@ -366,24 +394,29 @@ precedencegroup StreamingPrecedence {
 
 // FIXME: This override shouldn't be necesary but removing it causes a 30% performance regression. This problem is
 // tracked by the following bug: https://bugs.swift.org/browse/SR-8535
+
+@available(*, deprecated, message: "use send(_:) function on WritableByteStream instead")
 @discardableResult
 public func <<< (stream: WritableByteStream, value: ArraySlice<UInt8>) -> WritableByteStream {
     value.write(to: stream)
     return stream
 }
 
+@available(*, deprecated, message: "use send(_:) function on WritableByteStream instead")
 @discardableResult
 public func <<< (stream: WritableByteStream, value: ByteStreamable) -> WritableByteStream {
     value.write(to: stream)
     return stream
 }
 
+@available(*, deprecated, message: "use send(_:) function on WritableByteStream instead")
 @discardableResult
 public func <<< (stream: WritableByteStream, value: CustomStringConvertible) -> WritableByteStream {
     value.description.write(to: stream)
     return stream
 }
 
+@available(*, deprecated, message: "use send(_:) function on WritableByteStream instead")
 @discardableResult
 public func <<< (stream: WritableByteStream, value: ByteStreamable & CustomStringConvertible) -> WritableByteStream {
     value.write(to: stream)
@@ -450,7 +483,7 @@ public struct Format {
         let value: Bool
 
         func write(to stream: WritableByteStream) {
-            stream <<< (value ? "true" : "false")
+            stream.send(value ? "true" : "false")
         }
     }
 
@@ -463,7 +496,7 @@ public struct Format {
 
         func write(to stream: WritableByteStream) {
             // FIXME: Diagnose integers which cannot be represented in JSON.
-            stream <<< value.description
+            stream.send(value.description)    
         }
     }
 
@@ -478,7 +511,7 @@ public struct Format {
             // FIXME: What should we do about NaN, etc.?
             //
             // FIXME: Is Double.debugDescription the best representation?
-            stream <<< value.debugDescription
+            stream.send(value.debugDescription)    
         }
     }
 
@@ -494,9 +527,9 @@ public struct Format {
         let value: String
 
         func write(to stream: WritableByteStream) {
-            stream <<< UInt8(ascii: "\"")
+            stream.send(UInt8(ascii: "\""))
             stream.writeJSONEscaped(value)
-            stream <<< UInt8(ascii: "\"")
+            stream.send(UInt8(ascii: "\""))
         }
     }
 
@@ -514,12 +547,12 @@ public struct Format {
         let items: [String]
 
         func write(to stream: WritableByteStream) {
-            stream <<< UInt8(ascii: "[")
+            stream.send(UInt8(ascii: "["))
             for (i, item) in items.enumerated() {
-                if i != 0 { stream <<< "," }
-                stream <<< Format.asJSON(item)
+                if i != 0 { stream.send(",") }
+                stream.send(Format.asJSON(item))
             }
-            stream <<< UInt8(ascii: "]")
+            stream.send(UInt8(ascii: "]"))
         }
     }
 
@@ -531,12 +564,12 @@ public struct Format {
         let items: [String: String]
 
         func write(to stream: WritableByteStream) {
-            stream <<< UInt8(ascii: "{")
+            stream.send(UInt8(ascii: "{"))
             for (offset: i, element: (key: key, value: value)) in items.enumerated() {
-                if i != 0 { stream <<< "," }
-                stream <<< Format.asJSON(key) <<< ":" <<< Format.asJSON(value)
+                if i != 0 { stream.send(",") }
+                stream.send(Format.asJSON(key)).send(":").send(Format.asJSON(value))
             }
-            stream <<< UInt8(ascii: "}")
+            stream.send(UInt8(ascii: "}"))
         }
     }
 
@@ -551,12 +584,12 @@ public struct Format {
         let transform: (T) -> String
 
         func write(to stream: WritableByteStream) {
-            stream <<< UInt8(ascii: "[")
+            stream.send(UInt8(ascii: "["))
             for (i, item) in items.enumerated() {
-                if i != 0 { stream <<< "," }
-                stream <<< Format.asJSON(transform(item))
+                if i != 0 { stream.send(",") }
+                stream.send(Format.asJSON(transform(item)))
             }
-            stream <<< UInt8(ascii: "]")
+            stream.send(UInt8(ascii: "]"))
         }
     }
 
@@ -572,10 +605,10 @@ public struct Format {
             for (i, item) in items.enumerated() {
                 // Add the separator, if necessary.
                 if i != 0 {
-                    stream <<< separator
+                    stream.send(separator)
                 }
 
-                stream <<< item
+                stream.send(item)
             }
         }
     }
@@ -596,8 +629,8 @@ public struct Format {
 
         func write(to stream: WritableByteStream) {
             for (i, item) in items.enumerated() {
-                if i != 0 { stream <<< separator }
-                stream <<< transform(item)
+                if i != 0 { stream.send(separator) }
+                stream.send(transform(item))
             }
         }
     }
@@ -617,7 +650,7 @@ public struct Format {
 
         func write(to stream: WritableByteStream) {
             for _ in 0..<count {
-                stream <<< string
+                stream.send(string)
             }
         }
     }
