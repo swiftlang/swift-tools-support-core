@@ -137,6 +137,13 @@ public enum FileMode: Sendable {
     }
 }
 
+/// Extended file system attributes that can applied to a given file path. See also ``FileSystem/hasAttribute(_:_:)``.
+public enum FileSystemAttribute: String {
+    #if canImport(Darwin)
+    case quarantine = "com.apple.quarantine"
+    #endif
+}
+
 // FIXME: Design an asynchronous story?
 //
 /// Abstracted access to file system operations.
@@ -170,7 +177,7 @@ public protocol FileSystem: AnyObject {
 
     /// Returns `true` if a given path has an attribute with a given name applied when file system supports this
     /// attribute. Returns `false` if such attribute is not applied or it isn't supported.
-    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool
 
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
@@ -298,7 +305,7 @@ public extension FileSystem {
         throw FileSystemError(.unsupported, path)
     }
 
-    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool { false }
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool { false }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
@@ -348,9 +355,9 @@ private class LocalFileSystem: FileSystem {
         return FileInfo(attrs)
     }
 
-    func hasAttribute(name: String, _ path: AbsolutePath) -> Bool {
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
 #if canImport(Darwin)
-        let bufLength = getxattr(path.pathString, name, nil, 0, 0, 0)
+        let bufLength = getxattr(path.pathString, name.rawValue, nil, 0, 0, 0)
 
         return bufLength > 0
 #else
