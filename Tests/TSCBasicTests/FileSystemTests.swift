@@ -864,12 +864,11 @@ class FileSystemTests: XCTestCase {
     func testHasAttribute() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
             let filePath = tempDir.appending(component: "quarantined")
-            let attributeName = "com.apple.quarantine"
             try localFileSystem.writeFileContents(filePath, bytes: "")
-            try Process.checkNonZeroExit(args: "xattr", "-w", attributeName, "foo", filePath.pathString)
-            XCTAssertTrue(localFileSystem.hasAttribute(name: attributeName, filePath))
-            try Process.checkNonZeroExit(args: "xattr", "-d", attributeName, filePath.pathString)
-            XCTAssertFalse(localFileSystem.hasAttribute(name: attributeName, filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-w", FileSystemAttribute.quarantine.rawValue, "foo", filePath.pathString)
+            XCTAssertTrue(localFileSystem.hasAttribute(.quarantine, filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-d", FileSystemAttribute.quarantine.rawValue, filePath.pathString)
+            XCTAssertFalse(localFileSystem.hasAttribute(.quarantine, filePath))
         }
     }
 #endif
