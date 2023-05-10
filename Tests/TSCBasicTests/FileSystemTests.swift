@@ -861,14 +861,14 @@ class FileSystemTests: XCTestCase {
     }
 
 #if canImport(Darwin)
-    func testQuarantineAttribute() throws {
+    func testHasAttribute() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
             let filePath = tempDir.appending(component: "quarantined")
             try localFileSystem.writeFileContents(filePath, bytes: "")
-            try Process.checkNonZeroExit(args: "xattr", "-w", "com.apple.quarantine", "foo", filePath.pathString)
-            XCTAssertTrue(localFileSystem.hasQuarantineAttribute(filePath))
-            try Process.checkNonZeroExit(args: "xattr", "-d", "com.apple.quarantine", filePath.pathString)
-            XCTAssertFalse(localFileSystem.hasQuarantineAttribute(filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-w", FileSystemAttribute.quarantine.rawValue, "foo", filePath.pathString)
+            XCTAssertTrue(localFileSystem.hasAttribute(.quarantine, filePath))
+            try Process.checkNonZeroExit(args: "xattr", "-d", FileSystemAttribute.quarantine.rawValue, filePath.pathString)
+            XCTAssertFalse(localFileSystem.hasAttribute(.quarantine, filePath))
         }
     }
 #endif
