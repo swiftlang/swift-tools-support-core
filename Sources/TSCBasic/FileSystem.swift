@@ -138,10 +138,30 @@ public enum FileMode: Sendable {
 }
 
 /// Extended file system attributes that can applied to a given file path. See also ``FileSystem/hasAttribute(_:_:)``.
-public enum FileSystemAttribute: String {
+public enum FileSystemAttribute: RawRepresentable {
     #if canImport(Darwin)
-    case quarantine = "com.apple.quarantine"
+    case quarantine
     #endif
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        #if canImport(Darwin)
+        case "com.apple.quarantine":
+            self = .quarantine
+        #endif
+        default:
+            return nil
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        #if canImport(Darwin)
+        case .quarantine:
+            return "com.apple.quarantine"
+        #endif
+        }
+    }
 }
 
 // FIXME: Design an asynchronous story?
