@@ -195,6 +195,9 @@ public protocol FileSystem: AnyObject {
     /// Check whether the given path is accessible and writable.
     func isWritable(_ path: AbsolutePath) -> Bool
 
+    @available(*, deprecated, message: "use `hasAttribute(_:_:)` instead")
+    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool
+
     /// Returns `true` if a given path has an attribute with a given name applied when file system supports this
     /// attribute. Returns `false` if such attribute is not applied or it isn't supported.
     func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool
@@ -324,6 +327,8 @@ public extension FileSystem {
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         throw FileSystemError(.unsupported, path)
     }
+
+    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool { false }
 
     func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool { false }
 }
