@@ -137,6 +137,33 @@ public enum FileMode: Sendable {
     }
 }
 
+/// Extended file system attributes that can applied to a given file path. See also ``FileSystem/hasAttribute(_:_:)``.
+public enum FileSystemAttribute: RawRepresentable {
+    #if canImport(Darwin)
+    case quarantine
+    #endif
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        #if canImport(Darwin)
+        case "com.apple.quarantine":
+            self = .quarantine
+        #endif
+        default:
+            return nil
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        #if canImport(Darwin)
+        case .quarantine:
+            return "com.apple.quarantine"
+        #endif
+        }
+    }
+}
+
 // FIXME: Design an asynchronous story?
 //
 /// Abstracted access to file system operations.
@@ -167,6 +194,13 @@ public protocol FileSystem: AnyObject {
 
     /// Check whether the given path is accessible and writable.
     func isWritable(_ path: AbsolutePath) -> Bool
+
+    @available(*, deprecated, message: "use `hasAttribute(_:_:)` instead")
+    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool
+
+    /// Returns `true` if a given path has an attribute with a given name applied when file system supports this
+    /// attribute. Returns `false` if such attribute is not applied or it isn't supported.
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool
 
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
@@ -293,6 +327,10 @@ public extension FileSystem {
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         throw FileSystemError(.unsupported, path)
     }
+
+    func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool { false }
+
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool { false }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
@@ -340,6 +378,16 @@ private class LocalFileSystem: FileSystem {
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
         let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
         return FileInfo(attrs)
+    }
+
+    func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
+#if canImport(Darwin)
+        let bufLength = getxattr(path.pathString, name.rawValue, nil, 0, 0, 0)
+
+        return bufLength > 0
+#else
+        return false
+#endif
     }
 
     var currentWorkingDirectory: AbsolutePath? {
