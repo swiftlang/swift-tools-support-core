@@ -18,7 +18,7 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS("12.0")
+    macOSPlatform = .macOS(.v12)
 }
 
 let CMakeFiles = ["CMakeLists.txt"]
@@ -27,7 +27,7 @@ let package = Package(
     name: "swift-tools-support-core",
     platforms: [
         macOSPlatform,
-        .iOS("15.0")
+        .iOS(.v15)
     ],
     products: [
         .library(
