@@ -185,12 +185,11 @@ public final class FileLock {
         return try await body()
     }
 
-    public static func withLock<T>(
+    private static func prepareLock(
         fileToLock: AbsolutePath,
-        lockFilesDirectory: AbsolutePath? = nil,
-        type: LockType = .exclusive,
-        body: () throws -> T
-    ) throws -> T {
+        at lockFilesDirectory: AbsolutePath? = nil,
+        _ type: LockType = .exclusive
+    ) throws -> FileLock {
         // unless specified, we use the tempDirectory to store lock files
         let lockFilesDirectory = try lockFilesDirectory ?? localFileSystem.tempDirectory
         if !localFileSystem.exists(lockFilesDirectory) {
@@ -227,7 +226,16 @@ public final class FileLock {
 #endif
         let lockFilePath = lockFilesDirectory.appending(component: lockFileName)
 
-        let lock = FileLock(at: lockFilePath)
+        return FileLock(at: lockFilePath)
+    }
+
+    public static func withLock<T>(
+        fileToLock: AbsolutePath,
+        lockFilesDirectory: AbsolutePath? = nil,
+        type: LockType = .exclusive,
+        body: () throws -> T
+    ) throws -> T {
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
         return try lock.withLock(type: type, body)
     }
 
@@ -237,43 +245,7 @@ public final class FileLock {
         type: LockType = .exclusive,
         body: () async throws -> T
     ) async throws -> T {
-        // unless specified, we use the tempDirectory to store lock files
-        let lockFilesDirectory = try lockFilesDirectory ?? localFileSystem.tempDirectory
-        if !localFileSystem.exists(lockFilesDirectory) {
-            throw FileSystemError(.noEntry, lockFilesDirectory)
-        }
-        if !localFileSystem.isDirectory(lockFilesDirectory) {
-            throw FileSystemError(.notDirectory, lockFilesDirectory)
-        }
-        // use the parent path to generate unique filename in temp
-        var lockFileName = try (resolveSymlinks(fileToLock.parentDirectory)
-                                .appending(component: fileToLock.basename))
-                                .components.joined(separator: "_")
-                                .replacingOccurrences(of: ":", with: "_") + ".lock"
-#if os(Windows)
-        // NTFS has an ARC limit of 255 codepoints
-        var lockFileUTF16 = lockFileName.utf16.suffix(255)
-        while String(lockFileUTF16) == nil {
-            lockFileUTF16 = lockFileUTF16.dropFirst()
-        }
-        lockFileName = String(lockFileUTF16) ?? lockFileName
-#else
-        if lockFileName.hasPrefix(AbsolutePath.root.pathString) {
-            lockFileName = String(lockFileName.dropFirst(AbsolutePath.root.pathString.count))
-        }
-        // back off until it occupies at most `NAME_MAX` UTF-8 bytes but without splitting scalars
-        // (we might split clusters but it's not worth the effort to keep them together as long as we get a valid file name)
-        var lockFileUTF8 = lockFileName.utf8.suffix(Int(NAME_MAX))
-        while String(lockFileUTF8) == nil {
-            // in practice this will only be a few iterations
-            lockFileUTF8 = lockFileUTF8.dropFirst()
-        }
-        // we will never end up with nil since we have ASCII characters at the end
-        lockFileName = String(lockFileUTF8) ?? lockFileName
-#endif
-        let lockFilePath = lockFilesDirectory.appending(component: lockFileName)
-
-        let lock = FileLock(at: lockFilePath)
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
         return try await lock.withLock(type: type, body)
     }
 }
