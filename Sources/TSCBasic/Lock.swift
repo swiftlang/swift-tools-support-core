@@ -177,8 +177,19 @@ public final class FileLock {
         defer { unlock() }
         return try body()
     }
-    
-    public static func withLock<T>(fileToLock: AbsolutePath, lockFilesDirectory: AbsolutePath? = nil, type: LockType = .exclusive, body: () throws -> T) throws -> T {
+
+    /// Execute the given block while holding the lock.
+    public func withLock<T>(type: LockType = .exclusive, _ body: () async throws -> T) async throws -> T {
+        try lock(type: type)
+        defer { unlock() }
+        return try await body()
+    }
+
+    private static func prepareLock(
+        fileToLock: AbsolutePath,
+        at lockFilesDirectory: AbsolutePath? = nil,
+        _ type: LockType = .exclusive
+    ) throws -> FileLock {
         // unless specified, we use the tempDirectory to store lock files
         let lockFilesDirectory = try lockFilesDirectory ?? localFileSystem.tempDirectory
         if !localFileSystem.exists(lockFilesDirectory) {
@@ -215,7 +226,26 @@ public final class FileLock {
 #endif
         let lockFilePath = lockFilesDirectory.appending(component: lockFileName)
 
-        let lock = FileLock(at: lockFilePath)
+        return FileLock(at: lockFilePath)
+    }
+
+    public static func withLock<T>(
+        fileToLock: AbsolutePath,
+        lockFilesDirectory: AbsolutePath? = nil,
+        type: LockType = .exclusive,
+        body: () throws -> T
+    ) throws -> T {
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
         return try lock.withLock(type: type, body)
+    }
+
+    public static func withLock<T>(
+        fileToLock: AbsolutePath,
+        lockFilesDirectory: AbsolutePath? = nil,
+        type: LockType = .exclusive,
+        body: () async throws -> T
+    ) async throws -> T {
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
+        return try await lock.withLock(type: type, body)
     }
 }

@@ -288,6 +288,9 @@ public protocol FileSystem: Sendable {
 
     /// Execute the given block while holding the lock.
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T
+
+    /// Execute the given block while holding the lock.
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () async throws -> T) async throws -> T
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -333,6 +336,10 @@ public extension FileSystem {
     }
 
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
+        throw FileSystemError(.unsupported, path)
+    }
+
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () async throws -> T) async throws -> T {
         throw FileSystemError(.unsupported, path)
     }
 
@@ -601,12 +608,20 @@ private struct LocalFileSystem: FileSystem {
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
         try FileLock.withLock(fileToLock: path, type: type, body: body)
     }
+
+    func withLock<T>(
+        on path: AbsolutePath,
+        type: FileLock.LockType = .exclusive,
+        _ body: () async throws -> T
+    ) async throws -> T {
+        try await FileLock.withLock(fileToLock: path, type: type, body: body)
+    }
 }
 
 /// Concrete FileSystem implementation which simulates an empty disk.
 public final class InMemoryFileSystem: FileSystem {
     /// Private internal representation of a file system node.
-    /// Not threadsafe.
+    /// Not thread-safe.
     private class Node {
         /// The actual node data.
         let contents: NodeContents
@@ -622,7 +637,7 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Private internal representation the contents of a file system node.
-    /// Not threadsafe.
+    /// Not thread-safe.
     private enum NodeContents {
         case file(ByteString)
         case directory(DirectoryContents)
@@ -642,7 +657,7 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Private internal representation the contents of a directory.
-    /// Not threadsafe.
+    /// Not thread-safe.
     private final class DirectoryContents {
         var entries: [String: Node]
 
@@ -697,7 +712,7 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Private function to look up the node corresponding to a path.
-    /// Not threadsafe.
+    /// Not thread-safe.
     private func getNode(_ path: AbsolutePath, followSymlink: Bool = true) throws -> Node? {
         func getNodeInternal(_ path: AbsolutePath) throws -> Node? {
             // If this is the root node, return it.
@@ -841,7 +856,7 @@ public final class InMemoryFileSystem: FileSystem {
         }
     }
 
-    /// Not threadsafe.
+    /// Not thread-safe.
     private func _createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Ignore if client passes root.
         guard !path.isRoot else {
@@ -989,7 +1004,7 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Private implementation of core copying function.
-    /// Not threadsafe.
+    /// Not thread-safe.
     private func _copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         // Get the source node.
         guard let source = try getNode(sourcePath) else {
