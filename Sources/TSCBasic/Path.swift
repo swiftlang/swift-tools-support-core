@@ -501,7 +501,13 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(string: String) {
-        self.string = string
+        if string.first?.isASCII ?? false, string.first?.isLetter ?? false, string.first?.isLowercase ?? false,
+           string.count > 1, string[string.index(string.startIndex, offsetBy: 1)] == ":"
+        {
+            self.string = "\(string.first!.uppercased())\(string.dropFirst(1))"
+        } else {
+            self.string = string
+        }
     }
 
     private static func repr(_ path: String) -> String {

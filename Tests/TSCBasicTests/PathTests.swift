@@ -404,4 +404,19 @@ class PathTests: XCTestCase {
     // FIXME: We also need tests for dirname, basename, suffix, etc.
 
     // FIXME: We also need test for stat() operations.
+
+    #if os(Windows)
+    func testNormalization() {
+        XCTAssertEqual(
+            AbsolutePath(#"C:\Users\compnerd\AppData\Local\Programs\Swift\Toolchains\0.0.0+Asserts\usr\bin\swiftc.exe"#)
+                .pathString,
+            #"C:\Users\compnerd\AppData\Local\Programs\Swift\Toolchains\0.0.0+Asserts\usr\bin\swiftc.exe"#
+        )
+        XCTAssertEqual(
+            AbsolutePath(#"c:\Users\compnerd\AppData\Local\Programs\Swift\Toolchains\0.0.0+Asserts\usr\bin\swiftc.exe"#)
+                .pathString,
+            #"C:\Users\compnerd\AppData\Local\Programs\Swift\Toolchains\0.0.0+Asserts\usr\bin\swiftc.exe"#
+        )
+    }
+    #endif
 }
