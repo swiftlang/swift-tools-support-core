@@ -10,6 +10,8 @@
 
 #if canImport(Glibc)
 @_exported import Glibc
+#elseif canImport(Musl)
+@_exported import Musl
 #elseif os(Windows)
 @_exported import CRT
 @_exported import WinSDK

@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+#if !canImport(Musl)
+
 import TSCLibc
 import TSCBasic
 
@@ -135,3 +137,5 @@ public final class InterruptHandler {
         thread.join()
     }
 }
+
+#endif
