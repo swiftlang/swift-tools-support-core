@@ -529,6 +529,9 @@ public final class Process {
         let process = Foundation.Process()
         _process = process
         process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        if let workingDirectory {
+            process.currentDirectoryURL = workingDirectory.asURL
+        }
         process.executableURL = executablePath.asURL
         process.environment = environment
 
