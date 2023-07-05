@@ -370,8 +370,10 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
-        let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
-        return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
+        let url = NSURL(fileURLWithPath: path.pathString)
+        // We are intentionally using `NSURL.resourceValues(forKeys:)` here since it improves performance on Darwin platforms.
+        let result = try? url.resourceValues(forKeys: [.isSymbolicLinkKey])
+        return (result?[.isSymbolicLinkKey] as? Bool) == true
     }
 
     func isReadable(_ path: AbsolutePath) -> Bool {
