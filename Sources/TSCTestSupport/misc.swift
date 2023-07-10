@@ -33,6 +33,7 @@ public func testWithTemporaryDirectory(
         .replacingOccurrences(of: "(", with: "")
         .replacingOccurrences(of: ")", with: "")
         .replacingOccurrences(of: ".", with: "")
+        .replacingOccurrences(of: ":", with: "_")
     try withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
