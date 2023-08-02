@@ -196,6 +196,10 @@ public protocol FileSystem: Sendable {
     /// Check whether the given path is accessible and writable.
     func isWritable(_ path: AbsolutePath) -> Bool
 
+    /// Returns any known item replacement directories for a given path. These may be used by platform-specific
+    /// libraries to handle atomic file system operations, such as deletion.
+    func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath]
+
     @available(*, deprecated, message: "use `hasAttribute(_:_:)` instead")
     func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool
 
@@ -346,6 +350,8 @@ public extension FileSystem {
     func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool { false }
 
     func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool { false }
+
+    func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath] { [] }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
@@ -615,6 +621,13 @@ private struct LocalFileSystem: FileSystem {
         _ body: () async throws -> T
     ) async throws -> T {
         try await FileLock.withLock(fileToLock: path, type: type, body: body)
+    }
+
+    func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath] {
+        let result = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: path.asURL, create: false)
+        let path = try AbsolutePath(validating: result.path)
+        // Foundation returns a path that is unique every time, so we return both that path, as well as its parent.
+        return [path, path.parentDirectory]
     }
 }
 
