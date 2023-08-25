@@ -171,7 +171,7 @@ import Foundation
 
 enum JSONDecodingError: Error {
     /// The input byte string is malformed.
-    case malformed
+    case malformed(json: String, underlyingError: Error)
 }
 
 extension JSONDecodingError: CustomNSError {
@@ -262,7 +262,7 @@ extension JSON {
             // times.
             self = JSON.convertToJSON(result)
         } catch {
-            throw JSONDecodingError.malformed
+            throw JSONDecodingError.malformed(json: String(data: data, encoding: .utf8) ?? data.description, underlyingError: error)
         }
     }
 
