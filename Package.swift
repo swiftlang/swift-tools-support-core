@@ -54,7 +54,10 @@ let package = Package(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "TSCclibc",
             dependencies: [],
-            exclude: CMakeFiles),
+            exclude: CMakeFiles,
+            cSettings: [
+              .define("_GNU_SOURCE", .when(platforms: [.linux])),
+            ]),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "TSCLibc",
@@ -68,7 +71,13 @@ let package = Package(
               "TSCclibc",
               .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: CMakeFiles + ["README.md"]),
+            exclude: CMakeFiles + ["README.md"],
+            cxxSettings: [
+              .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
+            ],
+            linkerSettings: [
+              .linkedLibrary("Pathcch", .when(platforms: [.windows])),
+            ]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
@@ -111,22 +120,3 @@ let package = Package(
          .package(path: "../swift-system"),
      ]
  }
-
-// FIXME: conditionalise these flags since SwiftPM 5.3 and earlier will crash
-// for platforms they don't know about.
-#if os(Windows)
-  if let TSCBasic = package.targets.first(where: { $0.name == "TSCBasic" }) {
-    TSCBasic.cxxSettings = [
-      .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
-    ]
-    TSCBasic.linkerSettings = [
-      .linkedLibrary("Pathcch", .when(platforms: [.windows])),
-    ]
-  }
-#elseif os(Linux)
-  if let TSCclibc = package.targets.first(where: { $0.name == "TSCclibc" }) {
-    TSCclibc.cSettings = [
-      .define("_GNU_SOURCE", .when(platforms: [.linux])),
-    ]
-  }
-#endif
