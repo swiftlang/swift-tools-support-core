@@ -349,7 +349,7 @@ extension SystemError: CustomStringConvertible {
             return "chdir error: \(strerror(errno)): \(path)"
         case .close(let err):
             let errorMessage: String
-            if err == -1 { // if the return code is -1, we need to  consult the global `errno`
+            if err == -1 { // if the return code is -1, we need to consult the global `errno`
                 errorMessage = strerror(errno)
             } else {
                 errorMessage = strerror(err)
