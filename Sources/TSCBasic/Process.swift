@@ -32,6 +32,9 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
 
         /// The process had a non zero exit.
         case nonZeroExit(ProcessResult)
+
+        /// The process failed with a `SystemError` (this is used to still provide context on the process that was launched).
+        case systemError(arguments: [String], underlyingError: Swift.Error)
     }
 
     public enum ExitStatus: Equatable, Sendable {
@@ -728,91 +731,95 @@ public final class Process {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
-        // Close the local read end of the input pipe.
-        try close(fd: stdinPipe[0])
+        do {
+            // Close the local read end of the input pipe.
+            try close(fd: stdinPipe[0])
 
-        let group = DispatchGroup()
-        if !outputRedirection.redirectsOutput {
-            // no stdout or stderr in this case
-            self.stateLock.withLock {
-                self.state = .outputReady(stdout: .success([]), stderr: .success([]))
-            }
-        } else {
-            var pending: Result<[UInt8], Swift.Error>?
-            let pendingLock = NSLock()
-
-            let outputClosures = outputRedirection.outputClosures
-
-            // Close the local write end of the output pipe.
-            try close(fd: outputPipe[1])
-
-            // Create a thread and start reading the output on it.
-            group.enter()
-            let stdoutThread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
-                    pendingLock.withLock {
-                        if let stderrResult = pending {
-                            self?.stateLock.withLock {
-                                self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
-                            }
-                        } else  {
-                            pending = readResult
-                        }
-                    }
-                    group.leave()
-                } else if let stderrResult = (pendingLock.withLock { pending }) {
-                    // TODO: this is more of an error
-                    self?.stateLock.withLock {
-                        self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
-                    }
-                    group.leave()
+            let group = DispatchGroup()
+            if !outputRedirection.redirectsOutput {
+                // no stdout or stderr in this case
+                self.stateLock.withLock {
+                    self.state = .outputReady(stdout: .success([]), stderr: .success([]))
                 }
-            }
+            } else {
+                var pending: Result<[UInt8], Swift.Error>?
+                let pendingLock = NSLock()
 
-            // Only schedule a thread for stderr if no redirect was requested.
-            var stderrThread: Thread? = nil
-            if !outputRedirection.redirectStderr {
-                // Close the local write end of the stderr pipe.
-                try close(fd: stderrPipe[1])
+                let outputClosures = outputRedirection.outputClosures
 
-                // Create a thread and start reading the stderr output on it.
+                // Close the local write end of the output pipe.
+                try close(fd: outputPipe[1])
+
+                // Create a thread and start reading the output on it.
                 group.enter()
-                stderrThread = Thread { [weak self] in
-                    if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
+                let stdoutThread = Thread { [weak self] in
+                    if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
                         pendingLock.withLock {
-                            if let stdoutResult = pending {
+                            if let stderrResult = pending {
                                 self?.stateLock.withLock {
-                                    self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
+                                    self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
                                 }
-                            } else {
+                            } else  {
                                 pending = readResult
                             }
                         }
                         group.leave()
-                    } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                    } else if let stderrResult = (pendingLock.withLock { pending }) {
                         // TODO: this is more of an error
                         self?.stateLock.withLock {
-                            self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
+                            self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
                         }
                         group.leave()
                     }
                 }
-            } else {
-                pendingLock.withLock {
-                    pending = .success([])  // no stderr in this case
-                }
-            }
-            
-            // first set state then start reading threads
-            self.stateLock.withLock {
-                self.state = .readingOutput(sync: group)
-            }
-            
-            stdoutThread.start()
-            stderrThread?.start()
-        }
 
-        return stdinStream
+                // Only schedule a thread for stderr if no redirect was requested.
+                var stderrThread: Thread? = nil
+                if !outputRedirection.redirectStderr {
+                    // Close the local write end of the stderr pipe.
+                    try close(fd: stderrPipe[1])
+
+                    // Create a thread and start reading the stderr output on it.
+                    group.enter()
+                    stderrThread = Thread { [weak self] in
+                        if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
+                            pendingLock.withLock {
+                                if let stdoutResult = pending {
+                                    self?.stateLock.withLock {
+                                        self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
+                                    }
+                                } else {
+                                    pending = readResult
+                                }
+                            }
+                            group.leave()
+                        } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                            // TODO: this is more of an error
+                            self?.stateLock.withLock {
+                                self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
+                            }
+                            group.leave()
+                        }
+                    }
+                } else {
+                    pendingLock.withLock {
+                        pending = .success([])  // no stderr in this case
+                    }
+                }
+
+                // first set state then start reading threads
+                self.stateLock.withLock {
+                    self.state = .readingOutput(sync: group)
+                }
+
+                stdoutThread.start()
+                stderrThread?.start()
+            }
+
+            return stdinStream
+        } catch {
+            throw ProcessResult.Error.systemError(arguments: arguments, underlyingError: error)
+        }
     #else
         preconditionFailure("Process spawning is not available")
     #endif // POSIX implementation
@@ -1273,6 +1280,8 @@ extension Process.Error: CustomNSError {
 extension ProcessResult.Error: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .systemError(let arguments, let underlyingError):
+            return "error while executing `\(arguments.joined(separator: " "))`: \(underlyingError)"
         case .illegalUTF8Sequence:
             return "illegal UTF8 sequence output"
         case .nonZeroExit(let result):
