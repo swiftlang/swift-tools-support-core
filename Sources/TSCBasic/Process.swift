@@ -686,7 +686,6 @@ public final class Process {
         posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
 
         // Close the other side's pipe since it was dupped to 0.
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
         posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
 
         var outputPipe: [Int32] = [-1, -1]
@@ -699,7 +698,6 @@ public final class Process {
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
 
             // Close the other ends of the pipe since they were dupped to 1.
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
             posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
 
             if outputRedirection.redirectStderr {
@@ -711,7 +709,6 @@ public final class Process {
                 posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
 
                 // Close the other ends of the pipe since they were dupped to 2.
-                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
                 posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
             }
         } else {
