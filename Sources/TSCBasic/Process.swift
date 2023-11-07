@@ -686,7 +686,7 @@ public final class Process {
         posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
 
         // Close the other side's pipe since it was dupped to 0.
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
+        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
 
         var outputPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
