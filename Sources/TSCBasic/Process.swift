@@ -1250,8 +1250,8 @@ private func open(pipe: inout [Int32]) throws {
 private func close(fd: Int32) throws {
     func innerClose(_ fd: inout Int32) throws {
         let rv = TSCLibc.close(fd)
-        guard rv == 0 else {
-            throw SystemError.close(rv)
+        if rv != 0 {
+            print("\(SystemError.close(rv))")
         }
     }
     var innerFd = fd
