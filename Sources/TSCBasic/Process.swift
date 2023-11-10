@@ -13,7 +13,7 @@ import var Foundation.NSLocalizedDescriptionKey
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 
-#if os(Windows)
+#if os(Windows) || USE_FOUNDATION
 import Foundation
 #endif
 
@@ -83,6 +83,12 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
             exitStatus = .terminated(code: exitStatusCode)
         } else {
             exitStatus = .abnormal(exception: UInt32(exitStatusCode))
+        }
+      #elseif USE_FOUNDATION
+        if normal {
+            exitStatus = .terminated(code: exitStatusCode)
+        } else {
+            exitStatus = .signalled(signal: exitStatusCode)
         }
       #else
         if WIFSIGNALED(exitStatusCode) {
@@ -291,10 +297,15 @@ public final class Process {
     public let workingDirectory: AbsolutePath?
 
     /// The process id of the spawned process, available after the process is launched.
-  #if os(Windows)
+  #if os(Windows) || USE_FOUNDATION
     private var _process: Foundation.Process?
     public var processID: ProcessID {
-        return DWORD(_process?.processIdentifier ?? 0)
+        let pid = _process?.processIdentifier ?? 0
+        #if os(Windows)
+        return DWORD(pid)
+        #else
+        return pid
+        #endif
     }
   #else
     public private(set) var processID = ProcessID()
@@ -528,7 +539,7 @@ public final class Process {
             throw Process.Error.missingExecutableProgram(program: executable)
         }
 
-    #if os(Windows)
+    #if os(Windows) || USE_FOUNDATION
         let process = Foundation.Process()
         _process = process
         process.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
@@ -544,14 +555,19 @@ public final class Process {
         let group = DispatchGroup()
 
         var stdout: [UInt8] = []
-        let stdoutLock = Lock()
+        let stdoutLock = NSLock()
 
         var stderr: [UInt8] = []
-        let stderrLock = Lock()
+        let stderrLock = NSLock()
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
+            let stderrPipe: Pipe
+            if self.outputRedirection.redirectStderr {
+                stderrPipe = stdoutPipe
+            } else {
+                stderrPipe = Pipe()
+            }
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
@@ -568,17 +584,19 @@ public final class Process {
                 }
             }
 
-            group.enter()
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let data = fh.availableData
-                if (data.count == 0) {
-                    stderrPipe.fileHandleForReading.readabilityHandler = nil
-                    group.leave()
-                } else {
-                    let contents = data.withUnsafeBytes { Array<UInt8>($0) }
-                    self.outputRedirection.outputClosures?.stderrClosure(contents)
-                    stderrLock.withLock {
-                        stderr += contents
+            if !self.outputRedirection.redirectStderr {
+                group.enter()
+                stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
+                    let data = fh.availableData
+                    if (data.count == 0) {
+                        stderrPipe.fileHandleForReading.readabilityHandler = nil
+                        group.leave()
+                    } else {
+                        let contents = data.withUnsafeBytes { Array<UInt8>($0) }
+                        self.outputRedirection.outputClosures?.stderrClosure(contents)
+                        stderrLock.withLock {
+                            stderr += contents
+                        }
                     }
                 }
             }
@@ -882,7 +900,7 @@ public final class Process {
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
             // Wait until process finishes execution.
-          #if os(Windows)
+          #if os(Windows) || USE_FOUNDATION
             precondition(_process != nil, "The process is not yet launched.")
             let p = _process!
             p.waitUntilExit()
@@ -965,7 +983,7 @@ public final class Process {
     ///
     /// Note: This will signal all processes in the process group.
     public func signal(_ signal: Int32) {
-      #if os(Windows)
+      #if os(Windows) || USE_FOUNDATION
         if signal == SIGINT {
             _process?.interrupt()
         } else {
@@ -1321,7 +1339,7 @@ extension ProcessResult.Error: CustomStringConvertible {
     }
 }
 
-#if os(Windows)
+#if os(Windows) || USE_FOUNDATION
 extension FileHandle: WritableByteStream {
     public var position: Int {
         return Int(offsetInFile)
@@ -1336,7 +1354,9 @@ extension FileHandle: WritableByteStream {
     }
 
     public func flush() {
+        #if os(Windows)
         synchronizeFile()
+        #endif
     }
 }
 #endif

@@ -75,6 +75,9 @@ let package = Package(
             cxxSettings: [
               .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
             ],
+            swiftSettings: [
+              .define("USE_FOUNDATION")
+            ],
             linkerSettings: [
               .linkedLibrary("Pathcch", .when(platforms: [.windows])),
             ]),
