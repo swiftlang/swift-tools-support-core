@@ -102,7 +102,7 @@ public func topologicalSort<T: Hashable>(
 /// Finds the first cycle encountered in a graph.
 ///
 /// This method uses DFS to look for a cycle and immediately returns when a
-/// cycle is encounted.
+/// cycle is encountered.
 ///
 /// - Parameters:
 ///   - nodes: The list of input nodes to sort.
