@@ -39,7 +39,7 @@ class WalkTests : XCTestCase {
         var expected: [AbsolutePath] = [
             "\(root)/usr",
             "\(root)/bin",
-            "\(root)/xbin"
+            "\(root)/etc"
         ]
       #else
         let root = ""
