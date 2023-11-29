@@ -56,8 +56,6 @@ target_compile_options(TSCBasic PUBLIC
   "$<$<PLATFORM_ID:Android>:SHELL:-Xcc -U_GNU_SOURCE>"
   # Ignore secure function warnings on Windows.
   "$<$<PLATFORM_ID:Windows>:SHELL:-Xcc -D_CRT_SECURE_NO_WARNINGS>")
-target_link_libraries(TSCBasic PUBLIC
-  SwiftSystem::SystemPackage)
 target_link_libraries(TSCBasic PRIVATE
   TSCclibc
   TSCLibc)
