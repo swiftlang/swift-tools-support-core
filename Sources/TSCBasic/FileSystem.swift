@@ -11,7 +11,6 @@
 import TSCLibc
 import Foundation
 import Dispatch
-import SystemPackage
 
 public struct FileSystemError: Error, Equatable, Sendable {
     public enum Kind: Equatable, Sendable {

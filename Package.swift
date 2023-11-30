@@ -69,7 +69,6 @@ let package = Package(
             dependencies: [
               "TSCLibc",
               "TSCclibc",
-              .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: CMakeFiles + ["README.md"],
             cxxSettings: [
@@ -110,13 +109,3 @@ let package = Package(
             exclude: ["pkgconfigInputs", "Inputs"]),
     ]
 )
-
- if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
-     package.dependencies += [
-         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
-     ]
- } else {
-     package.dependencies += [
-         .package(path: "../swift-system"),
-     ]
- }
