@@ -5,6 +5,7 @@
 #endif
 
 #include <errno.h>
+#include <unistd.h>
 
 #include "process.h"
 
@@ -13,7 +14,8 @@ int SPM_posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t *restric
 #  if __GLIBC_PREREQ(2, 29)
     return posix_spawn_file_actions_addchdir_np(file_actions, path);
 #  else
-    return ENOSYS;
+    // Change working directory which child process will inherit
+    return chdir(path);
 #  endif
 #else
     return ENOSYS;
@@ -22,11 +24,7 @@ int SPM_posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t *restric
 
 bool SPM_posix_spawn_file_actions_addchdir_np_supported() {
 #if defined(__GLIBC__)
-#  if __GLIBC_PREREQ(2, 29)
     return true;
-#  else
-    return false;
-#  endif
 #else
     return false;
 #endif
