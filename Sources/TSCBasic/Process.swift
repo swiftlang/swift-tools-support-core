@@ -730,7 +730,11 @@ public final class Process {
         case .posix_spawn:
             posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
         case .fork_exec(let workingDirectory):
+          #if os(Linux)
             SPM_fork_exec_chdir(&processID, workingDirectory, argv.cArray[0]!, argv.cArray, env.cArray, &stdinPipe, &outputPipe, &stderrPipe, outputRedirection.redirectsOutput, outputRedirection.redirectStderr)
+          #else
+            throw Process.Error.workingDirectoryNotSupported
+          #endif
         }
         
         guard rv == 0 else {
