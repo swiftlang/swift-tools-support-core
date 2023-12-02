@@ -9,4 +9,8 @@ int SPM_posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t *restric
 // Runtime check for the availability of posix_spawn_file_actions_addchdir_np. Returns 0 if the method is available, -1 if not.
 bool SPM_posix_spawn_file_actions_addchdir_np_supported();
 
+// Alternative for posix_spawn_file_actions_addchdir_np on Linux that mimics its behavior using fork, exec*, and chdir.
+int SPM_fork_exec_chdir(pid_t *pid, const char *target_directory, const char *cmd, char *const argv[], char *const envp[],
+                        int in_pipe[], int out_pipe[], int err_pipe[], bool redirect_out, bool redirect_err);
+
 #endif

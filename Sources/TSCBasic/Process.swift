@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -658,6 +658,7 @@ public final class Process {
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
+        var spawnFunc: SpawnFunc = .posix_spawn
         if let workingDirectory = workingDirectory?.pathString {
           #if canImport(Darwin)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
@@ -667,11 +668,11 @@ public final class Process {
                 posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             }
           #elseif os(Linux)
-            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-                throw Process.Error.workingDirectoryNotSupported
+            if SPM_posix_spawn_file_actions_addchdir_np_supported() {
+                SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+            } else {
+                spawnFunc = .fork_exec(workingDirectory: workingDirectory)
             }
-
-            SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
           #else
             throw Process.Error.workingDirectoryNotSupported
           #endif
@@ -725,8 +726,13 @@ public final class Process {
         }
         let argv = CStringArray(resolvedArgs)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
-
+        let rv = switch spawnFunc {
+        case .posix_spawn:
+            posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        case .fork_exec(let workingDirectory):
+            SPM_fork_exec_chdir(&processID, workingDirectory, argv.cArray[0]!, argv.cArray, env.cArray, &stdinPipe, &outputPipe, &stderrPipe, outputRedirection.redirectsOutput, outputRedirection.redirectStderr)
+        }
+        
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, arguments)
         }
@@ -1347,5 +1353,12 @@ extension Process {
     fileprivate static func logToStdout(_ message: String) {
         stdoutStream.send(message).send("\n")
         stdoutStream.flush()
+    }
+}
+
+extension Process {
+    enum SpawnFunc {
+        case posix_spawn
+        case fork_exec(workingDirectory: String)
     }
 }
