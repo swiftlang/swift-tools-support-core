@@ -726,12 +726,13 @@ public final class Process {
         }
         let argv = CStringArray(resolvedArgs)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = switch spawnFunc {
+        let rv: Int32
+        switch spawnFunc {
         case .posix_spawn:
-            posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+            rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
         case .fork_exec(let workingDirectory):
           #if os(Linux)
-            SPM_fork_exec_chdir(&processID, workingDirectory, argv.cArray[0]!, argv.cArray, env.cArray, &stdinPipe, &outputPipe, &stderrPipe, outputRedirection.redirectsOutput, outputRedirection.redirectStderr)
+            rv = SPM_fork_exec_chdir(&processID, workingDirectory, argv.cArray[0]!, argv.cArray, env.cArray, &stdinPipe, &outputPipe, &stderrPipe, outputRedirection.redirectsOutput, outputRedirection.redirectStderr)
           #else
             throw Process.Error.workingDirectoryNotSupported
           #endif
