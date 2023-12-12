@@ -53,7 +53,12 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     public let arguments: [String]
 
     /// The environment with which the process was launched.
-    public let environment: [String: String]
+    @available(*, deprecated, renamed: "processEnvironment")
+    public var environment: [String: String] {
+        self.processEnvironment.storage
+    }
+
+    public let processEnvironment: ProcessEnvironment
 
     /// The exit status of the process.
     public let exitStatus: ExitStatus
@@ -69,6 +74,7 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     /// Create an instance using a POSIX process exit status code and output result.
     ///
     /// See `waitpid(2)` for information on the exit status code.
+    @available(*, deprecated, message: "Use version with `ProcessEnvironment` parameter type instead")
     public init(
         arguments: [String],
         environment: [String: String],
@@ -96,7 +102,40 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
             stderrOutput: stderrOutput)
     }
 
+    public init(
+        arguments: [String],
+        processEnvironment: ProcessEnvironment,
+        exitStatusCode: Int32,
+        normal: Bool,
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
+    ) {
+        let exitStatus: ExitStatus
+      #if os(Windows)
+        if normal {
+            exitStatus = .terminated(code: exitStatusCode)
+        } else {
+            exitStatus = .abnormal(exception: UInt32(exitStatusCode))
+        }
+      #else
+        if WIFSIGNALED(exitStatusCode) {
+            exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
+        } else {
+            precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
+            exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
+        }
+      #endif
+        self.init(
+            arguments: arguments,
+            processEnvironment: processEnvironment,
+            exitStatus: exitStatus,
+            output: output,
+            stderrOutput: stderrOutput
+        )
+    }
+
     /// Create an instance using an exit status and output result.
+    @available(*, deprecated, message: "Use version with `ProcessEnvironment` parameter type instead")
     public init(
         arguments: [String],
         environment: [String: String],
@@ -104,8 +143,24 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
+        self.init(
+            arguments: arguments,
+            processEnvironment: .init(environment),
+            exitStatus: exitStatus,
+            output: output,
+            stderrOutput: stderrOutput
+        )
+    }    
+
+    public init(
+        arguments: [String],
+        processEnvironment: ProcessEnvironment,
+        exitStatus: ExitStatus,
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
+    ) {
         self.arguments = arguments
-        self.environment = environment
+        self.processEnvironment = processEnvironment
         self.output = output
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
@@ -280,7 +335,7 @@ public final class Process {
     }
 
     /// The current environment.
-    @available(*, deprecated, message: "use ProcessEnv.vars instead")
+    @available(*, deprecated, message: "use ProcessEnvironment.current instead")
     static public var env: [String: String] {
         return ProcessInfo.processInfo.environment
     }
@@ -289,7 +344,13 @@ public final class Process {
     public let arguments: [String]
 
     /// The environment with which the process was executed.
-    public let environment: [String: String]
+    @available(*, deprecated, renamed: "processEnvironment")
+    public var environment: [String: String] {
+        processEnvironment.storage
+    }
+
+    /// The environment with which the process was executed.
+    public let processEnvironment: ProcessEnvironment
 
     /// The path to the directory under which to run the process.
     public let workingDirectory: AbsolutePath?
@@ -360,8 +421,10 @@ public final class Process {
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
     ///
+    @_disfavoredOverload
     @available(macOS 10.15, *)
-    public init(
+    @available(*, deprecated, message: "use version with `ProcessEnvironment` arguments")
+    public convenience init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         workingDirectory: AbsolutePath,
@@ -369,12 +432,14 @@ public final class Process {
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
     ) {
-        self.arguments = arguments
-        self.environment = environment
-        self.workingDirectory = workingDirectory
-        self.outputRedirection = outputRedirection
-        self.startNewProcessGroup = startNewProcessGroup
-        self.loggingHandler = loggingHandler ?? Process.loggingHandler
+        self.init(
+            arguments: arguments,
+            processEnvironment: .init(environment),
+            outputRedirection: outputRedirection,
+            workingDirectory: workingDirectory,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: loggingHandler
+        )
     }
 
     // deprecated 2/2022
@@ -413,16 +478,35 @@ public final class Process {
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
-    public init(
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use version with `ProcessEnvironment` arguments")
+    public convenience init(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
     ) {
+        self.init(
+            arguments: arguments,
+            processEnvironment: .init(environment),
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    public init(
+        arguments: [String],
+        processEnvironment: ProcessEnvironment = .current,
+        outputRedirection: OutputRedirection = .collect,
+        workingDirectory: AbsolutePath? = nil,
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
+    ) {
         self.arguments = arguments
-        self.environment = environment
-        self.workingDirectory = nil
+        self.processEnvironment = processEnvironment
+        self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? Process.loggingHandler
@@ -446,6 +530,8 @@ public final class Process {
         )
     }
 
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use version with `ProcessEnvironment` parameter type instead")
     public convenience init(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
@@ -454,7 +540,21 @@ public final class Process {
     ) {
         self.init(
             arguments: args,
-            environment: environment,
+            processEnvironment: .init(environment),
+            outputRedirection: outputRedirection,
+            loggingHandler: loggingHandler
+        )
+    }    
+
+    public convenience init(
+        args: String...,
+        processEnvironment: ProcessEnvironment = .current,
+        outputRedirection: OutputRedirection = .collect,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: args,
+            processEnvironment: processEnvironment,
             outputRedirection: outputRedirection,
             loggingHandler: loggingHandler
         )
@@ -728,7 +828,7 @@ public final class Process {
             resolvedArgs[0] = executablePath.pathString
         }
         let argv = CStringArray(resolvedArgs)
-        let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
+        let env = CStringArray(processEnvironment.storage.map({ "\($0.0)=\($0.1)" }))
         let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
@@ -896,8 +996,8 @@ public final class Process {
 
             // Construct the result.
             let executionResult = ProcessResult(
-                arguments: arguments,
-                environment: environment,
+                arguments: self.arguments,
+                processEnvironment: self.processEnvironment,
                 exitStatusCode: exitStatusCode,
                 normal: normalExit,
                 output: stdoutResult,
@@ -980,7 +1080,23 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
+    ///   
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    static public func popen(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) async throws -> ProcessResult {
+        let process = Process(
+            arguments: arguments,
+            environment: environment,
+            outputRedirection: .collect,
+            loggingHandler: loggingHandler
+        )
+        try process.launch()
+        return try await process.waitUntilExit()
+    }    
+
     static public func popen(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,

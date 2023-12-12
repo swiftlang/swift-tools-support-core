@@ -183,6 +183,7 @@ class ProcessTests: XCTestCase {
     }
 
   #if !os(Windows) // Signals are not supported in Windows
+    @available(*, deprecated)
     func testSignals() throws {
         let processes  = ProcessSet()
         let group = DispatchGroup()
