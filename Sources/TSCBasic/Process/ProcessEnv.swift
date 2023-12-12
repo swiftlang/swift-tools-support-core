@@ -11,7 +11,7 @@
 import Foundation
 import TSCLibc
 
-/// Provides functionality related a process's enviorment.
+/// Provides functionality related a process's environment.
 public enum ProcessEnv {
 
     /// Returns a dictionary containing the current environment.

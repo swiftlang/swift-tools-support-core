@@ -130,11 +130,15 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     }
 }
 
-#if swift(<5.6)
-extension Process: UnsafeSendable {}
-#else
 extension Process: @unchecked Sendable {}
-#endif
+
+extension DispatchQueue {
+    // a shared concurrent queue for running concurrent asynchronous operations
+    static let processConcurrent = DispatchQueue(
+        label: "swift.org.swift-tsc.process.concurrent",
+        attributes: .concurrent
+    )
+}
 
 /// Process allows spawning new subprocesses and working with them.
 ///
@@ -829,25 +833,15 @@ public final class Process {
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     @discardableResult
     public func waitUntilExit() async throws -> ProcessResult {
-        #if compiler(>=5.6)
-        return try await withCheckedThrowingContinuation { continuation in
-            waitUntilExit(continuation.resume(with:))
-        }
-        #else
-        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
-            return try await withCheckedThrowingContinuation { continuation in
-                waitUntilExit(continuation.resume(with:))
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.processConcurrent.async {
+                self.waitUntilExit(continuation.resume(with:))
             }
-        } else {
-            preconditionFailure("Unsupported with Swift 5.5 on this OS version")
         }
-        #endif
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
         let group = DispatchGroup()

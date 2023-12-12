@@ -37,9 +37,9 @@ add_library(TSCBasic
   WritableByteStream.swift
   Path.swift
   PathShims.swift
-  Process.swift
-  ProcessEnv.swift
-  ProcessSet.swift
+  Process/Process.swift
+  Process/ProcessEnv.swift
+  Process/ProcessSet.swift
   RegEx.swift
   Result.swift
   SortedArray.swift
