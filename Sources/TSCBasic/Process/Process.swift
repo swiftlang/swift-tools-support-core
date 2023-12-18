@@ -227,6 +227,7 @@ public final class Process {
     private static let loggingHandlerLock = NSLock()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
+    @available(*, deprecated, message: "use instance level `loggingHandler` passed via `init` instead of setting one globally.")
     public static var loggingHandler: LoggingHandler? {
         get {
             Self.loggingHandlerLock.withLock {
@@ -239,45 +240,7 @@ public final class Process {
         }
     }
 
-    // deprecated 2/2022, remove once client migrate to logging handler
-    @available(*, deprecated)
-    public static var verbose: Bool {
-        get {
-            Self.loggingHandler != nil
-        } set {
-            Self.loggingHandler = newValue ? Self.logToStdout: .none
-        }
-    }
-
-    private var _loggingHandler: LoggingHandler?
-
-    // the log and setter are only required to backward support verbose setter.
-    // remove and make loggingHandler a let property once verbose is deprecated
-    private let loggingHandlerLock = NSLock()
-    public private(set) var loggingHandler: LoggingHandler? {
-        get {
-            self.loggingHandlerLock.withLock {
-                self._loggingHandler
-            }
-        }
-        set {
-            self.loggingHandlerLock.withLock {
-                self._loggingHandler = newValue
-            }
-        }
-    }
-
-    // deprecated 2/2022, remove once client migrate to logging handler
-    // also simplify loggingHandler (see above) once this is removed
-    @available(*, deprecated)
-    public var verbose: Bool {
-        get {
-            self.loggingHandler != nil
-        }
-        set {
-            self.loggingHandler = newValue ? Self.logToStdout : .none
-        }
-    }
+    public let loggingHandler: LoggingHandler?
 
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
@@ -377,31 +340,6 @@ public final class Process {
         self.loggingHandler = loggingHandler ?? Process.loggingHandler
     }
 
-    // deprecated 2/2022
-    @_disfavoredOverload
-    @available(*, deprecated, message: "use version without verbosity flag")
-    @available(macOS 10.15, *)
-    public convenience init(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        workingDirectory: AbsolutePath,
-        outputRedirection: OutputRedirection = .collect,
-        verbose: Bool,
-        startNewProcessGroup: Bool = true
-    ) {
-        self.init(
-            arguments: arguments,
-            environment: environment,
-            workingDirectory: workingDirectory,
-            outputRedirection: outputRedirection,
-            startNewProcessGroup: startNewProcessGroup,
-            loggingHandler: verbose ? { message in
-                stdoutStream.send(message).send("\n")
-                stdoutStream.flush()
-            } : nil
-        )
-    }
-
     /// Create a new process instance.
     ///
     /// - Parameters:
@@ -426,24 +364,6 @@ public final class Process {
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? Process.loggingHandler
-    }
-
-    @_disfavoredOverload
-    @available(*, deprecated, message: "use version without verbosity flag")
-    public convenience init(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        outputRedirection: OutputRedirection = .collect,
-        verbose: Bool = Process.verbose,
-        startNewProcessGroup: Bool = true
-    ) {
-        self.init(
-            arguments: arguments,
-            environment: environment,
-            outputRedirection: outputRedirection,
-            startNewProcessGroup: startNewProcessGroup,
-            loggingHandler: verbose ? Self.logToStdout : .none
-        )
     }
 
     public convenience init(
