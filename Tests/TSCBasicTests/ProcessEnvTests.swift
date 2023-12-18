@@ -55,4 +55,13 @@ class ProcessEnvTests: XCTestCase {
         }
         XCTAssertNil(ProcessEnv.vars[key])
     }
+
+    func testEnvironmentKeys() throws {
+        XCTAssertEqual(ProcessEnvironmentKey("Key"), "Key")
+        #if os(Windows)
+        XCTAssertEqual(ProcessEnvironmentKey("Key"), "KEY")
+        #else
+        XCTAssertNotEqual(ProcessEnvironmentKey("Key"), "KEY")
+        #endif
+    }
 }
