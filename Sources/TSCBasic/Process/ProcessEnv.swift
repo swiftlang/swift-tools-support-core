@@ -11,16 +11,75 @@
 import Foundation
 import TSCLibc
 
+public struct CaseInsensitiveString {
+  public let value: String
+  public init(_ value: String) {
+    self.value = value
+  }
+}
+
+extension CaseInsensitiveString: Equatable {
+  public static func == (_ lhs: Self, _ rhs: Self) -> Bool {
+    // TODO: is this any faster than just doing a lowercased conversion and compare?
+    return lhs.value.caseInsensitiveCompare(rhs.value) == .orderedSame
+  }
+}
+
+extension CaseInsensitiveString: ExpressibleByStringLiteral {
+  public init(stringLiteral value: String) {
+    self.init(value)
+  }
+}
+
+extension CaseInsensitiveString: Hashable {
+  public func hash(into hasher: inout Hasher) {
+    self.value.lowercased().hash(into: &hasher)
+  }
+}
+
+extension CaseInsensitiveString: Sendable {}
+
+#if os(Windows)
+public typealias ProcessEnvironmentBlock = [CaseInsensitiveString:String]
+extension ProcessEnvironmentBlock {
+  public init(_ dictionary: [String:String]) {
+    self.init(uniqueKeysWithValues: dictionary.map { (CaseInsensitiveString($0.key), $0.value) })
+  }
+}
+#else
+public typealias ProcessEnvironmentBlock = [String:String]
+#endif
+
+extension ProcessEnvironmentBlock: Sendable {}
+
 /// Provides functionality related a process's environment.
 public enum ProcessEnv {
 
+    @available(*, deprecated, message: "Use `block` instead")
+    public static var vars: [String:String] {
+      #if os(Windows)
+      Dictionary<String, String>(uniqueKeysWithValues: _vars.map { ($0.key.value, $0.value) })
+      #else
+      _vars
+      #endif
+    }
+
     /// Returns a dictionary containing the current environment.
-    public static var vars: [String: String] { _vars }
-    private static var _vars = ProcessInfo.processInfo.environment
+    public static var block: ProcessEnvironmentBlock { _vars }
+
+    private static var _vars = ProcessEnvironmentBlock(
+        uniqueKeysWithValues: ProcessInfo.processInfo.environment.map {
+            (ProcessEnvironmentBlock.Key($0.key), $0.value)
+        }
+    )
 
     /// Invalidate the cached env.
     public static func invalidateEnv() {
-        _vars = ProcessInfo.processInfo.environment
+        _vars = ProcessEnvironmentBlock(
+            uniqueKeysWithValues: ProcessInfo.processInfo.environment.map {
+                (CaseInsensitiveString($0.key), $0.value)
+            }
+        )
     }
 
     /// Set the given key and value in the process's environment.
@@ -53,12 +112,7 @@ public enum ProcessEnv {
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
     public static var path: String? {
-#if os(Windows)
-        let pathArg = "Path"
-#else
-        let pathArg = "PATH"
-#endif
-        return vars[pathArg]
+        return block["PATH"]
     }
 
     /// The current working directory of the process.
