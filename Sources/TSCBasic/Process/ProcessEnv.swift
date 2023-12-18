@@ -67,26 +67,68 @@ public enum ProcessEnv {
     /// Returns a dictionary containing the current environment.
     public static var block: ProcessEnvironmentBlock { _vars }
 
+#if os(Windows)
+    private static var _vars: ProcessEnvironmentBlock = {
+        guard let lpwchEnvironment = GetEnvironmentStringsW() else { return [:] }
+        defer { FreeEnvironmentStringsW(lpwchEnvironment) }
+        var environment: ProcessEnvironmentBlock = [:]
+        var pVariable = UnsafePointer<WCHAR>(lpwchEnvironment)
+        while let entry = String.decodeCString(pVariable, as: UTF16.self) {
+            if entry.result.isEmpty { break }
+            let parts = entry.result.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            if parts.count == 2 {
+                environment[CaseInsensitiveString(String(parts[0]))] = String(parts[1])
+            }
+            pVariable = pVariable.advanced(by: entry.result.utf16.count + 1)
+        }
+        return environment
+    }()
+#else
     private static var _vars = ProcessEnvironmentBlock(
         uniqueKeysWithValues: ProcessInfo.processInfo.environment.map {
             (ProcessEnvironmentBlock.Key($0.key), $0.value)
         }
     )
+#endif
 
     /// Invalidate the cached env.
     public static func invalidateEnv() {
+#if os(Windows)
+        guard let lpwchEnvironment = GetEnvironmentStringsW() else {
+          _vars = [:]
+          return
+        }
+        defer { FreeEnvironmentStringsW(lpwchEnvironment) }
+
+        var environment: ProcessEnvironmentBlock = [:]
+        var pVariable = UnsafePointer<WCHAR>(lpwchEnvironment)
+        while let entry = String.decodeCString(pVariable, as: UTF16.self) {
+            if entry.result.isEmpty { break }
+            let parts = entry.result.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            if parts.count == 2 {
+                environment[CaseInsensitiveString(String(parts[0]))] = String(parts[1])
+            }
+            pVariable = pVariable.advanced(by: entry.result.utf16.count + 1)
+        }
+        _vars = environment
+#else
         _vars = ProcessEnvironmentBlock(
             uniqueKeysWithValues: ProcessInfo.processInfo.environment.map {
                 (CaseInsensitiveString($0.key), $0.value)
             }
         )
+#endif
     }
 
     /// Set the given key and value in the process's environment.
     public static func setVar(_ key: String, value: String) throws {
       #if os(Windows)
-        guard TSCLibc._putenv("\(key)=\(value)") == 0 else {
-            throw SystemError.setenv(Int32(GetLastError()), key)
+        try key.withCString(encodedAs: UTF16.self) { pwszKey in
+          try value.withCString(encodedAs: UTF16.self) { pwszValue in
+            guard SetEnvironmentVariableW(pwszKey, pwszValue) else {
+              throw SystemError.setenv(Int32(GetLastError()), key)
+            }
+          }
         }
       #else
         guard TSCLibc.setenv(key, value, 1) == 0 else {
@@ -99,7 +141,9 @@ public enum ProcessEnv {
     /// Unset the give key in the process's environment.
     public static func unsetVar(_ key: String) throws {
       #if os(Windows)
-        guard TSCLibc._putenv("\(key)=") == 0 else {
+        guard key.withCString(encodedAs: UTF16.self, {
+          SetEnvironmentVariableW($0, nil)
+        }) else {
             throw SystemError.unsetenv(Int32(GetLastError()), key)
         }
       #else
@@ -124,9 +168,7 @@ public enum ProcessEnv {
     public static func chdir(_ path: AbsolutePath) throws {
         let path = path.pathString
       #if os(Windows)
-        guard path.withCString(encodedAs: UTF16.self, {
-            SetCurrentDirectoryW($0)
-        }) else {
+        guard path.withCString(encodedAs: UTF16.self, SetCurrentDirectoryW) else {
             throw SystemError.chdir(Int32(GetLastError()), path)
         }
       #else

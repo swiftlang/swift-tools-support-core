@@ -12,6 +12,9 @@ import XCTest
 
 import TSCBasic
 import TSCTestSupport
+#if os(Windows)
+import WinSDK
+#endif
 
 class ProcessEnvTests: XCTestCase {
 
@@ -54,5 +57,43 @@ class ProcessEnvTests: XCTestCase {
             XCTFail("Incorrect error thrown")
         }
         XCTAssertNil(ProcessEnv.vars[key])
+    }
+
+    func testWin32API() throws {
+        #if os(Windows)
+        let variable: String = "SWIFT_TOOLS_SUPPORT_CORE_VARIABLE"
+        let value: String = "1"
+
+        try variable.withCString(encodedAs: UTF16.self) { pwszVariable in
+            try value.withCString(encodedAs: UTF16.self) { pwszValue in
+                guard SetEnvironmentVariableW(pwszVariable, pwszValue) else {
+                    throw XCTSkip("Failed to set environment variable")
+                }
+            }
+        }
+
+        // Ensure that libc does not see the variable.
+        XCTAssertNil(getenv(variable))
+        variable.withCString(encodedAs: UTF16.self) { pwszVariable in
+            XCTAssertNil(_wgetenv(pwszVariable))
+        }
+
+        // Ensure that we can read the variable
+        ProcessEnv.invalidateEnv()
+        XCTAssertEqual(ProcessEnv.block[ProcessEnvironmentBlock.Key(variable)], value)
+
+        // Ensure that we can read the variable using the Win32 API.
+        variable.withCString(encodedAs: UTF16.self) { pwszVariable in
+            let dwLength = GetEnvironmentVariableW(pwszVariable, nil, 0)
+            withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength + 1)) {
+                let dwLength = GetEnvironmentVariableW(pwszVariable, $0.baseAddress, dwLength + 1)
+                XCTAssertEqual(dwLength, 1)
+                XCTAssertEqual(String(decodingCString: $0.baseAddress!, as: UTF16.self), value)
+            }
+        }
+        #else
+        throw XCTSkip("Win32 API is only available on Windows")
+        #endif
+
     }
 }
