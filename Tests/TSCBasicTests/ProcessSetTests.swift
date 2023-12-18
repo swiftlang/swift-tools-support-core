@@ -14,6 +14,7 @@ import TSCLibc
 import TSCUtility
 import TSCTestSupport
 
+@available(*, deprecated)
 class ProcessSetTests: XCTestCase {
   #if !os(Windows) // Signals are not supported in Windows
     func script(_ name: String) -> String {
