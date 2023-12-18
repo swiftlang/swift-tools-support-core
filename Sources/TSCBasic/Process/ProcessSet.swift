@@ -19,6 +19,7 @@ public enum ProcessSetError: Swift.Error {
 /// A process set is a small wrapper for collection of processes.
 /// 
 /// This class is thread safe.
+@available(*, deprecated, message: "Use `TaskGroup` with async `Process` APIs instead")
 public final class ProcessSet {
 
     /// Array to hold the processes.
