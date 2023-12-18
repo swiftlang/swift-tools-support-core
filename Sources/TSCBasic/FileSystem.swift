@@ -450,7 +450,7 @@ private struct LocalFileSystem: FileSystem {
 
     var tempDirectory: AbsolutePath {
         get throws {
-            let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+            let override = ProcessEnv.block["TMPDIR"] ?? ProcessEnv.block["TEMP"] ?? ProcessEnv.block["TMP"]
             if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
                 return path
             }
