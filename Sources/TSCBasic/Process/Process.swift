@@ -53,7 +53,16 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     public let arguments: [String]
 
     /// The environment with which the process was launched.
-    public let environment: [String: String]
+    public let environmentBlock: ProcessEnvironmentBlock
+
+    @available(*, deprecated, renamed: "env")
+    public var environment: [String:String] {
+        #if os(Windows)
+        Dictionary<String, String>(uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
+        #else
+        self.env
+        #endif
+    }
 
     /// The exit status of the process.
     public let exitStatus: ExitStatus
@@ -71,7 +80,7 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     /// See `waitpid(2)` for information on the exit status code.
     public init(
         arguments: [String],
-        environment: [String: String],
+        environmentBlock: ProcessEnvironmentBlock,
         exitStatusCode: Int32,
         normal: Bool,
         output: Result<[UInt8], Swift.Error>,
@@ -92,23 +101,58 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
             exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
         }
       #endif
-        self.init(arguments: arguments, environment: environment, exitStatus: exitStatus, output: output,
-            stderrOutput: stderrOutput)
+        self.init(arguments: arguments, environmentBlock: environmentBlock, exitStatus: exitStatus, output: output, stderrOutput: stderrOutput)
+    }
+
+    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatusCode:output:stderrOutput:)`")
+    public init(
+        arguments: [String],
+        environment: [String:String],
+        exitStatusCode: Int32,
+        normal: Bool,
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
+    ) {
+        self.init(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            exitStatusCode: exitStatusCode,
+            normal: normal,
+            output: output,
+            stderrOutput: stderrOutput
+        )
     }
 
     /// Create an instance using an exit status and output result.
     public init(
         arguments: [String],
-        environment: [String: String],
+        environmentBlock: ProcessEnvironmentBlock,
         exitStatus: ExitStatus,
         output: Result<[UInt8], Swift.Error>,
         stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         self.arguments = arguments
-        self.environment = environment
+        self.environmentBlock = environmentBlock
         self.output = output
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
+    }
+
+    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatus:output:stderrOutput:)`")
+    public init(
+        arguments: [String],
+        environment: [String:String],
+        exitStatus: ExitStatus,
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
+    ) {
+        self.init(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            exitStatus: exitStatus,
+            output: output,
+            stderrOutput: stderrOutput
+        )
     }
 
     /// Converts stdout output bytes to string, assuming they're UTF8.
@@ -245,14 +289,23 @@ public final class Process {
     /// The current environment.
     @available(*, deprecated, message: "use ProcessEnv.vars instead")
     static public var env: [String: String] {
-        return ProcessInfo.processInfo.environment
+        ProcessEnv.vars
     }
 
     /// The arguments to execute.
     public let arguments: [String]
 
     /// The environment with which the process was executed.
-    public let environment: [String: String]
+    @available(*, deprecated, message: "use `environmentBlock` instead")
+    public var environment: [String:String] {
+        #if os(Windows)
+        Dictionary<String, String>(uniqueKeysWithValues: environmentBlock.map { ($0.key.value, $0.value) })
+        #else
+        environmentBlock
+        #endif
+    }
+
+    public let environmentBlock: ProcessEnvironmentBlock
 
     /// The path to the directory under which to run the process.
     public let workingDirectory: AbsolutePath?
@@ -323,21 +376,34 @@ public final class Process {
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
     ///
+    public init(arguments: [String], environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, workingDirectory: AbsolutePath, outputRedirection: OutputRedirection = .collect, startNewProcessGroup: Bool = true, loggingHandler: LoggingHandler? = .none) {
+        self.arguments = arguments
+        self.environmentBlock = environmentBlock
+        self.workingDirectory = workingDirectory
+        self.outputRedirection = outputRedirection
+        self.startNewProcessGroup = startNewProcessGroup
+        self.loggingHandler = loggingHandler ?? Process.loggingHandler
+    }
+
+    @_disfavoredOverload
     @available(macOS 10.15, *)
-    public init(
+    @available(*, deprecated, renamed: "init(arguments:environmentBlock:workingDirectory:outputRedirection:startNewProcessGroup:loggingHandler:)")
+    public convenience init(
         arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
+        environment: [String:String] = ProcessEnv.vars,
         workingDirectory: AbsolutePath,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
     ) {
-        self.arguments = arguments
-        self.environment = environment
-        self.workingDirectory = workingDirectory
-        self.outputRedirection = outputRedirection
-        self.startNewProcessGroup = startNewProcessGroup
-        self.loggingHandler = loggingHandler ?? Process.loggingHandler
+        self.init(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            workingDirectory: workingDirectory,
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: loggingHandler
+        )
     }
 
     /// Create a new process instance.
@@ -351,21 +417,49 @@ public final class Process {
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
-    public init(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        outputRedirection: OutputRedirection = .collect,
-        startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
-    ) {
+    public init(arguments: [String], environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, outputRedirection: OutputRedirection = .collect, startNewProcessGroup: Bool = true, loggingHandler: LoggingHandler? = .none) {
         self.arguments = arguments
-        self.environment = environment
+        self.environmentBlock = environmentBlock
         self.workingDirectory = nil
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? Process.loggingHandler
     }
 
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "init(arguments:environmentBlock:outputRedirection:startNewProcessGroup:loggingHandler:)")
+    public convenience init(
+        arguments: [String],
+        environment: [String:String] = ProcessEnv.vars,
+        outputRedirection: OutputRedirection = .collect,
+        startNewProcessGroup: Bool = true,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            outputRedirection: outputRedirection,
+            startNewProcessGroup: startNewProcessGroup,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    public convenience init(
+        args: String...,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+        outputRedirection: OutputRedirection = .collect,
+        loggingHandler: LoggingHandler? = .none
+    ) {
+        self.init(
+            arguments: args,
+            environmentBlock: environmentBlock,
+            outputRedirection: outputRedirection,
+            loggingHandler: loggingHandler
+        )
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "init(args:environmentBlock:outputRedirection:loggingHandler:)")
     public convenience init(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
@@ -374,7 +468,7 @@ public final class Process {
     ) {
         self.init(
             arguments: args,
-            environment: environment,
+            environmentBlock: .init(environment),
             outputRedirection: outputRedirection,
             loggingHandler: loggingHandler
         )
@@ -460,7 +554,7 @@ public final class Process {
             process.currentDirectoryURL = workingDirectory.asURL
         }
         process.executableURL = executablePath.asURL
-        process.environment = environment
+        process.environment = Dictionary<String, String>(uniqueKeysWithValues: environmentBlock.map { ($0.key.value, $0.value) })
 
         let stdinPipe = Pipe()
         process.standardInput = stdinPipe
@@ -817,7 +911,7 @@ public final class Process {
             // Construct the result.
             let executionResult = ProcessResult(
                 arguments: arguments,
-                environment: environment,
+                environmentBlock: environmentBlock,
                 exitStatusCode: exitStatusCode,
                 normal: normalExit,
                 output: stdoutResult,
@@ -900,20 +994,26 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
-    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-    static public func popen(
-        arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
-        loggingHandler: LoggingHandler? = .none
-    ) async throws -> ProcessResult {
+    static public func popen(arguments: [String], environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, loggingHandler: LoggingHandler? = .none) async throws -> ProcessResult {
         let process = Process(
             arguments: arguments,
-            environment: environment,
+            environmentBlock: environmentBlock,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
         try process.launch()
         return try await process.waitUntilExit()
+    }
+
+    @_disfavoredOverload
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
+    static public func popen(
+        arguments: [String],
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) async throws -> ProcessResult {
+        try await popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and returns the result when it finishes execution
@@ -923,13 +1023,19 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
+    static public func popen(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, loggingHandler: LoggingHandler? = .none) async throws -> ProcessResult {
+        try await popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+    }
+
+    @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
     static public func popen(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> ProcessResult {
-        try await popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        try await popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -940,19 +1046,26 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
+    @discardableResult
+    static public func checkNonZeroExit(arguments: [String], environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, loggingHandler: LoggingHandler? = .none) async throws -> String {
+        let result = try await popen(arguments: arguments, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+        // Throw if there was a non zero termination.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
+        return try result.utf8Output()
+    }
+
+    @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        let result = try await popen(arguments: arguments, environment: environment, loggingHandler: loggingHandler)
-        // Throw if there was a non zero termination.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
-        return try result.utf8Output()
+        try await checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -963,14 +1076,21 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
+    @discardableResult
+    static public func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block, loggingHandler: LoggingHandler? = .none) async throws -> String {
+        try await checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+    }
+
+    @_disfavoredOverload
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
         environment: [String: String] = ProcessEnv.vars,
         loggingHandler: LoggingHandler? = .none
     ) async throws -> String {
-        try await checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        try await checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 }
 
@@ -989,7 +1109,7 @@ extension Process {
 //    #endif
     static public func popen(
         arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
         completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
@@ -999,7 +1119,7 @@ extension Process {
         do {
             let process = Process(
                 arguments: arguments,
-                environment: environment,
+                environmentBlock: environmentBlock,
                 outputRedirection: .collect,
                 loggingHandler: loggingHandler
             )
@@ -1011,6 +1131,24 @@ extension Process {
                 completion(.failure(error))
             }
         }
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:queue:completion:)")
+    static public func popen(
+        arguments: [String],
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none,
+        queue: DispatchQueue? = nil,
+        completion: @escaping (Result<ProcessResult, Swift.Error>) -> Void
+    ) {
+        popen(
+            arguments: arguments,
+            environmentBlock: .init(environment),
+            loggingHandler: loggingHandler,
+            queue: queue,
+            completion: completion
+        )
     }
 
     /// Execute a subprocess and block until it finishes execution
@@ -1027,17 +1165,28 @@ extension Process {
     @discardableResult
     static public func popen(
         arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> ProcessResult {
         let process = Process(
             arguments: arguments,
-            environment: environment,
+            environmentBlock: environmentBlock,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
         try process.launch()
         return try process.waitUntilExit()
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
+    @discardableResult
+    static public func popen(
+        arguments: [String],
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        try popen(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and block until it finishes execution
@@ -1054,10 +1203,21 @@ extension Process {
     @discardableResult
     static public func popen(
         args: String...,
-        environment: [String: String] = ProcessEnv.vars,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> ProcessResult {
-        return try Process.popen(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        return try Process.popen(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
+    @discardableResult
+    static public func popen(
+        args: String...,
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> ProcessResult {
+        return try Process.popen(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1074,12 +1234,12 @@ extension Process {
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
-        environment: [String: String] = ProcessEnv.vars,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
         let process = Process(
             arguments: arguments,
-            environment: environment,
+            environmentBlock: environmentBlock,
             outputRedirection: .collect,
             loggingHandler: loggingHandler
         )
@@ -1090,6 +1250,17 @@ extension Process {
             throw ProcessResult.Error.nonZeroExit(result)
         }
         return try result.utf8Output()
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
+    @discardableResult
+    static public func checkNonZeroExit(
+        arguments: [String],
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        try checkNonZeroExit(arguments: arguments, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
@@ -1106,10 +1277,21 @@ extension Process {
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
-        environment: [String: String] = ProcessEnv.vars,
+        environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
         loggingHandler: LoggingHandler? = .none
     ) throws -> String {
-        return try checkNonZeroExit(arguments: args, environment: environment, loggingHandler: loggingHandler)
+        return try checkNonZeroExit(arguments: args, environmentBlock: environmentBlock, loggingHandler: loggingHandler)
+    }
+
+    @_disfavoredOverload
+    @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
+    @discardableResult
+    static public func checkNonZeroExit(
+        args: String...,
+        environment: [String:String] = ProcessEnv.vars,
+        loggingHandler: LoggingHandler? = .none
+    ) throws -> String {
+        try checkNonZeroExit(arguments: args, environmentBlock: .init(environment), loggingHandler: loggingHandler)
     }
 }
 
