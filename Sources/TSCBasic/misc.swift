@@ -298,6 +298,7 @@ public enum SystemError: Error {
     case close(Int32)
     case exec(Int32, path: String, args: [String])
     case pipe(Int32)
+    case fcntl(Int32)
     case posix_spawn(Int32, [String])
     case read(Int32)
     case setenv(Int32, String)
@@ -360,6 +361,8 @@ extension SystemError: CustomStringConvertible {
             return "exec error: \(strerror(errno)): \(path) \(joinedArgs)"
         case .pipe(let errno):
             return "pipe error: \(strerror(errno))"
+        case .fcntl(let errno):
+            return "fcntl error: \(strerror(errno))"
         case .posix_spawn(let errno, let args):
             return "posix_spawn error: \(strerror(errno)), `\(args)`"
         case .read(let errno):
