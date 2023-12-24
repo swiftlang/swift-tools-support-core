@@ -347,14 +347,8 @@ extension SystemError: CustomStringConvertible {
         switch self {
         case .chdir(let errno, let path):
             return "chdir error: \(strerror(errno)): \(path)"
-        case .close(let err):
-            let errorMessage: String
-            if err == -1 { // if the return code is -1, we need to consult the global `errno`
-                errorMessage = strerror(errno)
-            } else {
-                errorMessage = strerror(err)
-            }
-            return "close error: \(errorMessage)"
+        case .close(let errno):
+            return "close error: \(strerror(errno))"
         case .exec(let errno, let path, let args):
             let joinedArgs = args.joined(separator: " ")
             return "exec error: \(strerror(errno)): \(path) \(joinedArgs)"
