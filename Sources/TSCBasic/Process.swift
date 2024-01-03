@@ -144,6 +144,9 @@ public final class Process {
 
         /// The current OS does not support the workingDirectory API.
         case workingDirectoryNotSupported
+
+        /// The stdin could not be opened.
+        case stdinUnavailable
     }
 
     public enum OutputRedirection {
@@ -677,7 +680,10 @@ public final class Process {
         var stdinPipe: [Int32] = [-1, -1]
         try open(pipe: &stdinPipe)
 
-        let stdinStream = try LocalFileOutputByteStream(filePointer: fdopen(stdinPipe[1], "wb"), closeOnDeinit: true)
+        guard let fp = fdopen(stdinPipe[1], "wb") else {
+            throw Process.Error.stdinUnavailable
+        }
+        let stdinStream = try LocalFileOutputByteStream(filePointer: fp, closeOnDeinit: true)
 
         // Dupe the read portion of the remote to 0.
         posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
@@ -1258,6 +1264,8 @@ extension Process.Error: CustomStringConvertible {
             return "could not find executable for '\(program)'"
         case .workingDirectoryNotSupported:
             return "workingDirectory is not supported in this platform"
+        case .stdinUnavailable:
+            return "could not open stdin on this platform"
         }
     }
 }

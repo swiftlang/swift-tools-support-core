@@ -491,8 +491,7 @@ private struct LocalFileSystem: FileSystem {
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
-        let fp = fopen(path.pathString, "rb")
-        if fp == nil {
+        guard let fp = fopen(path.pathString, "rb") else {
             throw FileSystemError(errno: errno, path)
         }
         defer { fclose(fp) }
@@ -521,8 +520,7 @@ private struct LocalFileSystem: FileSystem {
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // Open the file.
-        let fp = fopen(path.pathString, "wb")
-        if fp == nil {
+        guard let fp = fopen(path.pathString, "wb") else {
             throw FileSystemError(errno: errno, path)
         }
         defer { fclose(fp) }
