@@ -790,7 +790,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     override final func writeImpl(_ bytes: ArraySlice<UInt8>) {
         bytes.withUnsafeBytes { bytesPtr in
             while true {
-                let n = fwrite(bytesPtr.baseAddress, 1, bytesPtr.count, filePointer)
+                let n = fwrite(bytesPtr.baseAddress!, 1, bytesPtr.count, filePointer)
                 if n < 0 {
                     if errno == EINTR { continue }
                     errorDetected(code: errno)
