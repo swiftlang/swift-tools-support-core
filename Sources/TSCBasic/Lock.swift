@@ -45,7 +45,7 @@ extension NSLock {
     }
 }
 
-enum ProcessLockError: Error {
+public enum ProcessLockError: Error {
     case unableToAquireLock(errno: Int32)
 }
 
@@ -89,7 +89,7 @@ public final class FileLock {
     /// Try to acquire a lock. This method will block until lock the already aquired by other process.
     ///
     /// Note: This method can throw if underlying POSIX methods fail.
-    public func lock(type: LockType = .exclusive) throws {
+    public func lock(type: LockType = .exclusive, blocking: Bool = true) throws {
       #if os(Windows)
         if handle == nil {
             let h: HANDLE = lockFile.pathString.withCString(encodedAs: UTF16.self, {
@@ -112,17 +112,17 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
+        var dwFlags = Int32(0)
         switch type {
-        case .exclusive:
-            if !LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0,
-                           UInt32.max, UInt32.max, &overlapped) {
-                throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
-            }
-        case .shared:
-            if !LockFileEx(handle, 0, 0,
-                           UInt32.max, UInt32.max, &overlapped) {
-                throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
-            }
+        case .exclusive: dwFlags |= LOCKFILE_EXCLUSIVE_LOCK
+        case .shared: break
+        }
+        if !blocking {
+            dwFlags |= LOCKFILE_FAIL_IMMEDIATELY
+        }
+        if !LockFileEx(handle, DWORD(dwFlags), 0,
+                       UInt32.max, UInt32.max, &overlapped) {
+            throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
         }
       #else
         // Open the lock file.
@@ -133,11 +133,17 @@ public final class FileLock {
             }
             self.fileDescriptor = fd
         }
+        var flags = Int32(0)
+        switch type {
+        case .exclusive: flags = LOCK_EX
+        case .shared: flags = LOCK_SH
+        }
+        if !blocking {
+            flags |= LOCK_NB
+        }
         // Aquire lock on the file.
         while true {
-            if type == .exclusive && flock(fileDescriptor!, LOCK_EX) == 0 {
-                break
-            } else if type == .shared && flock(fileDescriptor!, LOCK_SH) == 0 {
+            if flock(fileDescriptor!, flags) == 0 {
                 break
             }
             // Retry if interrupted.
@@ -172,23 +178,22 @@ public final class FileLock {
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(type: LockType = .exclusive, _ body: () throws -> T) throws -> T {
-        try lock(type: type)
+    public func withLock<T>(type: LockType = .exclusive, blocking: Bool = true, _ body: () throws -> T) throws -> T {
+        try lock(type: type, blocking: blocking)
         defer { unlock() }
         return try body()
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(type: LockType = .exclusive, _ body: () async throws -> T) async throws -> T {
-        try lock(type: type)
+    public func withLock<T>(type: LockType = .exclusive, blocking: Bool = true, _ body: () async throws -> T) async throws -> T {
+        try lock(type: type, blocking: blocking)
         defer { unlock() }
         return try await body()
     }
 
     private static func prepareLock(
         fileToLock: AbsolutePath,
-        at lockFilesDirectory: AbsolutePath? = nil,
-        _ type: LockType = .exclusive
+        at lockFilesDirectory: AbsolutePath? = nil
     ) throws -> FileLock {
         // unless specified, we use the tempDirectory to store lock files
         let lockFilesDirectory = try lockFilesDirectory ?? localFileSystem.tempDirectory
@@ -233,19 +238,21 @@ public final class FileLock {
         fileToLock: AbsolutePath,
         lockFilesDirectory: AbsolutePath? = nil,
         type: LockType = .exclusive,
+        blocking: Bool = true,
         body: () throws -> T
     ) throws -> T {
-        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
-        return try lock.withLock(type: type, body)
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory)
+        return try lock.withLock(type: type, blocking: blocking, body)
     }
 
     public static func withLock<T>(
         fileToLock: AbsolutePath,
         lockFilesDirectory: AbsolutePath? = nil,
         type: LockType = .exclusive,
+        blocking: Bool = true,
         body: () async throws -> T
     ) async throws -> T {
-        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory, type)
-        return try await lock.withLock(type: type, body)
+        let lock = try Self.prepareLock(fileToLock: fileToLock, at: lockFilesDirectory)
+        return try await lock.withLock(type: type, blocking: blocking, body)
     }
 }
