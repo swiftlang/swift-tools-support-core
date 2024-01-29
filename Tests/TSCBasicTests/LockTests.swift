@@ -10,7 +10,7 @@
 
 import XCTest
 
-import TSCBasic
+@testable import TSCBasic
 import TSCTestSupport
 
 class LockTests: XCTestCase {
