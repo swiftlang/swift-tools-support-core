@@ -77,7 +77,7 @@ public final class FileLock {
     /// Create an instance of FileLock at the path specified
     ///
     /// Note: The parent directory path should be a valid directory.
-    public init(at lockFile: AbsolutePath) {
+    internal init(at lockFile: AbsolutePath) {
         self.lockFile = lockFile
     }
 
@@ -191,7 +191,7 @@ public final class FileLock {
         return try await body()
     }
 
-    private static func prepareLock(
+    public static func prepareLock(
         fileToLock: AbsolutePath,
         at lockFilesDirectory: AbsolutePath? = nil
     ) throws -> FileLock {
