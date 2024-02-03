@@ -217,6 +217,8 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
             terminal.write(header, inColor: .cyan, bold: true)
             terminal.endLine()
             hasDisplayedHeader = true
+        } else {
+            terminal.moveCursor(up: 1)
         }
 
         terminal.clearLine()
@@ -240,8 +242,6 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
         } else {
             terminal.write(text)
         }
-
-        terminal.moveCursor(up: 1)
     }
 
     public func complete(success: Bool) {
