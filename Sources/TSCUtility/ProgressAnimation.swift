@@ -117,9 +117,10 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
         terminal.clearLine()
 
         let progressText = "[\(step)/\(total)] \(text)"
-        if progressText.utf8.count > terminal.width {
+        let width = terminal.width
+        if progressText.utf8.count > width {
             let suffix = "…"
-            terminal.write(String(progressText.prefix(terminal.width - suffix.utf8.count)))
+            terminal.write(String(progressText.prefix(width - suffix.utf8.count)))
             terminal.write(suffix)
         } else {
             terminal.write(progressText)
@@ -211,8 +212,9 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
     public func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
+        let width = terminal.width
         if !hasDisplayedHeader {
-            let spaceCount = terminal.width / 2 - header.utf8.count / 2
+            let spaceCount = width / 2 - header.utf8.count / 2
             terminal.write(repeating(string: " ", count: spaceCount))
             terminal.write(header, inColor: .cyan, bold: true)
             terminal.endLine()
@@ -225,7 +227,7 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
         let prefix = "\(paddedPercentage)% " + terminal.wrap("[", inColor: .green, bold: true)
         terminal.write(prefix)
 
-        let barWidth = terminal.width - prefix.utf8.count
+        let barWidth = width - prefix.utf8.count
         let n = Int(Double(barWidth) * Double(percentage) / 100.0)
 
         terminal.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: .green)
@@ -233,10 +235,10 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
         terminal.endLine()
 
         terminal.clearLine()
-        if text.utf8.count > terminal.width {
+        if text.utf8.count > width {
             let prefix = "…"
             terminal.write(prefix)
-            terminal.write(String(text.suffix(terminal.width - prefix.utf8.count)))
+            terminal.write(String(text.suffix(width - prefix.utf8.count)))
         } else {
             terminal.write(text)
         }

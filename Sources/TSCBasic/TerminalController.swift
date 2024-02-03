@@ -64,7 +64,14 @@ public final class TerminalController {
     private var stream: WritableByteStream
 
     /// Width of the terminal.
-    public let width: Int
+    public var width: Int {
+        // Determine the terminal width otherwise assume a default.
+        if let terminalWidth = TerminalController.terminalWidth(), terminalWidth > 0 {
+            return terminalWidth
+        } else {
+            return 80
+        }
+    }
 
     /// Code to clear the line on a tty.
     private let clearLineString = "\u{001B}[2K"
@@ -82,13 +89,6 @@ public final class TerminalController {
         // Make sure it is a file stream and it is tty.
         guard let fileStream = realStream as? LocalFileOutputByteStream, TerminalController.isTTY(fileStream) else {
             return nil
-        }
-
-        // Determine the terminal width otherwise assume a default.
-        if let terminalWidth = TerminalController.terminalWidth(), terminalWidth > 0 {
-            width = terminalWidth
-        } else {
-            width = 80
         }
 
 #if os(Windows)
