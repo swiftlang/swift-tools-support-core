@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import XCTest
 
 import TSCBasic
 import TSCTestSupport
 
 class ProcessEnvTests: XCTestCase {
-
     func testEnvVars() throws {
         let key = "SWIFTPM_TEST_FOO"
         XCTAssertEqual(ProcessEnv.vars[key], nil)
@@ -63,5 +63,15 @@ class ProcessEnvTests: XCTestCase {
         #else
         XCTAssertNotEqual(ProcessEnvironmentKey("Key"), "KEY")
         #endif
+    }
+
+    func testEnvironmentKeysCodable() throws {
+        let encoder = JSONEncoder()
+        let json = try encoder.encode(ProcessEnvironmentKey("foo"))
+        XCTAssertEqual(String(decoding: json, as: UTF8.self), #""foo""#)
+
+        let decoder = JSONDecoder()
+        let result = try decoder.decode(ProcessEnvironmentKey.self, from: json)
+        XCTAssertEqual(result, ProcessEnvironmentKey("foo"))
     }
 }
