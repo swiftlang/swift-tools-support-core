@@ -18,6 +18,20 @@ public struct ProcessEnvironmentKey {
   }
 }
 
+extension ProcessEnvironmentKey: Encodable {
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.value)
+    }
+}
+
+extension ProcessEnvironmentKey: Decodable {
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.value = try container.decode(String.self)
+    }
+}
+
 extension ProcessEnvironmentKey: Equatable {
   public static func == (_ lhs: Self, _ rhs: Self) -> Bool {
     #if os(Windows)
