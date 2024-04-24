@@ -7,12 +7,12 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  -------------------------------------------------------------------------
- 
+
  This file contains temporary shim functions for use during the adoption of
  AbsolutePath and RelativePath.  The eventual plan is to use the FileSystem
  API for all of this, at which time this file will go way.  But since it is
  important to have a quality FileSystem API, we will evolve it slowly.
- 
+
  Meanwhile this file bridges the gap to let call sites be as clean as possible,
  while making it fairly easy to find those calls later.
 */
@@ -24,17 +24,21 @@ import Foundation
 public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
 #if os(Windows)
     let handle: HANDLE = path.pathString.withCString(encodedAs: UTF16.self) {
-      CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ), nil,
-                  DWORD(OPEN_EXISTING), DWORD(FILE_FLAG_BACKUP_SEMANTICS), nil)
+        CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ), nil,
+                    DWORD(OPEN_EXISTING), DWORD(FILE_FLAG_BACKUP_SEMANTICS), nil)
     }
     if handle == INVALID_HANDLE_VALUE { return path }
     defer { CloseHandle(handle) }
-    return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: 261) {
-      let dwLength: DWORD =
-            GetFinalPathNameByHandleW(handle, $0.baseAddress!, DWORD($0.count),
-                                      DWORD(FILE_NAME_NORMALIZED))
-      let path = String(decodingCString: $0.baseAddress!, as: UTF16.self)
-      return try AbsolutePath(path)
+
+    let dwLength: DWORD =
+        GetFinalPathNameByHandleW(handle, nil, 0, DWORD(FILE_NAME_NORMALIZED))
+    return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
+        guard GetFinalPathNameByHandleW(handle, $0.baseAddress!, DWORD($0.count),
+                                        DWORD(FILE_NAME_NORMALIZED)) == dwLength - 1 else {
+            throw FileSystemError(.unknownOSError, path)
+        }
+        let path = String(decodingCString: $0.baseAddress!, as: UTF16.self)
+        return try AbsolutePath(path)
     }
 #else
     let pathStr = path.pathString
@@ -76,12 +80,12 @@ public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, r
  - Returns: a generator that walks the specified directory producing all
  files therein. If recursively is true will enter any directories
  encountered recursively.
- 
+
  - Warning: directories that cannot be entered due to permission problems
  are silently ignored. So keep that in mind.
- 
+
  - Warning: Symbolic links that point to directories are *not* followed.
- 
+
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
  */
@@ -100,12 +104,12 @@ public func walk(
  - Returns: a generator that walks the specified directory producing all
  files therein. Directories are recursed based on the return value of
  `recursing`.
- 
+
  - Warning: directories that cannot be entered due to permissions problems
  are silently ignored. So keep that in mind.
- 
+
  - Warning: Symbolic links that point to directories are *not* followed.
- 
+
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
  */
