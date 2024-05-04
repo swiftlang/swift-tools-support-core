@@ -104,6 +104,8 @@ public extension FileSystemError {
             self.init(.noEntry, path)
         case TSCLibc.ENOTDIR:
             self.init(.notDirectory, path)
+        case TSCLibc.EEXIST:
+            self.init(.alreadyExistsAtDestination, path)
         default:
             self.init(.ioError(code: errno), path)
         }

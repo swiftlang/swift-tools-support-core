@@ -331,7 +331,13 @@ class FileSystemTests: XCTestCase {
                 _ = try fs.readFileContents(root)
 
             }
-            XCTAssertThrows(FileSystemError(.isDirectory, root)) {
+            #if os(macOS)
+            // Newer versions of macOS end up with `EEXISTS` instead of `EISDIR` here.
+            let expectedError = FileSystemError(.alreadyExistsAtDestination, root)
+            #else
+            let expectedError = FileSystemError(.isDirectory, root)
+            #endif
+            XCTAssertThrows(expectedError) {
                 try fs.writeFileContents(root, bytes: [])
             }
             XCTAssert(fs.exists(filePath))
