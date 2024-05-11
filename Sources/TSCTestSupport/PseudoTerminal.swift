@@ -24,7 +24,7 @@ public final class PseudoTerminal {
         if openpty(&primary, &secondary, nil, nil, nil) != 0 {
             return nil
         }
-        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(secondary, "w"), closeOnDeinit: false) else {
+        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(secondary, "w")!, closeOnDeinit: false) else {
             return nil
         }
         self.outStream = outStream
