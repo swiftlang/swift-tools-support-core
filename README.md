@@ -1,7 +1,7 @@
 swift-tools-support-core
 =========================
 
-Contains common infrastructural code for both [SwiftPM](https://github.com/apple/swift-package-manager)
+Contains common infrastructural code for both [SwiftPM](https://github.com/swiftlang/swift-package-manager)
 and [llbuild](https://github.com/apple/swift-llbuild).
 
 ## ⚠️ This package is deprecated
