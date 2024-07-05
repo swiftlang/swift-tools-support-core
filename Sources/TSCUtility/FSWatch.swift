@@ -54,7 +54,7 @@ public class FSWatch {
         self._watcher = NoOpWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
       #elseif os(Windows)
         self._watcher = RDCWatcher(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
-      #elseif canImport(Glibc) || canImport(Musl)
+      #elseif canImport(Glibc) || canImport(Musl) || canImport(Android)
         var ipaths: [AbsolutePath: Inotify.WatchOptions] = [:]
 
         // FIXME: We need to recurse here.
@@ -106,7 +106,7 @@ extension NoOpWatcher: _FileWatcher{}
 #elseif os(Windows)
 extension FSWatch._WatcherDelegate: RDCWatcherDelegate {}
 extension RDCWatcher: _FileWatcher {}
-#elseif canImport(Glibc) || canImport(Musl)
+#elseif canImport(Glibc) || canImport(Musl) || canImport(Android)
 extension FSWatch._WatcherDelegate: InotifyDelegate {}
 extension Inotify: _FileWatcher{}
 #elseif os(macOS)
@@ -296,7 +296,7 @@ public final class RDCWatcher {
     }
 }
 
-#elseif canImport(Glibc) || canImport(Musl)
+#elseif canImport(Glibc) || canImport(Musl) || canImport(Android)
 
 /// The delegate for receiving inotify events.
 public protocol InotifyDelegate {
