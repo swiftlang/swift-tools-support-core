@@ -92,7 +92,7 @@ public struct TracingEvent: TracingEventProtocol, Codable, Sendable {
         self.ts = ts
         self.startTs = startTs
     }
-    #elseif canImport(Glibc)
+    #elseif canImport(Glibc) || canImport(Android)
     public init(
         cat: String,
         name: String,

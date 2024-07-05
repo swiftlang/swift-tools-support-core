@@ -15,6 +15,8 @@
 #elseif os(Windows)
 @_exported import CRT
 @_exported import WinSDK
+#elseif canImport(Android)
+@_exported import Android
 #else
 @_exported import Darwin.C
 #endif
