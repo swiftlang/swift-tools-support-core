@@ -461,7 +461,21 @@ private struct WindowsPath: Path, Sendable {
         let fsr: UnsafePointer<Int8> = self.string.fileSystemRepresentation
         defer { fsr.deallocate() }
 
-        let path: String = String(cString: fsr)
+        var path: String = String(cString: fsr)
+        // PathCchRemoveFileSpec removes trailing '\' for a
+        // path like 'c:\root\path\', which doesn't give us the parent
+        // directory name. Thus, drop the trailing '\' before calling
+        // PathCchRemoveFileSpec.
+        var substring = path[path.startIndex..<path.endIndex]
+        while !substring.isEmpty && substring.utf8.last == UInt8(ascii: "\\") {
+            substring = substring.dropLast()
+        }
+        if !substring.isEmpty && substring.last != ":" {
+            // Drop the trailing '\', unless the string path only
+            // has '\', and unless the slashes are right after the drive letter.
+            path = String(substring)
+        }
+
         return path.withCString(encodedAs: UTF16.self) {
             let data = UnsafeMutablePointer(mutating: $0)
             PathCchRemoveFileSpec(data, path.count)
