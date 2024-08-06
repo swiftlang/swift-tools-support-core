@@ -131,6 +131,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("abc").dirname, ".")
         XCTAssertEqual(RelativePath("").dirname, ".")
         XCTAssertEqual(RelativePath(".").dirname, ".")
+#if os(Windows)
+        XCTAssertEqual(AbsolutePath("C:\\a\\b").dirname, "C:\\a")
+        XCTAssertEqual(AbsolutePath("C:\\").dirname, "C:\\")
+        XCTAssertEqual(AbsolutePath("C:\\\\").dirname, "C:\\")
+        XCTAssertEqual(AbsolutePath("C:\\\\\\").dirname, "C:\\")
+        XCTAssertEqual(AbsolutePath("C:\\a\\b\\").dirname, "C:\\a")
+        XCTAssertEqual(AbsolutePath("C:\\a\\b\\\\").dirname, "C:\\a")
+        XCTAssertEqual(AbsolutePath("C:\\a\\").dirname, "C:\\")
+#endif
     }
 
     func testBaseNameExtraction() {
