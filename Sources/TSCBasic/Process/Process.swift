@@ -55,7 +55,7 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
     /// The environment with which the process was launched.
     public let environmentBlock: ProcessEnvironmentBlock
 
-    @available(*, deprecated, renamed: "env")
+    @available(*, deprecated, renamed: "environmentBlock")
     public var environment: [String:String] {
         Dictionary<String, String>(uniqueKeysWithValues: self.environmentBlock.map { ($0.key.value, $0.value) })
     }
@@ -100,7 +100,7 @@ public struct ProcessResult: CustomStringConvertible, Sendable {
         self.init(arguments: arguments, environmentBlock: environmentBlock, exitStatus: exitStatus, output: output, stderrOutput: stderrOutput)
     }
 
-    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatusCode:output:stderrOutput:)`")
+    @available(*, deprecated, message: "use `init(arguments:environmentBlock:exitStatusCode:normal:output:stderrOutput:)`")
     public init(
         arguments: [String],
         environment: [String:String],
