@@ -363,7 +363,7 @@ public final class Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
@@ -412,10 +412,9 @@ public final class Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
-    ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     ///   - loggingHandler: Handler for logging messages
@@ -996,7 +995,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     static public func popen(
@@ -1029,7 +1028,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - args: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     static public func popen(
@@ -1055,7 +1054,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
@@ -1089,7 +1088,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - args: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
@@ -1120,7 +1119,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     ///   - queue: Queue to use for callbacks
@@ -1176,7 +1175,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
@@ -1214,7 +1213,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - args: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
@@ -1245,7 +1244,7 @@ extension Process {
     ///
     /// - Parameters:
     ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
@@ -1287,8 +1286,8 @@ extension Process {
     /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
     ///
     /// - Parameters:
-    ///   - arguments: The arguments for the subprocess.
-    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///   - args: The arguments for the subprocess.
+    ///   - environmentBlock: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
