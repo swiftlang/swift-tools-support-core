@@ -27,7 +27,7 @@ extension Collection {
 extension Collection where Element: Hashable {
     /// Returns a new list of element removing duplicate elements.
     ///
-    /// Note: The order of elements is preseved.
+    /// Note: The order of elements is preserved.
     /// Complexity: O(n)
     public func spm_uniqueElements() -> [Element] {
         var set = Set<Element>()
