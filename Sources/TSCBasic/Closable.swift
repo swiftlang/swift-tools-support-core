@@ -9,7 +9,7 @@
 */
 
 /// Closable entity is one that manages underlying resources and needs to be closed for cleanup
-/// The intent of this method is for the sole owner of the refernece/handle of the resource to close it completely, comapred to releasing a shared resource.
+/// The intent of this method is for the sole owner of the reference/handle of the resource to close it completely, compared to releasing a shared resource.
 public protocol Closable {
     func close() throws
 }
