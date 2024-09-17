@@ -1368,7 +1368,7 @@ private func close(fd: Int32) throws {
     func innerClose(_ fd: inout Int32) throws {
         let rv = TSCLibc.close(fd)
         guard rv == 0 else {
-            throw SystemError.close(rv)
+            throw SystemError.close(errno)
         }
     }
     var innerFd = fd
