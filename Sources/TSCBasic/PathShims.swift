@@ -24,21 +24,27 @@ import Foundation
 public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
 #if os(Windows)
     let handle: HANDLE = path.pathString.withCString(encodedAs: UTF16.self) {
-        CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ), nil,
+        CreateFileW($0, GENERIC_READ, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nil,
                     DWORD(OPEN_EXISTING), DWORD(FILE_FLAG_BACKUP_SEMANTICS), nil)
     }
     if handle == INVALID_HANDLE_VALUE { return path }
     defer { CloseHandle(handle) }
 
     let dwLength: DWORD =
-        GetFinalPathNameByHandleW(handle, nil, 0, DWORD(FILE_NAME_NORMALIZED))
+        GetFinalPathNameByHandleW(handle, nil, 0, DWORD(VOLUME_NAME_DOS))
     return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
         guard GetFinalPathNameByHandleW(handle, $0.baseAddress!, DWORD($0.count),
-                                        DWORD(FILE_NAME_NORMALIZED)) == dwLength - 1 else {
+                                        DWORD(VOLUME_NAME_DOS)) == dwLength - 1 else {
             throw FileSystemError(.unknownOSError, path)
         }
-        let path = String(decodingCString: $0.baseAddress!, as: UTF16.self)
-        return try AbsolutePath(path)
+        let pathBaseAddress: UnsafePointer<WCHAR>
+        if Array($0.prefix(4)) == Array(#"\\?\"#.utf16) {
+            // When using `VOLUME_NAME_DOS`, the returned path uses `\\?\`.
+            pathBaseAddress = UnsafePointer($0.baseAddress!.advanced(by: 4))
+        } else {
+            pathBaseAddress = UnsafePointer($0.baseAddress!)
+        }
+        return try AbsolutePath(String(decodingCString: pathBaseAddress, as: UTF16.self))
     }
 #else
     let pathStr = path.pathString
