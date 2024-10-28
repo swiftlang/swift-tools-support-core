@@ -494,7 +494,17 @@ private struct LocalFileSystem: FileSystem {
         // Don't fail if path is already a directory.
         if isDirectory(path) { return }
 
-        try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
+        do {
+            try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
+        } catch {
+            if isDirectory(path) {
+                // `createDirectory` failed but we have a directory now. This might happen if the directory is created
+                // by another process between the check above and the call to `createDirectory`. 
+                // Since we have the expected end result, this is fine.
+                return
+            }
+            throw error
+        }
     }
 
     func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
