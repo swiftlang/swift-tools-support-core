@@ -66,7 +66,7 @@ public extension WritableByteStream {
 // Public alias to the old name to not introduce API compatibility.
 public typealias OutputByteStream = WritableByteStream
 
-#if os(Android) || canImport(Musl)
+#if os(Android)
 public typealias FILEPointer = OpaquePointer
 #else
 public typealias FILEPointer = UnsafeMutablePointer<FILE>
