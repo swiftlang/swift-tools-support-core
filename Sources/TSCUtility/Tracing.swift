@@ -9,6 +9,7 @@
  */
 
 import Foundation
+import TSCLibc
 
 public enum TracingEventType: String, Codable, Sendable {
     case asyncBegin
