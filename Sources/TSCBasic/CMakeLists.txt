@@ -71,9 +71,5 @@ target_link_libraries(TSCBasic PRIVATE
 set_target_properties(TSCBasic PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-install(TARGETS TSCBasic
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-
+_install_target(TSCBasic)
 set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCBasic)
