@@ -708,10 +708,6 @@ public final class Process {
         // Dupe the read portion of the remote to 0.
         posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
 
-        // Close the other side's pipe since it was dupped to 0.
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
-
         var outputPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
         if outputRedirection.redirectsOutput {
@@ -721,10 +717,6 @@ public final class Process {
             // Open the write end of the pipe.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
 
-            // Close the other ends of the pipe since they were dupped to 1.
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
-
             if outputRedirection.redirectStderr {
                 // If merged was requested, send stderr to stdout.
                 posix_spawn_file_actions_adddup2(&fileActions, 1, 2)
@@ -732,10 +724,6 @@ public final class Process {
                 // If no redirect was requested, open the pipe for stderr.
                 try open(pipe: &stderrPipe)
                 posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
-
-                // Close the other ends of the pipe since they were dupped to 2.
-                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
-                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
             }
         } else {
             posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
@@ -1357,9 +1345,20 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
 
 /// Open the given pipe.
 private func open(pipe: inout [Int32]) throws {
-    let rv = TSCLibc.pipe(&pipe)
+    var rv = TSCLibc.pipe(&pipe)
     guard rv == 0 else {
-        throw SystemError.pipe(rv)
+        throw SystemError.pipe(errno)
+    }
+
+    rv = TSCLibc.fcntl(pipe[0], F_SETFD, FD_CLOEXEC)
+    if rv == 0 {
+       rv = TSCLibc.fcntl(pipe[1], F_SETFD, FD_CLOEXEC)
+    }
+    guard rv != -1 else {
+        let err = errno
+        TSCLibc.close(pipe[0])
+        TSCLibc.close(pipe[1])
+        throw SystemError.fcntl(errno)
     }
 }
 
