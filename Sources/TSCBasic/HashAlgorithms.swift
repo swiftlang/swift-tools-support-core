@@ -60,7 +60,7 @@ struct InternalSHA256: HashAlgorithm {
     private static let blockBitSize = 512
 
     /// The initial hash value.
-    private static let initalHashValue: [UInt32] = [
+    private static let initialHashValue: [UInt32] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
     ]
 
@@ -89,7 +89,7 @@ struct InternalSHA256: HashAlgorithm {
         let messageBlocks = input.blocks(size: Self.blockBitSize / 8)
 
         /// The hash that is being computed.
-        var hash = Self.initalHashValue
+        var hash = Self.initialHashValue
 
         // Process each block.
         for block in messageBlocks {
