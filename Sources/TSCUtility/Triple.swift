@@ -72,6 +72,7 @@ public struct Triple: Encodable, Equatable, Sendable {
         case windows
         case wasi
         case openbsd
+        case freebsd
     }
 
     public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
@@ -182,6 +183,10 @@ public struct Triple: Encodable, Equatable, Sendable {
         return os == .openbsd
     }
 
+    public func isFreeBSD() -> Bool {
+        return os == .freebsd
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
@@ -252,7 +257,7 @@ extension Triple {
         switch os {
         case .darwin, .macOS:
             return ".dylib"
-        case .linux, .openbsd:
+        case .linux, .openbsd, .freebsd:
             return ".so"
         case .windows:
             return ".dll"
@@ -265,7 +270,7 @@ extension Triple {
       switch os {
       case .darwin, .macOS:
         return ""
-      case .linux, .openbsd:
+      case .linux, .openbsd, .freebsd:
         return ""
       case .wasi:
         return ".wasm"
