@@ -50,7 +50,7 @@ target_link_libraries(TSCUtility PRIVATE
   Threads::Threads)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  if(CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
+  if(CMAKE_SYSTEM_NAME STREQUAL OpenBSD OR CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
     target_link_directories(TSCUtility PRIVATE /usr/local/lib)
   endif()
   if(Foundation_FOUND)
