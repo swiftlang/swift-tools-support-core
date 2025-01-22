@@ -12,3 +12,5 @@ add_library(TSCLibc STATIC
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCLibc PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCLibc)
