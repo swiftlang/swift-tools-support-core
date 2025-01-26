@@ -12,6 +12,7 @@ import Foundation
 
 /// A helpful wrapper around NSRegularExpression.
 /// - SeeAlso: NSRegularExpression
+@available(*, deprecated, message: "Use Swift `Regex` type instead")
 public struct RegEx {
     private let regex: NSRegularExpression
     public typealias Options = NSRegularExpression.Options
