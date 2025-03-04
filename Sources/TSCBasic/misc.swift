@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@_implementationOnly import TSCclibc
 import TSCLibc
 import Foundation
 #if os(Windows)
@@ -328,7 +327,7 @@ extension SystemError: CustomStringConvertible {
             var cap = 64
             while cap <= 16 * 1024 {
                 var buf = [Int8](repeating: 0, count: cap)
-                let err = TSCclibc.tsc_strerror_r(errno, &buf, buf.count)
+                let err = TSCLibc.strerror_r(errno, &buf, buf.count)
                 if err == EINVAL {
                     return "Unknown error \(errno)"
                 }
