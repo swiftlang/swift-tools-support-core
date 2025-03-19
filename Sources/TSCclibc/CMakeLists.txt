@@ -12,6 +12,7 @@ target_include_directories(TSCclibc PUBLIC
   include)
 target_compile_definitions(TSCclibc PRIVATE
   "$<$<PLATFORM_ID:Linux>:_GNU_SOURCE>")
+set_target_properties(TSCclibc PROPERTIES POSITION_INDEPENDENT_CODE YES)
 
 if(NOT BUILD_SHARED_LIBS)
   install(TARGETS TSCclibc
