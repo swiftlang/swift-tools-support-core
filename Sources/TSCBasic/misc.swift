@@ -327,7 +327,12 @@ extension SystemError: CustomStringConvertible {
             var cap = 64
             while cap <= 16 * 1024 {
                 var buf = [Int8](repeating: 0, count: cap)
+                #if os(Android)
+                let errptr: UnsafeMutablePointer<CChar> = TSCLibc.strerror_r(errno, &buf, buf.count)
+                let err = Int(errptr.pointee)
+                #else
                 let err = TSCLibc.strerror_r(errno, &buf, buf.count)
+                #endif
                 if err == EINVAL {
                     return "Unknown error \(errno)"
                 }
