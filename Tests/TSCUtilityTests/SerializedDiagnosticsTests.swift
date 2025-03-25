@@ -193,4 +193,20 @@ final class SerializedDiagnosticsTests: XCTestCase {
     XCTAssertEqual(one.ranges.count, 4)
     XCTAssertEqual(one.fixIts.count, 2)
   }
+
+  func testReadSerializedDiagCatagoryURL() throws {
+    let serializedDiagnosticsPath = AbsolutePath(#file).parentDirectory
+        .appending(components: "Inputs", "category-url.dia")
+    let contents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
+    let serializedDiags = try SerializedDiagnostics(bytes: contents)
+
+    XCTAssertEqual(serializedDiags.versionNumber, 2)
+    XCTAssertEqual(serializedDiags.diagnostics.count, 2)
+
+    let one = serializedDiags.diagnostics[0]
+    XCTAssertEqual(one.text, "expression uses unsafe constructs but is not marked with 'unsafe'")
+    XCTAssertEqual(one.level, .warning)
+    XCTAssertEqual(one.category, "StrictMemorySafety")
+    XCTAssertEqual(one.categoryURL, "https://www.swift.org/documentation/compiler/diagnostics/strict-memory-safety.md")
+  }
 }

@@ -70,8 +70,10 @@ extension SerializedDiagnostics {
     public var level: Level
     /// The location the diagnostic was emitted at in the source file.
     public var location: SourceLocation?
-    /// The diagnostic category. Currently only Clang emits this.
+    /// The diagnostic category.
     public var category: String?
+    /// The diagnostic category documentation URL.
+    public var categoryURL: String?
     /// The corresponding diagnostic command-line flag. Currently only Clang emits this.
     public var flag: String?
     /// Ranges in the source file associated with the diagnostic.
@@ -82,11 +84,12 @@ extension SerializedDiagnostics {
     fileprivate init(records: [SerializedDiagnostics.OwnedRecord],
                      filenameMap: [UInt64: String],
                      flagMap: [UInt64: String],
-                     categoryMap: [UInt64: String]) throws {
+                     categoryMap: CategoryMap) throws {
       var text: String? = nil
       var level: Level? = nil
       var location: SourceLocation? = nil
       var category: String? = nil
+      var categoryURL: String? = nil
       var flag: String? = nil
       var ranges: [(SourceLocation, SourceLocation)] = []
       var fixIts: [FixIt] = []
@@ -103,7 +106,14 @@ extension SerializedDiagnostics {
           level = Level(rawValue: record.fields[0])
           location = SourceLocation(fields: record.fields[1...4],
                                     filenameMap: filenameMap)
-          category = categoryMap[record.fields[5]]
+
+          if let categoryEntry = categoryMap[record.fields[5]] {
+            category = categoryEntry.text
+            categoryURL = categoryEntry.url
+          } else {
+            category = nil
+            categoryURL = nil
+          }
           flag = flagMap[record.fields[6]]
 
         case .sourceRange:
@@ -142,6 +152,7 @@ extension SerializedDiagnostics {
         self.level = level
         self.location = location
         self.category = category
+        self.categoryURL = categoryURL
         self.flag = flag
         self.fixIts = fixIts
         self.ranges = ranges
@@ -185,6 +196,8 @@ extension SerializedDiagnostics.Diagnostic: UnsafeSendable {}
 #endif
 
 extension SerializedDiagnostics {
+  typealias CategoryMap = [UInt64: (text: String, url: String?)]
+
   private struct Reader: BitstreamVisitor {
     var diagnosticRecords: [[OwnedRecord]] = []
     var activeBlocks: [BlockID] = []
@@ -194,7 +207,7 @@ extension SerializedDiagnostics {
     var versionNumber: Int? = nil
     var filenameMap = [UInt64: String]()
     var flagMap = [UInt64: String]()
-    var categoryMap = [UInt64: String]()
+    var categoryMap = CategoryMap()
 
     func validate(signature: Bitcode.Signature) throws {
       guard signature == .init(string: "DIAG") else { throw Error.badMagic }
@@ -244,9 +257,28 @@ extension SerializedDiagnostics {
                 case .blob(let categoryBlob) = record.payload
           else { throw Error.malformedRecord }
 
-          let categoryText = String(decoding: categoryBlob, as: UTF8.self)
+          let categoryTextBlob = String(decoding: categoryBlob, as: UTF8.self)
           let categoryID = record.fields[0]
-          categoryMap[categoryID] = categoryText
+
+          let categoryTextLength = Int(record.fields[1])
+          if categoryTextLength > categoryTextBlob.count {
+            throw Error.malformedRecord
+          }
+
+          let categoryText = String(categoryTextBlob.prefix(categoryTextLength))
+          let afterCategoryText = categoryTextBlob.index(
+            categoryTextBlob.startIndex,
+            offsetBy: categoryTextLength
+          )
+          let categoryURL: String?
+          if afterCategoryText < categoryTextBlob.endIndex &&
+              categoryTextBlob[afterCategoryText] == "@" {
+            categoryURL = String(categoryTextBlob[afterCategoryText...].dropFirst())
+          } else {
+            categoryURL = nil
+          }
+
+          categoryMap[categoryID] = (categoryText, categoryURL)
         case .flag:
           guard record.fields.count == 2,
                 case .blob(let flagBlob) = record.payload
