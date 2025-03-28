@@ -817,6 +817,25 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
             throw error
         }
     }
+
+    #if canImport(Darwin)
+    /// Disable the SIGPIPE if data is written to this stream after its receiving end has been terminated.
+    ///
+    /// This can be useful to stop the current process from crashing if it tries to write data to the stdin stream of a
+    /// subprocess after it has finished or crashed.
+    ///
+    /// Only available on Darwin because `F_SETNOSIGPIPE` is not universally available.
+    public func disableSigpipe() throws {
+        let fileDescriptor = fileno(filePointer)
+        if fileDescriptor == -1 {
+            throw FileSystemError(.ioError(code: errno))
+        }
+        let fcntlResult = fcntl(fileDescriptor, F_SETNOSIGPIPE, 1)
+        if fcntlResult == -1 {
+            throw FileSystemError(.ioError(code: errno))
+        }
+    }
+    #endif
 }
 
 /// Public stdout stream instance.
