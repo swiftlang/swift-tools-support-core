@@ -93,71 +93,74 @@ private func quote(_ arguments: [String]) -> String {
 public func exec(path: String, args: [String]) throws -> Never {
     let cArgs = CStringArray(args)
   #if os(Windows)
-    var hJob: HANDLE
+    // Wrap body in a do block to ensure closing handles in defer blocks occurs prior to the call to _exit
+    var dwExitCode: DWORD = DWORD(bitPattern: -1)
+    do {
+        var hJob: HANDLE
 
-    hJob = CreateJobObjectA(nil, nil)
-    if hJob == HANDLE(bitPattern: 0) {
-        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
-    }
-    defer { CloseHandle(hJob) }
-
-    let hPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nil, 0, 1)
-    if hPort == HANDLE(bitPattern: 0) {
-        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
-    }
-
-    var acpAssociation: JOBOBJECT_ASSOCIATE_COMPLETION_PORT = JOBOBJECT_ASSOCIATE_COMPLETION_PORT()
-    acpAssociation.CompletionKey = hJob
-    acpAssociation.CompletionPort = hPort
-    if !SetInformationJobObject(hJob, JobObjectAssociateCompletionPortInformation,
-                                &acpAssociation, DWORD(MemoryLayout<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>.size)) {
-        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
-    }
-
-    var eliLimits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-    eliLimits.BasicLimitInformation.LimitFlags =
-            DWORD(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) | DWORD(JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
-    if !SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &eliLimits,
-                                DWORD(MemoryLayout<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>.size)) {
-        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
-    }
-
-
-    var siInfo: STARTUPINFOW = STARTUPINFOW()
-    siInfo.cb = DWORD(MemoryLayout<STARTUPINFOW>.size)
-
-    var piInfo: PROCESS_INFORMATION = PROCESS_INFORMATION()
-
-    try quote(args).withCString(encodedAs: UTF16.self) { pwszCommandLine in
-        if !CreateProcessW(nil,
-                           UnsafeMutablePointer<WCHAR>(mutating: pwszCommandLine),
-                           nil, nil, false,
-                           DWORD(CREATE_SUSPENDED) | DWORD(CREATE_NEW_PROCESS_GROUP),
-                           nil, nil, &siInfo, &piInfo) {
+        hJob = CreateJobObjectA(nil, nil)
+        if hJob == HANDLE(bitPattern: 0) {
             throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
         }
+        defer { CloseHandle(hJob) }
+
+        let hPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nil, 0, 1)
+        if hPort == HANDLE(bitPattern: 0) {
+            throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+        }
+
+        var acpAssociation: JOBOBJECT_ASSOCIATE_COMPLETION_PORT = JOBOBJECT_ASSOCIATE_COMPLETION_PORT()
+        acpAssociation.CompletionKey = hJob
+        acpAssociation.CompletionPort = hPort
+        if !SetInformationJobObject(hJob, JobObjectAssociateCompletionPortInformation,
+                                    &acpAssociation, DWORD(MemoryLayout<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>.size)) {
+            throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+        }
+
+        var eliLimits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        eliLimits.BasicLimitInformation.LimitFlags =
+        DWORD(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) | DWORD(JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
+        if !SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &eliLimits,
+                                    DWORD(MemoryLayout<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>.size)) {
+            throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+        }
+
+
+        var siInfo: STARTUPINFOW = STARTUPINFOW()
+        siInfo.cb = DWORD(MemoryLayout<STARTUPINFOW>.size)
+
+        var piInfo: PROCESS_INFORMATION = PROCESS_INFORMATION()
+
+        try quote(args).withCString(encodedAs: UTF16.self) { pwszCommandLine in
+            if !CreateProcessW(nil,
+                               UnsafeMutablePointer<WCHAR>(mutating: pwszCommandLine),
+                               nil, nil, false,
+                               DWORD(CREATE_SUSPENDED) | DWORD(CREATE_NEW_PROCESS_GROUP),
+                               nil, nil, &siInfo, &piInfo) {
+                throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+            }
+        }
+
+        defer { CloseHandle(piInfo.hThread) }
+        defer { CloseHandle(piInfo.hProcess) }
+
+        if !AssignProcessToJobObject(hJob, piInfo.hProcess) {
+            throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
+        }
+
+        _ = ResumeThread(piInfo.hThread)
+
+        var dwCompletionCode: DWORD = 0
+        var ulCompletionKey: ULONG_PTR = 0
+        var lpOverlapped: LPOVERLAPPED?
+        repeat {
+        } while GetQueuedCompletionStatus(hPort, &dwCompletionCode, &ulCompletionKey,
+                                          &lpOverlapped, INFINITE) &&
+        !(ulCompletionKey == ULONG_PTR(UInt(bitPattern: hJob)) &&
+          dwCompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
+
+        _ = GetExitCodeProcess(piInfo.hProcess, &dwExitCode)
     }
-
-    defer { CloseHandle(piInfo.hThread) }
-    defer { CloseHandle(piInfo.hProcess) }
-
-    if !AssignProcessToJobObject(hJob, piInfo.hProcess) {
-        throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
-    }
-
-    _ = ResumeThread(piInfo.hThread)
-
-    var dwCompletionCode: DWORD = 0
-    var ulCompletionKey: ULONG_PTR = 0
-    var lpOverlapped: LPOVERLAPPED?
-    repeat {
-    } while GetQueuedCompletionStatus(hPort, &dwCompletionCode, &ulCompletionKey,
-                                      &lpOverlapped, INFINITE) &&
-            !(ulCompletionKey == ULONG_PTR(UInt(bitPattern: hJob)) &&
-              dwCompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
-
-    var dwExitCode: DWORD = DWORD(bitPattern: -1)
-    _ = GetExitCodeProcess(piInfo.hProcess, &dwExitCode)
     _exit(Int32(bitPattern: dwExitCode))
   #elseif (!canImport(Darwin) || os(macOS))
     guard execv(path, cArgs.cArray) != -1 else {
