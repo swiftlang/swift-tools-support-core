@@ -185,7 +185,7 @@ class ProcessTests: XCTestCase {
   #if !os(Windows) // Signals are not supported in Windows
     @available(*, deprecated)
     func testSignals() throws {
-        let processes  = ProcessSet()
+        var processes: [Process] = []
         let group = DispatchGroup()
 
         DispatchQueue.global().async(group: group) {
@@ -195,8 +195,8 @@ class ProcessTests: XCTestCase {
                     let file = tmpdir.appending(component: "pidfile")
                     let waitFile = tmpdir.appending(component: "waitFile")
                     let process = Process(scriptName: "print-pid", arguments: [file.pathString, waitFile.pathString])
-                    try processes.add(process)
                     try process.launch()
+                    processes.append(process)
                     guard waitForFile(waitFile) else {
                         return XCTFail("Couldn't launch the process")
                     }
@@ -223,8 +223,8 @@ class ProcessTests: XCTestCase {
                     let file = tmpdir.appending(component: "pidfile")
                     let waitFile = tmpdir.appending(component: "waitFile")
                     let process = Process(scriptName: "subprocess", arguments: [file.pathString, waitFile.pathString])
-                    try processes.add(process)
                     try process.launch()
+                    processes.append(process)
                     guard waitForFile(waitFile) else {
                         return XCTFail("Couldn't launch the process")
                     }
@@ -257,7 +257,9 @@ class ProcessTests: XCTestCase {
         }
 
         // rdar://74356445: make sure the processes are terminated as they *sometimes* cause xctest to hang
-        processes.terminate()
+        for process in processes {
+            process.signal(SIGKILL)
+        }
     }
   #endif
 

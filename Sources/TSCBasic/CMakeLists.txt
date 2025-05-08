@@ -39,7 +39,6 @@ add_library(TSCBasic
   PathShims.swift
   Process/Process.swift
   Process/ProcessEnv.swift
-  Process/ProcessSet.swift
   RegEx.swift
   Result.swift
   SortedArray.swift
