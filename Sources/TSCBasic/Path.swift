@@ -458,79 +458,6 @@ private struct WindowsPath: Path, Sendable {
         return !path.withCString(encodedAs: UTF16.self, PathIsRelativeW)
     }
 
-    /// When this function returns successfully, the same path string will have had the prefix removed,
-    /// if the prefix was present. If no prefix was present, the string will be unchanged.
-    static func stripPrefix(_ path: String) -> String {
-        return path.withCString(encodedAs: UTF16.self) { cStringPtr in
-            let mutableCStringPtr = UnsafeMutablePointer(mutating: cStringPtr)
-            let result = PathCchStripPrefix(mutableCStringPtr, path.utf16.count + 1)
-            if result == S_OK {
-                return String(decodingCString: mutableCStringPtr, as: UTF16.self)
-            }
-            return path
-        }
-    }
-
-    /// Remove a trailing backslash from a path if the following conditions
-    /// are true:
-    ///   * Path is not a root path
-    ///   * Pash has a trailing backslash
-    /// If conditions are not met then the string is returned unchanged.
-    static func removeTrailingBackslash(_ path: String) -> String {
-        return path.withCString(encodedAs: UTF16.self) { cStringPtr in
-            let mutableCStringPtr = UnsafeMutablePointer(mutating: cStringPtr)
-            let result = PathCchRemoveBackslash(mutableCStringPtr, path.utf16.count + 1)
-
-            if result == S_OK {
-                return String(decodingCString: mutableCStringPtr, as: UTF16.self)
-            }
-            return path
-        }
-    }
-
-    /// Create a canonicalized path representation for Windows.
-    /// Returns a potentially `\\?\`-prefixed version of the path,
-    /// to ensure long paths greater than MAX_PATH (260) characters are handled correctly.
-    ///
-    /// - seealso: https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
-    static func canonicalPathRepresentation(_ path: String) throws -> String {
-        return try path.withCString(encodedAs: UTF16.self) { pwszPlatformPath in
-            // 1. Normalize the path first.
-            // Contrary to the documentation, this works on long paths independently
-            // of the registry or process setting to enable long paths (but it will also
-            // not add the \\?\ prefix required by other functions under these conditions).
-            let dwLength: DWORD = GetFullPathNameW(pwszPlatformPath, 0, nil, nil)
-
-            return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) { pwszFullPath in
-                guard (1 ..< dwLength).contains(GetFullPathNameW(pwszPlatformPath, DWORD(pwszFullPath.count), pwszFullPath.baseAddress, nil)) else {
-                    throw Win32Error(GetLastError())
-                }
-                // 1.5 Leave \\.\ prefixed paths alone since device paths are already an exact representation and PathCchCanonicalizeEx will mangle these.
-                if let base = pwszFullPath.baseAddress,
-                   base[0] == UInt8(ascii: "\\"),
-                   base[1] == UInt8(ascii: "\\"),
-                   base[2] == UInt8(ascii: "."),
-                   base[3] == UInt8(ascii: "\\")
-                {
-                    return String(decodingCString: base, as: UTF16.self)
-                }
-                // 2. Canonicalize the path.
-                // This will add the \\?\ prefix if needed based on the path's length.
-                var pwszCanonicalPath: LPWSTR?
-                let flags: ULONG = numericCast(PATHCCH_ALLOW_LONG_PATHS.rawValue) | numericCast(PATHCCH_CANONICALIZE_SLASHES.rawValue)
-                let result = PathAllocCanonicalize(pwszFullPath.baseAddress, flags, &pwszCanonicalPath)
-                if let pwszCanonicalPath {
-                    defer { LocalFree(pwszCanonicalPath) }
-                    if result == S_OK {
-                        // 3. Perform the operation on the normalized path.
-                        return String(decodingCString: pwszCanonicalPath, as: UTF16.self)
-                    }
-                }
-                throw Win32Error(WIN32_FROM_HRESULT(result))
-            }
-        }
-    }
-
     var dirname: String {
         let fsr: UnsafePointer<Int8> = self.string.fileSystemRepresentation
         defer { fsr.deallocate() }
@@ -581,7 +508,12 @@ private struct WindowsPath: Path, Sendable {
         let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
         defer { normalized.deallocate() }
         // Remove prefix from the components, allowing for comparison across normalized paths.
-        return Self.stripPrefix(String(cString: normalized)).components(separatedBy: #"\"#).filter { !$0.isEmpty }
+        var prefixStrippedPath = PathCchStripPrefix(String(cString: normalized))
+        // The '\\.\'' prefix is not removed by PathCchStripPrefix do this manually.
+        if prefixStrippedPath.starts(with: #"\\.\"#) {
+            prefixStrippedPath = String(prefixStrippedPath.dropFirst(4))
+        }
+        return prefixStrippedPath.components(separatedBy: #"\"#).filter { !$0.isEmpty }
     }
 
     var parentDirectory: Self {
@@ -589,14 +521,14 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(string: String) {
-        let noPrefixPath = Self.stripPrefix(string)
+        let noPrefixPath = PathCchStripPrefix(string)
         let prefix = string.replacingOccurrences(of: noPrefixPath, with: "") // Just the prefix or empty
 
         // Perform drive designator normalization i.e. 'c:\' to 'C:\' on string.
         if noPrefixPath.first?.isASCII ?? false, noPrefixPath.first?.isLetter ?? false, noPrefixPath.first?.isLowercase ?? false,
            noPrefixPath.count > 1, noPrefixPath[noPrefixPath.index(noPrefixPath.startIndex, offsetBy: 1)] == ":"
         {
-            self.string = prefix + "\(noPrefixPath.first!.uppercased())\(noPrefixPath.dropFirst(1))"
+            self.string = "\(prefix)\(noPrefixPath.first!.uppercased())\(noPrefixPath.dropFirst(1))"
         } else {
             self.string = prefix + noPrefixPath
         }
@@ -615,8 +547,8 @@ private struct WindowsPath: Path, Sendable {
             throw PathValidationError.invalidAbsolutePath(path)
         }
         do {
-            let canonicalizedPath = try Self.canonicalPathRepresentation(realpath)
-            let normalizedPath = Self.removeTrailingBackslash(canonicalizedPath) // AbsolutePath states paths have no trailing separator.
+            let canonicalizedPath = try canonicalPathRepresentation(realpath)
+            let normalizedPath = PathCchRemoveBackslash(canonicalizedPath) // AbsolutePath states paths have no trailing separator.
             self.init(string: normalizedPath)
         } catch {
             throw PathValidationError.invalidAbsolutePath("\(path): \(error)")
@@ -703,6 +635,85 @@ fileprivate func WIN32_FROM_HRESULT(_ hr: HRESULT) -> DWORD {
     return DWORD(hr)
 }
 
+/// Create a canonicalized path representation for Windows.
+/// Returns a potentially `\\?\`-prefixed version of the path,
+/// to ensure long paths greater than MAX_PATH (260) characters are handled correctly.
+///
+/// - seealso: https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+fileprivate func canonicalPathRepresentation(_ path: String) throws -> String {
+    return try path.withCString(encodedAs: UTF16.self) { pwszPlatformPath in
+        // 1. Normalize the path first.
+        // Contrary to the documentation, this works on long paths independently
+        // of the registry or process setting to enable long paths (but it will also
+        // not add the \\?\ prefix required by other functions under these conditions).
+        let dwLength: DWORD = GetFullPathNameW(pwszPlatformPath, 0, nil, nil)
+
+        return try withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) { pwszFullPath in
+            guard (1 ..< dwLength).contains(GetFullPathNameW(pwszPlatformPath, DWORD(pwszFullPath.count), pwszFullPath.baseAddress, nil)) else {
+                throw Win32Error(GetLastError())
+            }
+            // 1.5 Leave \\.\ prefixed paths alone since device paths are already an exact representation and PathCchCanonicalizeEx will mangle these.
+            if pwszFullPath.count >= 4 {
+                if let base = pwszFullPath.baseAddress,
+                   base[0] == UInt8(ascii: "\\"),
+                   base[1] == UInt8(ascii: "\\"),
+                   base[2] == UInt8(ascii: "."),
+                   base[3] == UInt8(ascii: "\\")
+                {
+                    return String(decodingCString: base, as: UTF16.self)
+                }
+            }
+            // 2. Canonicalize the path.
+            // This will add the \\?\ prefix if needed based on the path's length.
+            var pwszCanonicalPath: LPWSTR?
+            let flags: ULONG = numericCast(PATHCCH_ALLOW_LONG_PATHS.rawValue)
+            let result = PathAllocCanonicalize(pwszFullPath.baseAddress, flags, &pwszCanonicalPath)
+            if let pwszCanonicalPath {
+                defer { LocalFree(pwszCanonicalPath) }
+                if result == S_OK {
+                    // 3. Perform the operation on the normalized path.
+                    return String(decodingCString: pwszCanonicalPath, as: UTF16.self)
+                }
+            }
+            throw Win32Error(WIN32_FROM_HRESULT(result))
+        }
+    }
+}
+
+/// Removes the "\\?\" prefix, if present, from a file path. When this function returns successfully,
+/// the same path string will have the prefix removed,if the prefix was present.
+/// If no prefix was present,the string will be unchanged.
+fileprivate func PathCchStripPrefix(_ path: String) -> String {
+    return path.withCString(encodedAs: UTF16.self) { cStringPtr in
+        withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: path.utf16.count + 1) { buffer in
+            buffer.initialize(from: UnsafeBufferPointer(start: cStringPtr, count: path.utf16.count + 1))
+            let result = PathCchStripPrefix(buffer.baseAddress!, buffer.count)
+            if result == S_OK {
+                return String(decodingCString: buffer.baseAddress!, as: UTF16.self)
+            }
+            return path
+        }
+    }
+}
+
+/// Remove a trailing backslash from a path if the following conditions
+/// are true:
+///   * Path is not a root path
+///   * Pash has a trailing backslash
+/// If conditions are not met then the string is returned unchanged.
+fileprivate func PathCchRemoveBackslash(_ path: String) -> String {
+    return path.withCString(encodedAs: UTF16.self) { cStringPtr in
+        return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: path.utf16.count + 1) { buffer in
+            buffer.initialize(from: UnsafeBufferPointer(start: cStringPtr, count: path.utf16.count + 1))
+            let result = PathCchRemoveBackslash(buffer.baseAddress!, path.utf16.count + 1)
+            if result == S_OK {
+                return String(decodingCString: buffer.baseAddress!, as: UTF16.self)
+            }
+            return path
+        }
+        return path
+    }
+}
 #else
 private struct UNIXPath: Path, Sendable {
     let string: String
