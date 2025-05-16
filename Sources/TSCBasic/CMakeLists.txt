@@ -49,7 +49,8 @@ add_library(TSCBasic
   TerminalController.swift
   Thread.swift
   Tuple.swift
-  misc.swift)
+  misc.swift
+  Win32Error.swift)
 
 target_compile_options(TSCBasic PUBLIC
   # Ignore secure function warnings on Windows.
