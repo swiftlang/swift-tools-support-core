@@ -60,7 +60,7 @@ public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> Absolut
     return tmpDir
 }
 
-/// The closure argument of the `body` closue of `withTemporaryFile`.
+/// The closure argument of the `body` closure of `withTemporaryFile`.
 public struct TemporaryFile {
     /// If specified during init, the temporary file name begins with this prefix.
     let prefix: String

@@ -65,7 +65,7 @@ public struct DeltaAlgorithm<Change: Hashable>: Sendable {
         return result
     }
 
-    /// Minimizes a set of `changes` which has been partioned into smaller sets,
+    /// Minimizes a set of `changes` which has been partitioned into smaller sets,
     /// by attempting to remove individual subsets.
     func delta(
         changes: Set<Change>,
