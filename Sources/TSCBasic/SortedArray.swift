@@ -90,7 +90,7 @@ public struct SortedArray<Element>: CustomStringConvertible {
 
         var lhs = elements[lhsIndex], rhs = newElements[rhsIndex]
 
-        // Equivalent to a merge sort, "pop" and append the max elemeent of
+        // Equivalent to a merge sort, "pop" and append the max element of
         // each array until either array is empty.
         for index in elements.indices.reversed() {
             if areInIncreasingOrder(lhs, rhs) {
