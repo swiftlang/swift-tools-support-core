@@ -324,6 +324,7 @@ public final class Process {
 
     /// The result of the process execution. Available after process is terminated.
     /// This will block while the process is awaiting result
+    @available(*, noasync)
     @available(*, deprecated, message: "use waitUntilExit instead")
     public var result: ProcessResult? {
         return self.stateLock.withLock {
@@ -856,7 +857,9 @@ public final class Process {
     public func waitUntilExit() async throws -> ProcessResult {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.processConcurrent.async {
-                self.waitUntilExit(continuation.resume(with:))
+                self.waitUntilExit {
+                    continuation.resume(with: $0)
+                }
             }
         }
     }
@@ -1127,9 +1130,7 @@ extension Process {
     ///   - loggingHandler: Handler for logging messages
     ///   - queue: Queue to use for callbacks
     ///   - completion: A completion handler to return the process result
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     static public func popen(
         arguments: [String],
         environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block,
@@ -1157,6 +1158,7 @@ extension Process {
     }
 
     @_disfavoredOverload
+    @available(*, noasync)
     @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:queue:completion:)")
     static public func popen(
         arguments: [String],
@@ -1182,9 +1184,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static public func popen(
         arguments: [String],
@@ -1202,6 +1202,7 @@ extension Process {
     }
 
     @_disfavoredOverload
+    @available(*, noasync)
     @available(*, deprecated, renamed: "popen(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func popen(
@@ -1220,9 +1221,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process result.
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static public func popen(
         args: String...,
@@ -1233,6 +1232,7 @@ extension Process {
     }
 
     @_disfavoredOverload
+    @available(*, noasync)
     @available(*, deprecated, renamed: "popen(args:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func popen(
@@ -1251,9 +1251,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static public func checkNonZeroExit(
         arguments: [String],
@@ -1276,6 +1274,7 @@ extension Process {
     }
 
     @_disfavoredOverload
+    @available(*, noasync)
     @available(*, deprecated, renamed: "checkNonZeroExit(arguments:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func checkNonZeroExit(
@@ -1294,9 +1293,7 @@ extension Process {
     ///     will be inherited.
     ///   - loggingHandler: Handler for logging messages
     /// - Returns: The process output (stdout + stderr).
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static public func checkNonZeroExit(
         args: String...,
@@ -1307,6 +1304,7 @@ extension Process {
     }
 
     @_disfavoredOverload
+    @available(*, noasync)
     @available(*, deprecated, renamed: "checkNonZeroExit(args:environmentBlock:loggingHandler:)")
     @discardableResult
     static public func checkNonZeroExit(
