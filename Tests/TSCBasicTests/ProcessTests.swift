@@ -478,9 +478,7 @@ fileprivate extension Process {
         self.init(arguments: [Self.script(scriptName)] + arguments, environment: Self.env(), outputRedirection: outputRedirection)
     }
 
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     static func checkNonZeroExit(
         scriptName: String,
         environment: [String: String] = ProcessEnv.vars,
@@ -498,9 +496,7 @@ fileprivate extension Process {
         return try await checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
     }
 
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static func popen(
         scriptName: String,
