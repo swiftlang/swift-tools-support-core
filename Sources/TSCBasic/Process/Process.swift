@@ -679,24 +679,11 @@ public final class Process {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         if let workingDirectory = workingDirectory?.pathString {
-          #if canImport(Darwin)
-            // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
-            // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
-            // exists here to make the compiler happy.
-            if #available(macOS 10.15, *) {
-                posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            }
-          #elseif os(FreeBSD)
-                posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-          #elseif os(Linux)
             guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
                 throw Process.Error.workingDirectoryNotSupported
             }
 
             SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-          #else
-            throw Process.Error.workingDirectoryNotSupported
-          #endif
         }
 
         var stdinPipe: [Int32] = [-1, -1]
