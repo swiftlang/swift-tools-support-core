@@ -1,4 +1,4 @@
-#if defined(__linux__)
+#if !defined(_WIN32)
 
 #include <spawn.h>
 #include <stdbool.h>
