@@ -44,6 +44,8 @@ public func testWithTemporaryDirectory(
     }
 }
 
+@available(*, noasync)
+@available(*, deprecated, message: "Use Process.checkNonZeroExit(arguments:) instead.")
 public func systemQuietly(_ args: [String]) throws {
     // Discard the output, by default.
     //
@@ -51,6 +53,8 @@ public func systemQuietly(_ args: [String]) throws {
     try Process.checkNonZeroExit(arguments: args)
 }
 
+@available(*, noasync)
+@available(*, deprecated, message: "Use Process.checkNonZeroExit(_:) instead.")
 public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }

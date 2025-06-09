@@ -428,12 +428,7 @@ class ProcessTests: XCTestCase {
     }
 
     func testWorkingDirectory() throws {
-        guard #available(macOS 10.15, *) else {
-            // Skip this test since it's not supported in this OS.
-            return
-        }
-
-      #if os(Linux) || os(Android)
+      #if !os(Windows)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             // Skip this test since it's not supported in this OS.
             return
@@ -478,9 +473,7 @@ fileprivate extension Process {
         self.init(arguments: [Self.script(scriptName)] + arguments, environment: Self.env(), outputRedirection: outputRedirection)
     }
 
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     static func checkNonZeroExit(
         scriptName: String,
         environment: [String: String] = ProcessEnv.vars,
@@ -498,9 +491,7 @@ fileprivate extension Process {
         return try await checkNonZeroExit(args: script(scriptName), environment: environment, loggingHandler: loggingHandler)
     }
 
-//    #if compiler(>=5.8)
-//    @available(*, noasync)
-//    #endif
+    @available(*, noasync)
     @discardableResult
     static func popen(
         scriptName: String,
