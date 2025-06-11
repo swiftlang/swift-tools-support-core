@@ -1316,10 +1316,10 @@ extension Process: Hashable {
 // MARK: - Private helpers
 
 #if !os(Windows)
-#if canImport(Darwin)
-private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
+#if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+public typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
-private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
+public typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
 #endif
 
 private func WIFEXITED(_ status: Int32) -> Bool {
@@ -1455,3 +1455,17 @@ extension Process {
         stdoutStream.flush()
     }
 }
+
+#if !os(Windows)
+@available(iOS, unavailable)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+@available(visionOS, unavailable)
+public func TSC_posix_spawn_file_actions_addchdir_np(_ file_actions: UnsafeMutablePointer<swiftpm_posix_spawn_file_actions_t>?, _ path: UnsafePointer<CChar>?) -> CInt {
+    TSCclibc.SPM_posix_spawn_file_actions_addchdir_np(file_actions, path)
+}
+
+public func TSC_posix_spawn_file_actions_addchdir_np_supported() -> Bool {
+    TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported()
+}
+#endif
