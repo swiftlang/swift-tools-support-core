@@ -59,7 +59,7 @@ target_link_libraries(TSCBasic PRIVATE
   TSCLibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   if(Foundation_FOUND)
-    target_link_directories(TSCBasic PUBLIC
+    target_link_directories(TSCBasic PRIVATE
       $<TARGET_LINKER_FILE_DIR:Foundation>)
   endif()
 endif()
