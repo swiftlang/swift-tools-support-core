@@ -1316,7 +1316,7 @@ extension Process: Hashable {
 // MARK: - Private helpers
 
 #if !os(Windows)
-#if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+#if canImport(Darwin) || canImport(Android) || os(FreeBSD) || os(OpenBSD)
 public typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
 public typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
