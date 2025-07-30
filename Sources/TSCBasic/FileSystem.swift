@@ -12,7 +12,7 @@ import TSCLibc
 import Foundation
 import Dispatch
 
-public struct FileSystemError: Error, Equatable, Sendable {
+public struct FileSystemError: Error, Sendable {
     public enum Kind: Equatable, Sendable {
         /// Access to the path is denied.
         ///
@@ -80,33 +80,121 @@ public struct FileSystemError: Error, Equatable, Sendable {
     /// The absolute path to the file associated with the error, if available.
     public let path: AbsolutePath?
 
-    public init(_ kind: Kind, _ path: AbsolutePath? = nil) {
+    /// A localized message describing the error, if available.
+    public let localizedMessage: String?
+
+    public init(_ kind: Kind, _ path: AbsolutePath? = nil, localizedMessage: String? = nil) {
         self.kind = kind
         self.path = path
+        self.localizedMessage = localizedMessage
     }
 }
 
 extension FileSystemError: CustomNSError {
     public var errorUserInfo: [String : Any] {
-        return [NSLocalizedDescriptionKey: "\(self)"]
+        return [NSLocalizedDescriptionKey: self.localizedMessage]
+    }
+}
+
+// MARK: - Equatable Implementation
+extension FileSystemError: Equatable {
+    /// Custom equality implementation that ignores localizedMessage
+    public static func == (lhs: FileSystemError, rhs: FileSystemError) -> Bool {
+        return lhs.kind == rhs.kind && lhs.path == rhs.path
     }
 }
 
 public extension FileSystemError {
-    init(errno: Int32, _ path: AbsolutePath) {
+    init(errno: Int32, _ path: AbsolutePath, localizedMessage: String? = nil) {
         switch errno {
         case TSCLibc.EACCES:
-            self.init(.invalidAccess, path)
+            self.init(.invalidAccess, path, localizedMessage: localizedMessage)
         case TSCLibc.EISDIR:
-            self.init(.isDirectory, path)
+            self.init(.isDirectory, path, localizedMessage: localizedMessage)
         case TSCLibc.ENOENT:
-            self.init(.noEntry, path)
+            self.init(.noEntry, path, localizedMessage: localizedMessage)
         case TSCLibc.ENOTDIR:
-            self.init(.notDirectory, path)
+            self.init(.notDirectory, path, localizedMessage: localizedMessage)
         case TSCLibc.EEXIST:
-            self.init(.alreadyExistsAtDestination, path)
+            self.init(.alreadyExistsAtDestination, path, localizedMessage: localizedMessage)
         default:
-            self.init(.ioError(code: errno), path)
+            self.init(.ioError(code: errno), path, localizedMessage: localizedMessage)
+        }
+    }
+
+    init(error: POSIXError, _ path: AbsolutePath, localizedMessage: String? = nil) {
+        switch error.code {
+        case .ENOENT:
+            self.init(.noEntry, path, localizedMessage: localizedMessage)
+        case .EACCES:
+            self.init(.invalidAccess, path, localizedMessage: localizedMessage)
+        case .EISDIR:
+            self.init(.isDirectory, path, localizedMessage: localizedMessage)
+        case .ENOTDIR:
+            self.init(.notDirectory, path, localizedMessage: localizedMessage)
+        case .EEXIST:
+            self.init(.alreadyExistsAtDestination, path, localizedMessage: localizedMessage)
+        default:
+            self.init(.ioError(code: error.code.rawValue), path, localizedMessage: localizedMessage)
+        }
+    }
+}
+
+// MARK: - NSError to FileSystemError Mapping
+extension FileSystemError {
+    /// Maps NSError codes to appropriate FileSystemError kinds
+    /// This centralizes error mapping logic and ensures consistency across file operations
+    ///
+    /// - Parameters:
+    ///   - error: The NSError to map
+    ///   - path: The file path associated with the error
+    /// - Returns: A FileSystemError with appropriate semantic mapping
+    static func from(nsError error: NSError, path: AbsolutePath) -> FileSystemError {
+        // Extract localized description from NSError
+        let localizedMessage = error.localizedDescription.isEmpty ? nil : error.localizedDescription
+        
+        // First, check for POSIX errors in the underlying error chain
+        // POSIX errors provide more precise semantic information
+        if let posixError = error.userInfo[NSUnderlyingErrorKey] as? POSIXError {
+            return FileSystemError(error: posixError, path, localizedMessage: localizedMessage)
+        }
+        
+        // Handle Cocoa domain errors with proper semantic mapping
+        guard error.domain == NSCocoaErrorDomain else {
+            // For non-Cocoa errors, preserve the original error information
+            return FileSystemError(.ioError(code: Int32(error.code)), path, localizedMessage: localizedMessage)
+        }
+        
+        // Map common Cocoa error codes to semantic FileSystemError kinds
+        switch error.code {
+        // File not found errors
+        case NSFileReadNoSuchFileError, NSFileNoSuchFileError:
+            return FileSystemError(.noEntry, path, localizedMessage: localizedMessage)
+            
+        // Permission denied errors
+        case NSFileReadNoPermissionError, NSFileWriteNoPermissionError:
+            return FileSystemError(.invalidAccess, path, localizedMessage: localizedMessage)
+            
+        // File already exists errors
+        case NSFileWriteFileExistsError:
+            return FileSystemError(.alreadyExistsAtDestination, path, localizedMessage: localizedMessage)
+            
+        // Read-only volume errors
+        case NSFileWriteVolumeReadOnlyError:
+            return FileSystemError(.invalidAccess, path, localizedMessage: localizedMessage)
+            
+        // File corruption or invalid format errors
+        case NSFileReadCorruptFileError:
+            return FileSystemError(.ioError(code: Int32(error.code)), path, localizedMessage: localizedMessage)
+            
+        // Directory-related errors
+        case NSFileReadInvalidFileNameError:
+            return FileSystemError(.notDirectory, path, localizedMessage: localizedMessage)
+            
+        default:
+            // For any other Cocoa error, wrap it as an IO error preserving the original code
+            // This ensures we don't lose diagnostic information
+            return FileSystemError(.ioError(code: Int32(error.code)), path, localizedMessage: localizedMessage)
         }
     }
 }
@@ -411,8 +499,15 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
-        return FileInfo(attrs)
+        do {
+            let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
+            return FileInfo(attrs)
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
+        }
     }
 
     func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
@@ -473,9 +568,6 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-#if canImport(Darwin)
-        return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
-#else
         do {
             return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
         } catch let error as NSError {
@@ -483,11 +575,14 @@ private struct LocalFileSystem: FileSystem {
             if error.code == CocoaError.fileReadNoSuchFile.rawValue, !error.userInfo.keys.contains(NSLocalizedDescriptionKey) {
                 var userInfo = error.userInfo
                 userInfo[NSLocalizedDescriptionKey] = "The folder “\(path.basename)” doesn’t exist."
-                throw NSError(domain: error.domain, code: error.code, userInfo: userInfo)
+                throw FileSystemError.from(nsError: NSError(domain: error.domain, code: error.code, userInfo: userInfo), path: path)
             }
-            throw error
+            // Convert NSError to FileSystemError with proper semantic mapping
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
         }
-#endif
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -496,81 +591,78 @@ private struct LocalFileSystem: FileSystem {
 
         do {
             try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
-        } catch {
+        } catch let error as NSError {
             if isDirectory(path) {
                 // `createDirectory` failed but we have a directory now. This might happen if the directory is created
-                // by another process between the check above and the call to `createDirectory`. 
+                // by another process between the check above and the call to `createDirectory`.
                 // Since we have the expected end result, this is fine.
                 return
             }
-            throw error
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            if isDirectory(path) {
+                // `createDirectory` failed but we have a directory now. This might happen if the directory is created
+                // by another process between the check above and the call to `createDirectory`.
+                // Since we have the expected end result, this is fine.
+                return
+            }
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
         }
     }
 
     func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
         let destString = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
-        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
+        do {
+            try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
+        }
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
-        // Open the file.
-        guard let fp = fopen(path.pathString, "rb") else {
-            throw FileSystemError(errno: errno, path)
-        }
-        defer { fclose(fp) }
-
-        // Read the data one block at a time.
-        let data = BufferedOutputByteStream()
-        var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
-        while true {
-            let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
+        do {
+            let dataContent = try Data(contentsOf: URL(fileURLWithPath: path.pathString))
+            return dataContent.withUnsafeBytes { bytes in
+                ByteString(Array(bytes.bindMemory(to: UInt8.self)))
             }
-            if n == 0 {
-                let errno = ferror(fp)
-                if errno != 0 {
-                    throw FileSystemError(.ioError(code: errno), path)
-                }
-                break
-            }
-            data.send(tmpBuffer[0..<n])
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
         }
-
-        return data.bytes
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        // Open the file.
-        guard let fp = fopen(path.pathString, "wb") else {
-            throw FileSystemError(errno: errno, path)
-        }
-        defer { fclose(fp) }
-
-        // Write the data in one chunk.
-        var contents = bytes.contents
-        while true {
-            let n = fwrite(&contents, 1, contents.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError(.ioError(code: errno), path)
+        do {
+            try bytes.withData {
+                try $0.write(to: URL(fileURLWithPath: path.pathString))
             }
-            if n != contents.count {
-                throw FileSystemError(.mismatchedByteCount(expected: contents.count, actual: n), path)
-            }
-            break
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
         }
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
-        // Perform non-atomic writes using the fast path.
         if !atomically {
             return try writeFileContents(path, bytes: bytes)
         }
-
-        try bytes.withData {
-            try $0.write(to: URL(fileURLWithPath: path.pathString), options: .atomic)
+        do {
+            try bytes.withData {
+                try $0.write(to: URL(fileURLWithPath: path.pathString), options: .atomic)
+            }
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
         }
     }
 
@@ -588,18 +680,26 @@ private struct LocalFileSystem: FileSystem {
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         guard exists(path) else { return }
         func setMode(path: String) throws {
-            let attrs = try FileManager.default.attributesOfItem(atPath: path)
-            // Skip if only files should be changed.
-            if options.contains(.onlyFiles) && attrs[.type] as? FileAttributeType != .typeRegular {
-                return
-            }
+            do {
+                let attrs = try FileManager.default.attributesOfItem(atPath: path)
+                // Skip if only files should be changed.
+                if options.contains(.onlyFiles) && attrs[.type] as? FileAttributeType != .typeRegular {
+                    return
+                }
 
-            // Compute the new mode for this file.
-            let currentMode = attrs[.posixPermissions] as! Int16
-            let newMode = mode.setMode(currentMode)
-            guard newMode != currentMode else { return }
-            try FileManager.default.setAttributes([.posixPermissions : newMode],
-                                                  ofItemAtPath: path)
+                // Compute the new mode for this file.
+                let currentMode = attrs[.posixPermissions] as! Int16
+                let newMode = mode.setMode(currentMode)
+                guard newMode != currentMode else { return }
+                try FileManager.default.setAttributes([.posixPermissions : newMode],
+                                                      ofItemAtPath: path)
+            } catch let error as NSError {
+                let absolutePath = try AbsolutePath(validating: path)
+                throw FileSystemError.from(nsError: error, path: absolutePath)
+            } catch {
+                let absolutePath = try AbsolutePath(validating: path)
+                throw FileSystemError(.unknownOSError, absolutePath)
+            }
         }
 
         try setMode(path: path.pathString)
@@ -624,14 +724,28 @@ private struct LocalFileSystem: FileSystem {
         guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
         guard !exists(destinationPath)
         else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
-        try FileManager.default.copyItem(at: sourcePath.asURL, to: destinationPath.asURL)
+        do {
+            try FileManager.default.copyItem(at: sourcePath.asURL, to: destinationPath.asURL)
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: destinationPath)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, destinationPath)
+        }
     }
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
         guard !exists(destinationPath)
         else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
-        try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
+        do {
+            try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: destinationPath)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, destinationPath)
+        }
     }
 
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool, _ body: () throws -> T) throws -> T {
@@ -648,10 +762,17 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath] {
-        let result = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: path.asURL, create: false)
-        let path = try AbsolutePath(validating: result.path)
-        // Foundation returns a path that is unique every time, so we return both that path, as well as its parent.
-        return [path, path.parentDirectory]
+        do {
+            let result = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: path.asURL, create: false)
+            let resultPath = try AbsolutePath(validating: result.path)
+            // Foundation returns a path that is unique every time, so we return both that path, as well as its parent.
+            return [resultPath, resultPath.parentDirectory]
+        } catch let error as NSError {
+            throw FileSystemError.from(nsError: error, path: path)
+        } catch {
+            // Handle any other error types (e.g., Swift errors)
+            throw FileSystemError(.unknownOSError, path)
+        }
     }
 }
 

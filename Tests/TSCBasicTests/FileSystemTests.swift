@@ -17,6 +17,38 @@ import TSCLibc
 class FileSystemTests: XCTestCase {
 
     // MARK: LocalFS Tests
+    
+    func testFileSystemErrorEquality() throws {
+        // Test that FileSystemError ignores localizedMessage when testing for equality
+        let path = try AbsolutePath(validating: "/test/path")
+        let error1 = FileSystemError(.noEntry, path, localizedMessage: "First message")
+        let error2 = FileSystemError(.noEntry, path, localizedMessage: "Different message")
+        let error3 = FileSystemError(.noEntry, path, localizedMessage: nil)
+        let error4 = FileSystemError(.invalidAccess, path, localizedMessage: "Some message")
+        
+        // Same kind and path, different messages should be equal
+        XCTAssertEqual(error1, error2)
+        XCTAssertEqual(error1, error3)
+        XCTAssertEqual(error2, error3)
+        
+        // Different kind, same path should not be equal
+        XCTAssertNotEqual(error1, error4)
+        
+        // Test with different paths
+        let differentPath = try AbsolutePath(validating: "/different/path")
+        let error5 = FileSystemError(.noEntry, differentPath, localizedMessage: "Message")
+        XCTAssertNotEqual(error1, error5)
+        
+        // Test with nil paths
+        let error6 = FileSystemError(.noEntry, nil, localizedMessage: "Message 1")
+        let error7 = FileSystemError(.noEntry, nil, localizedMessage: "Message 2")
+        XCTAssertEqual(error6, error7)
+        
+        // Test mixed nil and non-nil paths
+        let error8 = FileSystemError(.noEntry, path, localizedMessage: "Message")
+        let error9 = FileSystemError(.noEntry, nil, localizedMessage: "Message")
+        XCTAssertNotEqual(error8, error9)
+    }
 
     func testLocalBasics() throws {
         let fs = TSCBasic.localFileSystem
@@ -44,6 +76,7 @@ class FileSystemTests: XCTestCase {
                 XCTAssertFalse(fs.isDirectory(sym))
 
                 // isExecutableFile
+#if !os(Windows) 
                 let executable = tempDirPath.appending(component: "exec-foo")
                 let executableSym = tempDirPath.appending(component: "exec-sym")
                 try! fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
@@ -63,7 +96,8 @@ class FileSystemTests: XCTestCase {
                 XCTAssertFalse(fs.isExecutableFile(file.path))
                 XCTAssertFalse(fs.isExecutableFile("/does-not-exist"))
                 XCTAssertFalse(fs.isExecutableFile("/"))
-
+#endif
+    
                 // isDirectory()
                 XCTAssert(fs.isDirectory("/"))
                 XCTAssert(!fs.isDirectory("/does-not-exist"))
@@ -183,6 +217,7 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+#if !os(Windows)
     func testLocalReadableWritable() throws {
         try testWithTemporaryDirectory { tmpdir in
             let fs = localFileSystem
@@ -250,6 +285,7 @@ class FileSystemTests: XCTestCase {
             }
         }
     }
+#endif
 
     func testLocalCreateDirectory() throws {
         let fs = TSCBasic.localFileSystem
@@ -313,10 +349,21 @@ class FileSystemTests: XCTestCase {
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
             // Check read/write of a directory.
-            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), filePath.parentDirectory)) {
+            #if os(Windows)
+            var expectedError = FileSystemError(.invalidAccess, filePath.parentDirectory)
+            #else
+            var expectedError = FileSystemError(.isDirectory, filePath.parentDirectory)
+            #endif
+            XCTAssertThrows(expectedError) {
                 _ = try fs.readFileContents(filePath.parentDirectory)
             }
-            XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
+            #if os(Windows)
+            expectedError = FileSystemError(.invalidAccess, filePath.parentDirectory)
+            #else
+            expectedError = FileSystemError(.isDirectory, filePath.parentDirectory)
+            #endif
+
+            XCTAssertThrows(expectedError) {
                 try fs.writeFileContents(filePath.parentDirectory, bytes: [])
             }
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
@@ -324,18 +371,26 @@ class FileSystemTests: XCTestCase {
             // Check read/write against root.
             #if os(Android)
             let root = AbsolutePath("/system/")
+            #elseif os(Windows)
+            let root = AbsolutePath("C:/Windows") 
             #else
             let root = AbsolutePath("/")
             #endif
-            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), root)) {
+            #if os(Windows)
+            expectedError = FileSystemError(.invalidAccess, root)
+            #else
+            expectedError = FileSystemError(.isDirectory, root)
+            #endif
+            XCTAssertThrows(expectedError) {
                 _ = try fs.readFileContents(root)
-
             }
             #if os(macOS)
             // Newer versions of macOS end up with `EEXISTS` instead of `EISDIR` here.
-            let expectedError = FileSystemError(.alreadyExistsAtDestination, root)
+            expectedError = FileSystemError(.alreadyExistsAtDestination, root)
+            #elseif os(Windows)
+            expectedError = FileSystemError(.invalidAccess, root)
             #else
-            let expectedError = FileSystemError(.isDirectory, root)
+            expectedError = FileSystemError(.isDirectory, root)
             #endif
             XCTAssertThrows(expectedError) {
                 try fs.writeFileContents(root, bytes: [])
@@ -344,10 +399,20 @@ class FileSystemTests: XCTestCase {
 
             // Check read/write into a non-directory.
             let notDirectoryPath = filePath.appending(component: "not-possible")
-            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath)) {
+            #if os(Windows)
+            expectedError = FileSystemError(.noEntry, notDirectoryPath)
+            #else
+            expectedError = FileSystemError(.notDirectory, notDirectoryPath)
+            #endif
+            XCTAssertThrows(expectedError) {
                 _ = try fs.readFileContents(notDirectoryPath)
             }
-            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath)) {
+            #if os(Windows)
+            expectedError = FileSystemError(.noEntry, notDirectoryPath)
+            #else
+            expectedError = FileSystemError(.notDirectory, notDirectoryPath)
+            #endif
+            XCTAssertThrows(expectedError) {
                 try fs.writeFileContents(filePath.appending(component: "not-possible"), bytes: [])
             }
             XCTAssert(fs.exists(filePath))

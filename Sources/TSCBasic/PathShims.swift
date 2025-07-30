@@ -71,7 +71,13 @@ public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
 /// already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
 public func makeDirectories(_ path: AbsolutePath) throws {
-    try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: true, attributes: [:])
+    do {
+        try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: true, attributes: [:])
+    } catch let error as NSError {
+        throw FileSystemError.from(nsError: error, path: path)
+    } catch {
+        throw FileSystemError(.unknownOSError, path)
+    }
 }
 
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will
@@ -79,7 +85,13 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 @available(*, deprecated, renamed: "localFileSystem.createSymbolicLink")
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
     let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
-    try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
+    do {
+        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
+    } catch let error as NSError {
+        throw FileSystemError.from(nsError: error, path: path)
+    } catch {
+        throw FileSystemError(.unknownOSError, path)
+    }
 }
 
 /**
