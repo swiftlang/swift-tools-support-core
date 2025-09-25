@@ -626,7 +626,9 @@ public final class Process {
         return stdinPipe.fileHandleForWriting
     #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
-      #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+      #if os(Android)
+        var attributes: posix_spawnattr_t! = nil
+      #elseif canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
         var attributes: posix_spawnattr_t? = nil
       #else
         var attributes = posix_spawnattr_t()
@@ -671,7 +673,9 @@ public final class Process {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+      #if os(Android)
+        var fileActions: posix_spawn_file_actions_t! = nil
+      #elseif canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
         var fileActions: posix_spawn_file_actions_t? = nil
       #else
         var fileActions = posix_spawn_file_actions_t()
