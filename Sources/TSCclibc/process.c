@@ -52,4 +52,8 @@ bool SPM_posix_spawn_file_actions_addchdir_np_supported() {
 #endif
 }
 
+int SPM_posix_spawnp(pid_t *pid, const char *file, const posix_spawn_file_actions_t *actions, const posix_spawnattr_t *attr, char *const argv[], char *const env[]) {
+    return posix_spawnp(pid, file, actions, attr, argv, env);
+}
+
 #endif

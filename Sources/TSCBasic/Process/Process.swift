@@ -742,7 +742,7 @@ public final class Process {
         }
         let argv = CStringArray(resolvedArgs)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        let rv = SPM_posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, arguments)
