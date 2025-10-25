@@ -18,6 +18,8 @@ int SPM_posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t *restric
 // Runtime check for the availability of posix_spawn_file_actions_addchdir_np. Returns 0 if the method is available, -1 if not.
 bool SPM_posix_spawn_file_actions_addchdir_np_supported();
 
+int SPM_posix_spawnp(pid_t *pid, const char *file, const posix_spawn_file_actions_t *actions, const posix_spawnattr_t *attr, char *const argv[], char *const env[]);
+
 #ifdef TSC_API_UNAVAILABLE_DEFINED
 #undef TSC_API_UNAVAILABLE_DEFINED
 #undef __API_UNAVAILABLE
