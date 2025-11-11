@@ -68,8 +68,6 @@ extension ProcessEnvironmentBlock {
   }
 }
 
-extension ProcessEnvironmentBlock: Sendable {}
-
 /// Provides functionality related a process's environment.
 public enum ProcessEnv {
 
