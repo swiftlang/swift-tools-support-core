@@ -15,24 +15,23 @@
 from __future__ import print_function
 
 import argparse
-import json
+import errno
 import os
 import platform
-import re
-import shutil
-import subprocess
 import subprocess
 import sys
-import errno
+
 
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
 
+
 def error(message):
     print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
     raise SystemExit(1)
+
 
 def mkdir_p(path):
     """Create the given directory, if it does not exist."""
@@ -42,6 +41,7 @@ def mkdir_p(path):
         # Ignore EEXIST, which may occur during a race condition.
         if e.errno != errno.EEXIST:
             raise
+
 
 def call(cmd, cwd=None, verbose=False):
     """Calls a subprocess."""
@@ -54,16 +54,21 @@ def call(cmd, cwd=None, verbose=False):
             print(' '.join(cmd))
         error(str(e))
 
+
 def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
     if verbose:
         print(' '.join(cmd))
     try:
-        return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
+        return subprocess.check_output(cmd,
+                                       cwd=cwd,
+                                       stderr=stderr,
+                                       universal_newlines=True).strip()
     except Exception as e:
         if not verbose:
             print(' '.join(cmd))
         error(str(e))
+
 
 def main():
     parser = argparse.ArgumentParser(description="""
@@ -84,6 +89,7 @@ def main():
 # Argument parsing
 # -----------------------------------------------------------
 
+
 def add_global_args(parser):
     """Configures the parser with the arguments necessary for all actions."""
     parser.add_argument(
@@ -99,6 +105,7 @@ def add_global_args(parser):
         "--reconfigure",
         action="store_true",
         help="whether to always reconfigure cmake")
+
 
 def add_build_args(parser):
     """Configures the parser with the arguments necessary for build-related actions."""
@@ -116,15 +123,21 @@ def add_build_args(parser):
         metavar='PATH',
         help='path to the ninja binary to use for building with CMake')
 
+
 def parse_global_args(args):
     """Parses and cleans arguments necessary for all actions."""
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     if platform.system() == 'Darwin':
-        args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
+        args.sysroot = call_output(["xcrun",
+                                    "--sdk",
+                                    "macosx",
+                                    "--show-sdk-path"],
+                                   verbose=args.verbose)
     else:
         args.sysroot = None
+
 
 def parse_build_args(args):
     """Parses and cleans arguments necessary for build-related actions."""
@@ -133,6 +146,7 @@ def parse_build_args(args):
     args.swiftc_path = get_swiftc_path(args)
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
+
 
 def get_swiftc_path(args):
     """Returns the path to the Swift compiler."""
@@ -154,6 +168,7 @@ def get_swiftc_path(args):
 
     return swiftc_path
 
+
 def get_cmake_path(args):
     """Returns the path to CMake."""
     if args.cmake_path:
@@ -166,6 +181,7 @@ def get_cmake_path(args):
         )
     else:
         return call_output(["which", "cmake"], verbose=args.verbose)
+
 
 def get_ninja_path(args):
     """Returns the path to Ninja."""
@@ -184,6 +200,7 @@ def get_ninja_path(args):
 # Actions
 # -----------------------------------------------------------
 
+
 def build(args):
     parse_build_args(args)
     build_tsc(args)
@@ -191,6 +208,7 @@ def build(args):
 # -----------------------------------------------------------
 # Build functions
 # -----------------------------------------------------------
+
 
 def build_with_cmake(args, cmake_args, source_path, build_dir):
     """Runs CMake if needed, then builds with Ninja."""
@@ -222,6 +240,7 @@ def build_with_cmake(args, cmake_args, source_path, build_dir):
 
     call(ninja_cmd, cwd=build_dir, verbose=args.verbose)
 
+
 def build_tsc(args):
     cmake_flags = []
     if platform.system() == 'Darwin':
@@ -229,6 +248,7 @@ def build_tsc(args):
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
 
     build_with_cmake(args, cmake_flags, args.project_root, args.build_dir)
+
 
 if __name__ == '__main__':
     main()
