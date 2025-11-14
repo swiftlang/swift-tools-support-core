@@ -27,6 +27,8 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_IOS_DEPL
     iOSPlatform = .iOS(.v13)
 }
 
+let isStaticBuild = ProcessInfo.processInfo.environment["SWIFTTOOLSSUPPORTCORE_STATIC_LINK"] != nil
+
 let CMakeFiles = ["CMakeLists.txt"]
 
 let package = Package(
@@ -115,3 +117,12 @@ let package = Package(
             exclude: ["pkgconfigInputs", "Inputs"]),
     ]
 )
+
+if isStaticBuild {
+    package.targets = package.targets.filter { target in
+        target.type != .test && !target.name.hasSuffix("TestSupport")
+    }
+    package.products = package.products.filter { product in
+        !product.name.hasSuffix("TestSupport")
+    }
+}
