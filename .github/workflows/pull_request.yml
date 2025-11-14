@@ -20,7 +20,7 @@ jobs:
       linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_build_command: 'swift build'
       windows_swift_versions: '["nightly-main"]'
-      enable_linux_static_sdk_build: true
+      windows_build_command: 'Invoke-Program swift build'
       enable_android_sdk_build: true
       android_sdk_build_command: "swift build --build-tests"
       android_ndk_versions: '["r27d", "r29"]'
