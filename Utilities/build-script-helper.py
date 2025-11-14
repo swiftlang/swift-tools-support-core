@@ -213,7 +213,9 @@ def build(args):
 def build_with_cmake(args, cmake_args, source_path, build_dir):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
-    if args.reconfigure or not os.path.isfile(cache_path) or not args.swiftc_path in open(cache_path).read():
+    if args.reconfigure or \
+       not os.path.isfile(cache_path) \
+       or args.swiftc_path not in open(cache_path).read():
         swift_flags = ""
         if args.sysroot:
             swift_flags = "-sdk %s" % args.sysroot
