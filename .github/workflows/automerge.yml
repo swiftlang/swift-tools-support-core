@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 jobs:
   create_merge_pr:
-    name: Create PR to merge release into main branch
+    name: Create PR to merge main into release branch
     uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@main
     with:
       head_branch: main
