@@ -19,6 +19,8 @@ jobs:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_build_command: 'swift build'
+      enable_linux_static_sdk_build: true
+      linux_static_sdk_build_command: SWIFTTOOLSSUPPORTCORE_STATIC_LINK=1 swift build
       windows_swift_versions: '["nightly-main"]'
       windows_build_command: 'Invoke-Program swift build'
       enable_android_sdk_build: true
