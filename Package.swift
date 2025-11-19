@@ -123,6 +123,6 @@ if isStaticBuild {
         target.type != .test && !target.name.hasSuffix("TestSupport")
     }
     package.products = package.products.filter { product in
-        !product.name.hasSuffix("TestSupport")
+        !product.name.hasSuffix("TestSupport") && product.name != "SwiftToolsSupport"
     }
 }
