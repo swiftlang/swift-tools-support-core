@@ -735,7 +735,7 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
+        guard exists(sourcePath, followSymlink: false) else { throw FileSystemError(.noEntry, sourcePath) }
         guard !exists(destinationPath)
         else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
         do {
