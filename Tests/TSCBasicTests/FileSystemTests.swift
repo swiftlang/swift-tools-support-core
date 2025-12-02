@@ -511,6 +511,47 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+    func testMoveSymlinkWithMovedTarget() throws {
+        let fs = TSCBasic.localFileSystem
+
+        try testWithTemporaryDirectory { tmpdir in
+            let sourceDir = tmpdir.appending(component: "source")
+            let destDir = tmpdir.appending(component: "dest")
+
+            try fs.createDirectory(sourceDir)
+            try fs.createDirectory(destDir)
+
+            // Create a regular file that will be the symlink target
+            let targetFile = sourceDir.appending(component: "AFile.swift")
+            try fs.writeFileContents(targetFile, bytes: "// Target file content\n")
+
+            // Create a relative symlink pointing to the target file
+            let symlink = sourceDir.appending(component: "ZLinkToFile.swift")
+            try fs.createSymbolicLink(symlink, pointingAt: targetFile, relative: true)
+
+            XCTAssertTrue(fs.isSymlink(symlink))
+            XCTAssertTrue(fs.exists(symlink))
+
+            // Move the target file first
+            let movedTarget = destDir.appending(component: "AFile.swift")
+            try fs.move(from: targetFile, to: movedTarget)
+
+            // Now try to move the symlink - this should succeed even though its target has moved
+            // The symlink's target will be broken after the move, but the symlink itself should be moveable
+            let movedSymlink = destDir.appending(component: "ZLinkToFile.swift")
+            XCTAssertNoThrow(try fs.move(from: symlink, to: movedSymlink))
+
+            XCTAssertFalse(fs.exists(symlink, followSymlink: false))
+            XCTAssertTrue(fs.exists(movedSymlink, followSymlink: false))
+            XCTAssertTrue(fs.isSymlink(movedSymlink))
+
+            XCTAssertTrue(fs.exists(movedSymlink, followSymlink: true))
+            let symlinkContent = try fs.readFileContents(movedSymlink)
+            let targetContent = try fs.readFileContents(movedTarget)
+            XCTAssertEqual(symlinkContent, targetContent)
+        }
+    }
+
     // MARK: InMemoryFileSystem Tests
 
     func testInMemoryBasics() throws {
