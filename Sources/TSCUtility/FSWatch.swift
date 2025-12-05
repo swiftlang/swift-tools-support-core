@@ -250,8 +250,9 @@ public final class RDCWatcher {
                     }
 
                     if !GetOverlappedResult(watch.hDirectory, &watch.overlapped, &dwBytesReturned, false) {
+                        guard let path = try? AbsolutePath(validating: watch.path) else { continue }
                         queue.async {
-                            delegate?.pathsDidReceiveEvent([AbsolutePath(watch.path)])
+                            delegate?.pathsDidReceiveEvent([path])
                         }
                         return
                     }
@@ -272,7 +273,8 @@ public final class RDCWatcher {
                                     String(utf16CodeUnitsNoCopy: &pNotify.pointee.FileName,
                                            count: Int(pNotify.pointee.FileNameLength) / MemoryLayout<WCHAR>.stride,
                                            freeWhenDone: false)
-                            paths.append(AbsolutePath(file))
+                            guard let path = try? AbsolutePath(validating: file) else { continue }
+                            paths.append(path)
 
                             pNotify = (UnsafeMutableRawPointer(pNotify) + Int(pNotify.pointee.NextEntryOffset))
                                             .assumingMemoryBound(to: FILE_NOTIFY_INFORMATION.self)
