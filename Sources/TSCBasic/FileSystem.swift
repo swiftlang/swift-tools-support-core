@@ -522,6 +522,10 @@ private struct LocalFileSystem: FileSystem {
 
     var currentWorkingDirectory: AbsolutePath? {
         let cwdStr = FileManager.default.currentDirectoryPath
+        
+        guard !cwdStr.isEmpty else {
+            return nil
+        }
 
 #if _runtime(_ObjC)
         // The ObjC runtime indicates that the underlying Foundation has ObjC
