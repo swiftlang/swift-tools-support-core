@@ -85,6 +85,9 @@ public struct FileSystemError: Error, Sendable {
 
     public init(_ kind: Kind, _ path: AbsolutePath? = nil, localizedMessage: String? = nil) {
         self.kind = kind
+        if self.kind == .ioError(code: 514) {
+            fatalError("show me the backtrace...")
+        }
         self.path = path
         self.localizedMessage = localizedMessage
     }
