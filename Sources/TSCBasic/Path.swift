@@ -88,7 +88,7 @@ public struct AbsolutePath: Hashable, Sendable {
             }
             defer { LocalFree(pwszResult) }
 
-            self.init(String(decodingCString: pwszResult, as: UTF16.self))
+            try self.init(validating: String(decodingCString: pwszResult, as: UTF16.self))
 #else
             try self.init(basePath, RelativePath(validating: str))
 #endif
@@ -515,12 +515,28 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(string: String) {
-        if string.first?.isASCII ?? false, string.first?.isLetter ?? false, string.first?.isLowercase ?? false,
+        let path: String
+        let hasDrive: Bool
+        if string.first?.isASCII ?? false, string.first?.isLetter ?? false,
            string.count > 1, string[string.index(string.startIndex, offsetBy: 1)] == ":"
         {
-            self.string = "\(string.first!.uppercased())\(string.dropFirst(1))"
+            hasDrive = true
+            path = "\(string.first!.uppercased())\(string.dropFirst(1))"
         } else {
-            self.string = string
+            hasDrive = false
+            path = string
+        }
+        var droppedTailing: Bool = false
+        var substring = path[path.startIndex..<path.endIndex]
+        while substring.count > 1 && substring.utf8.last == UInt8(ascii: "\\") {
+            substring = substring.dropLast()
+            droppedTailing = true
+        }
+        // Don't drop the trailing slash is we only have <drive>: left
+        if hasDrive && substring.count == 2 && droppedTailing {
+            self.string = Self.repr(path) + "\\"
+        } else {
+            self.string = Self.repr(String(substring))
         }
     }
 
@@ -544,7 +560,7 @@ private struct WindowsPath: Path, Sendable {
             self.init(string: ".")
         } else {
             let realpath: String = Self.repr(path)
-            // Treat a relative path as an invalid relative path...
+            // Treat an absolute path as an invalid relative path
             if Self.isAbsolutePath(realpath) || realpath.first == "\\" {
                 throw PathValidationError.invalidRelativePath(path)
             }
@@ -568,6 +584,7 @@ private struct WindowsPath: Path, Sendable {
         _ = string.withCString(encodedAs: UTF16.self) { root in
             name.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+                _ = PathCchStripPrefix(result, wcslen(result))      
             }
         }
         defer { LocalFree(result) }
@@ -579,6 +596,7 @@ private struct WindowsPath: Path, Sendable {
         _ = string.withCString(encodedAs: UTF16.self) { root in
             relativePath.string.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+                _ = PathCchStripPrefix(result, wcslen(result))      
             }
         }
         defer { LocalFree(result) }
@@ -965,8 +983,7 @@ extension AbsolutePath {
                 preconditionFailure("invalid relative path computed from \(pathString)")
             }
         }
-
-        assert(AbsolutePath(base, result) == self)
+        assert(AbsolutePath(base, result) == self, "\(AbsolutePath(base, result)) != \(self)")
         return result
     }
 
