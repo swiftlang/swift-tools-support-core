@@ -522,6 +522,10 @@ private struct LocalFileSystem: FileSystem {
 
     var currentWorkingDirectory: AbsolutePath? {
         let cwdStr = FileManager.default.currentDirectoryPath
+        
+        guard !cwdStr.isEmpty else {
+            return nil
+        }
 
 #if _runtime(_ObjC)
         // The ObjC runtime indicates that the underlying Foundation has ObjC
@@ -735,7 +739,7 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        guard exists(sourcePath) else { throw FileSystemError(.noEntry, sourcePath) }
+        guard exists(sourcePath, followSymlink: false) else { throw FileSystemError(.noEntry, sourcePath) }
         guard !exists(destinationPath)
         else { throw FileSystemError(.alreadyExistsAtDestination, destinationPath) }
         do {
