@@ -537,7 +537,7 @@ private struct LocalFileSystem: FileSystem {
         let fsr: UnsafePointer<Int8> = cwdStr.fileSystemRepresentation
         defer { fsr.deallocate() }
 
-        return try? AbsolutePath(String(cString: fsr))
+        return try? AbsolutePath(validating: String(cString: fsr))
 #endif
     }
 
