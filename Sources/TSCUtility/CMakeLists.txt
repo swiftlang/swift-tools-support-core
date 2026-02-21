@@ -54,8 +54,8 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
     target_link_directories(TSCUtility PRIVATE /usr/local/lib)
   endif()
   if(Foundation_FOUND)
-    target_link_libraries(TSCUtility PUBLIC
-      FoundationNetworking)
+    target_link_directories(TSCUtility PRIVATE
+      $<TARGET_LINKER_FILE_DIR:FoundationNetworking>)
   endif()
 endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
