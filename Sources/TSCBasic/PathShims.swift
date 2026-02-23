@@ -44,7 +44,7 @@ public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
         } else {
             pathBaseAddress = UnsafePointer($0.baseAddress!)
         }
-        return try AbsolutePath(String(decodingCString: pathBaseAddress, as: UTF16.self))
+        return try AbsolutePath(validating: String(decodingCString: pathBaseAddress, as: UTF16.self))
     }
 #else
     let pathStr = path.pathString
