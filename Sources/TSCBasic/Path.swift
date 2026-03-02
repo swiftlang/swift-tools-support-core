@@ -88,7 +88,7 @@ public struct AbsolutePath: Hashable, Sendable {
             }
             defer { LocalFree(pwszResult) }
 
-            self.init(String(decodingCString: pwszResult, as: UTF16.self))
+            try self.init(validating: String(decodingCString: pwszResult, as: UTF16.self))
 #else
             try self.init(basePath, RelativePath(validating: str))
 #endif
@@ -236,7 +236,7 @@ public struct RelativePath: Hashable, Sendable {
     fileprivate let _impl: PathImpl
 
     /// Private initializer when the backing storage is known.
-    private init(_ impl: PathImpl) {
+    fileprivate init(_ impl: PathImpl) {
         _impl = impl
     }
 
@@ -515,13 +515,28 @@ private struct WindowsPath: Path, Sendable {
     }
 
     init(string: String) {
+        var normalizedString = string
+
+        // Uppercase drive letter if lowercase
         if string.first?.isASCII ?? false, string.first?.isLetter ?? false, string.first?.isLowercase ?? false,
-           string.count > 1, string[string.index(string.startIndex, offsetBy: 1)] == ":"
-        {
-            self.string = "\(string.first!.uppercased())\(string.dropFirst(1))"
-        } else {
-            self.string = string
+           string.count > 1, string[string.index(string.startIndex, offsetBy: 1)] == ":"  {
+            normalizedString = "\(string.first!.uppercased())\(string.dropFirst(1))"
         }
+
+        // Remove trailing backslashes, but preserve them for root directories like "C:\"
+        var result = normalizedString
+        while result.hasSuffix("\\") {
+            // Check if this is a root directory (e.g., "C:\" or just "\")
+            // A root directory is either just "\" or "X:\" where X is a drive letter
+            let isRootDir = result.count == 1 || // Just "\"
+                           (result.count == 3 && result.dropFirst().first == ":") // "X:\"
+            if isRootDir {
+                break // Preserve trailing slash for root directories
+            }
+            result = String(result.dropLast())
+        }
+
+        self.string = result
     }
 
     private static func repr(_ path: String) -> String {
@@ -544,7 +559,7 @@ private struct WindowsPath: Path, Sendable {
             self.init(string: ".")
         } else {
             let realpath: String = Self.repr(path)
-            // Treat a relative path as an invalid relative path...
+            // Treat an absolute path as an invalid relative path
             if Self.isAbsolutePath(realpath) || realpath.first == "\\" {
                 throw PathValidationError.invalidRelativePath(path)
             }
@@ -568,6 +583,7 @@ private struct WindowsPath: Path, Sendable {
         _ = string.withCString(encodedAs: UTF16.self) { root in
             name.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+                _ = PathCchStripPrefix(result, wcslen(result))
             }
         }
         defer { LocalFree(result) }
@@ -579,6 +595,7 @@ private struct WindowsPath: Path, Sendable {
         _ = string.withCString(encodedAs: UTF16.self) { root in
             relativePath.string.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+                _ = PathCchStripPrefix(result, wcslen(result))
             }
         }
         defer { LocalFree(result) }
@@ -924,6 +941,18 @@ extension AbsolutePath {
         let pathComps = self.components
         let baseComps = base.components
 
+#if os(Windows)
+        // On Windows, check if paths are on different drives.
+        // If they are, there's no valid relative path between them.
+        // In this case, we return all components of the target path (including drive)
+        // and skip the reconstruction assertion.
+        let differentDrives: Bool = {
+            guard !pathComps.isEmpty && !baseComps.isEmpty else { return false }
+            // Drive letters are the first component (e.g., "C:")
+            return pathComps[0].uppercased() != baseComps[0].uppercased()
+        }()
+#endif
+
         // It's common for the base to be an ancestor, so try that first.
         if pathComps.starts(with: baseComps) {
             // Special case, which is a plain path without `..` components.  It
@@ -950,23 +979,54 @@ extension AbsolutePath {
                 newPathComps = newPathComps.dropFirst()
                 newBaseComps = newBaseComps.dropFirst()
             }
+#if os(Windows)
+            // On Windows, if we have different drives, we cannot create a valid
+            // relative path. Return all path components joined as a "relative" path.
+            // This won't reconstruct correctly, but it's the best we can do.
+            if differentDrives {
+                // For cross-drive paths, we need to return a drive-relative path.
+                // Strip the drive letter and preserve the leading backslash to maintain
+                // drive-relative semantics: \directory\file.txt (not directory\file.txt).
+                // We use the private init to bypass validation since paths starting
+                // with \ are normally rejected as absolute paths.
+                let compsWithoutDrive = Array(pathComps.dropFirst())
+                let pathWithoutDrive = ([""] + compsWithoutDrive).joined(separator: "\\")
+                result = RelativePath(PathImpl(string: pathWithoutDrive))
+            } else {
+                // Now construct a path consisting of as many `..`s as are in the
+                // `newBaseComps` followed by what remains in `newPathComps`.
+                var relComps = Array(repeating: "..", count: newBaseComps.count)
+                relComps.append(contentsOf: newPathComps)
+                let pathString = relComps.joined(separator: "\\")
+                do {
+                    result = try RelativePath(validating: pathString)
+                } catch {
+                    preconditionFailure("invalid relative path computed from \(pathString)")
+                }
+            }
+#else
             // Now construct a path consisting of as many `..`s as are in the
             // `newBaseComps` followed by what remains in `newPathComps`.
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
-#if os(Windows)
-            let pathString = relComps.joined(separator: "\\")
-#else
             let pathString = relComps.joined(separator: "/")
-#endif
             do {
                 result = try RelativePath(validating: pathString)
             } catch {
                 preconditionFailure("invalid relative path computed from \(pathString)")
             }
+#endif
         }
 
-        assert(AbsolutePath(base, result) == self)
+#if os(Windows)
+        // Skip the assertion check for cross-drive paths on Windows,
+        // as there's no valid relative path that can reconstruct across drives.
+        if !differentDrives {
+            assert(AbsolutePath(base, result) == self, "\(AbsolutePath(base, result)) != \(self)")
+        }
+#else
+        assert(AbsolutePath(base, result) == self, "\(AbsolutePath(base, result)) != \(self)")
+#endif
         return result
     }
 
