@@ -36,6 +36,21 @@ class StringConversionTests: XCTestCase {
 
         str = "hello\nA\"B C>D*[$;()^><"
         XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.spm_shellEscaped())
+
+        #if os(Windows)
+        // Trailing backslash must be doubled so the closing quote is not escaped.
+        str = "hello world\\"
+        XCTAssertEqual("\"hello world\\\\\"", str.spm_shellEscaped())
+
+        // Embedded double-quote is escaped with a backslash.
+        str = "hello\"world"
+        XCTAssertEqual("\"hello\\\"world\"", str.spm_shellEscaped())
+
+        // Backslash immediately before an embedded double-quote: the backslash is doubled,
+        // then the quote is escaped with another backslash.
+        str = "hello\\\"world"
+        XCTAssertEqual("\"hello\\\\\\\"world\"", str.spm_shellEscaped())
+        #endif
     }
 
     func testLocalizedJoin() {
