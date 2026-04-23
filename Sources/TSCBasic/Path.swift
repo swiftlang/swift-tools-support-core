@@ -507,7 +507,25 @@ private struct WindowsPath: Path, Sendable {
         let normalized: UnsafePointer<Int8> = string.fileSystemRepresentation
         defer { normalized.deallocate() }
 
-        return String(cString: normalized).components(separatedBy: "\\").filter { !$0.isEmpty }
+        var str = String(cString: normalized)
+        // Normalize extended-length prefixes before classifying.
+        // \\?\UNC\server\share\... is a UNC path; \\?\C:\... is a local NT path.
+        if str.hasPrefix(#"\\?\UNC\"#) {
+            str = #"\\"# + str.dropFirst(7)   // \\?\UNC\server → \\server
+        } else if str.hasPrefix(#"\\?\"#) {
+            str = String(str.dropFirst(4))     // \\?\C:\... → C:\...
+        }
+        // UNC paths (\\server\share\...) start with two backslashes.  Preserve
+        // that as a synthetic "UNC" first component so that paths on different
+        // UNC servers/shares are never treated as descendants of each other, and
+        // so that UNC paths are never confused with local absolute paths that
+        // happen to share the same directory names.  "UNC" is a plain string
+        // with no backslashes, so it survives uses like lock-file name generation
+        // that join components with a separator character.
+        if str.hasPrefix("\\\\") {
+            return ["UNC"] + str.dropFirst(2).components(separatedBy: "\\").filter { !$0.isEmpty }
+        }
+        return str.components(separatedBy: "\\").filter { !$0.isEmpty }
     }
 
     var parentDirectory: Self {
@@ -580,10 +598,11 @@ private struct WindowsPath: Path, Sendable {
 
     func appending(component name: String) -> Self {
         var result: PWSTR?
-        _ = string.withCString(encodedAs: UTF16.self) { root in
+        string.withCString(encodedAs: UTF16.self) { root in
             name.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
-                _ = PathCchStripPrefix(result, wcslen(result))
+                // PathCchStripPrefix's cchPath must include the null terminator.
+                _ = PathCchStripPrefix(result, wcslen(result) + 1)
             }
         }
         defer { LocalFree(result) }
@@ -592,10 +611,11 @@ private struct WindowsPath: Path, Sendable {
 
     func appending(relativePath: Self) -> Self {
         var result: PWSTR?
-        _ = string.withCString(encodedAs: UTF16.self) { root in
+        string.withCString(encodedAs: UTF16.self) { root in
             relativePath.string.withCString(encodedAs: UTF16.self) { path in
                 PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
-                _ = PathCchStripPrefix(result, wcslen(result))
+                // PathCchStripPrefix's cchPath must include the null terminator.
+                _ = PathCchStripPrefix(result, wcslen(result) + 1)
             }
         }
         defer { LocalFree(result) }
