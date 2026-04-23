@@ -50,36 +50,53 @@ extension String {
     public func spm_shellEscaped() -> String {
 
         // If all the characters in the string are in the allow list then no need to escape.
-        guard let pos = utf8.firstIndex(where: { !inShellAllowlist($0) }) else {
+        guard utf8.contains(where: { !inShellAllowlist($0) }) else {
             return self
         }
 
-      #if os(Windows)
-        let quoteCharacter: Character = "\""
-        let escapedQuoteCharacter = "\"\""
-      #else
-        let quoteCharacter: Character = "'"
-        let escapedQuoteCharacter = "'\\''"
-      #endif
-        // If there are no quote characters then we can just wrap the string within the quotes.
-        guard let quotePos = utf8[pos...].firstIndex(of: quoteCharacter.asciiValue!) else {
-            return String(quoteCharacter) + self + String(quoteCharacter)
-        }
-
-        // Otherwise iterate and escape all the single quotes.
-        var newString = String(quoteCharacter) + String(self[..<quotePos])
-
-        for char in self[quotePos...] {
-            if char == quoteCharacter {
-                newString += escapedQuoteCharacter
-            } else {
-                newString += String(char)
+        #if os(Windows)
+            var quoted = "\""
+            var unquoted = self.unicodeScalars
+            while !unquoted.isEmpty {
+                guard let firstNonBackslash = unquoted.firstIndex(where: { $0 != "\\" }) else {
+                    let backslashCount = unquoted.count
+                    quoted.append(String(repeating: "\\", count: backslashCount * 2))
+                    break
+                }
+                let backslashCount = unquoted.distance(
+                    from: unquoted.startIndex, to: firstNonBackslash)
+                if unquoted[firstNonBackslash] == "\"" {
+                    quoted.append(String(repeating: "\\", count: backslashCount * 2 + 1))
+                } else {
+                    quoted.append(String(repeating: "\\", count: backslashCount))
+                }
+                quoted.append(String(unquoted[firstNonBackslash]))
+                unquoted.removeFirst(backslashCount + 1)
             }
-        }
+            quoted.append("\"")
+            return quoted
+        #else
+            let quoteCharacter: Character = "'"
+            let escapedQuoteCharacter = "'\\''"
+            // If there are no quote characters then we can just wrap the string within the quotes.
+            guard let quotePos = utf8.firstIndex(of: quoteCharacter.asciiValue!) else {
+                return String(quoteCharacter) + self + String(quoteCharacter)
+            }
 
-        newString += String(quoteCharacter)
+            // Otherwise iterate and escape all the single quotes.
+            var newString = String(quoteCharacter) + String(self[..<quotePos])
 
-        return newString
+            for char in self[quotePos...] {
+                if char == quoteCharacter {
+                    newString += escapedQuoteCharacter
+                } else {
+                    newString += String(char)
+                }
+            }
+
+            newString += String(quoteCharacter)
+            return newString
+        #endif
     }
 
     /// Shell escapes the current string. This method is mutating version of shellEscaped().

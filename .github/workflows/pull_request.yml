@@ -24,7 +24,7 @@ jobs:
       windows_swift_versions: '["nightly-main"]'
       windows_build_command: 'Invoke-Program swift build'
       enable_android_sdk_build: true
-      android_sdk_build_command: "swift build --build-tests"
+      android_sdk_build_command: "swift build --build-tests --build-system native"
       android_ndk_versions: '["r27d", "r29"]'
       enable_ios_checks: true
       enable_macos_checks: true
