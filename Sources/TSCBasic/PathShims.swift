@@ -37,14 +37,19 @@ public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
                                         DWORD(VOLUME_NAME_DOS)) == dwLength - 1 else {
             throw FileSystemError(.unknownOSError, path)
         }
-        let pathBaseAddress: UnsafePointer<WCHAR>
-        if Array($0.prefix(4)) == Array(#"\\?\"#.utf16) {
-            // When using `VOLUME_NAME_DOS`, the returned path uses `\\?\`.
-            pathBaseAddress = UnsafePointer($0.baseAddress!.advanced(by: 4))
-        } else {
-            pathBaseAddress = UnsafePointer($0.baseAddress!)
+        _ = PathCchStripPrefix($0.baseAddress, $0.count)
+        let resolved = String(decodingCString: $0.baseAddress!, as: UTF16.self)
+
+        // If the input was a drive-letter path (e.g. F:\...) but the resolved
+        // path is UNC (e.g. \\server\share\...), the drive maps to a network
+        // share. Return the original path to preserve the drive-letter form;
+        let pathStr = path.pathString
+        let drivePrefix = pathStr.prefix(2)
+        let isDrivePath = drivePrefix.first?.isLetter == true && drivePrefix.last == ":"
+        if isDrivePath && resolved.hasPrefix("\\\\") {
+            return path
         }
-        return try AbsolutePath(validating: String(decodingCString: pathBaseAddress, as: UTF16.self))
+        return try AbsolutePath(validating: resolved)
     }
 #else
     let pathStr = path.pathString
