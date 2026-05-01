@@ -23,6 +23,19 @@ import Dispatch
 
 import _Concurrency
 
+#if os(Windows)
+// Global lock used to serialize CreateProcess calls across all concurrent
+// Process instances. Inside the lock we briefly mark our pipe WRITE handles
+// inheritable so the specific child we're launching inherits them. Without
+// this serialization, every concurrent CreateProcess in the parent process
+// would inherit every other sibling's pipe handles (because Foundation.Pipe
+// creates handles with bInheritHandle:true and CreateProcess inherits all
+// currently-inheritable handles). The result is that a pipe's read-side
+// EOF only fires once the SLOWEST sibling exits, since every sibling holds
+// a copy of every other's write end open.
+fileprivate let processRunLock = NSLock()
+#endif
+
 /// Process result data which is available after process termination.
 public struct ProcessResult: CustomStringConvertible, Sendable {
 
@@ -570,42 +583,80 @@ public final class Process {
         var stderr: [UInt8] = []
         let stderrLock = Lock()
 
+        // Need these at outer scope so they survive the if-let block; we
+        // close FHs and toggle inherit flags after process.run() below.
+        var stdoutWriteFH: FileHandle? = nil
+        var stderrWriteFH: FileHandle? = nil
+        var stdoutWriteHandle: HANDLE? = nil
+        var stderrWriteHandle: HANDLE? = nil
+
         if outputRedirection.redirectsOutput {
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
+            // Replace Foundation.Pipe (whose handles are inheritable by
+            // default) with a non-inheritable pipe we own. Around
+            // process.run() below, we serialize CreateProcess across all
+            // Process instances and toggle this pipe's WRITE handle to
+            // inheritable only for the duration of the run, so only the
+            // intended child inherits it. Without that, every concurrent
+            // CreateProcess in the parent inherits every other sibling's
+            // pipe write end, and ReadFile EOF only fires once the slowest
+            // sibling exits.
+            func makePipe() -> (readFH: FileHandle, writeFH: FileHandle, writeHandle: HANDLE)? {
+                var hRead: HANDLE? = nil
+                var hWrite: HANDLE? = nil
+                var sa = SECURITY_ATTRIBUTES(
+                    nLength: DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size),
+                    lpSecurityDescriptor: nil,
+                    bInheritHandle: false)
+                guard CreatePipe(&hRead, &hWrite, &sa, 0),
+                      let hRead = hRead, let hWrite = hWrite else {
+                    return nil
+                }
+                let readFD = _open_osfhandle(Int(bitPattern: hRead), Int32(_O_RDONLY))
+                let writeFD = _open_osfhandle(Int(bitPattern: hWrite), Int32(_O_WRONLY))
+                guard readFD >= 0, writeFD >= 0 else {
+                    CloseHandle(hRead); CloseHandle(hWrite); return nil
+                }
+                return (readFH: FileHandle(fileDescriptor: readFD, closeOnDealloc: true),
+                        writeFH: FileHandle(fileDescriptor: writeFD, closeOnDealloc: true),
+                        writeHandle: hWrite)
+            }
+            guard let stdout_p = makePipe(),
+                  let stderr_p = makePipe() else {
+                throw Process.Error.missingExecutableProgram(program: "pipe")
+            }
+
+            process.standardOutput = stdout_p.writeFH
+            process.standardError = stderr_p.writeFH
+            stdoutWriteFH = stdout_p.writeFH
+            stderrWriteFH = stderr_p.writeFH
+            stdoutWriteHandle = stdout_p.writeHandle
+            stderrWriteHandle = stderr_p.writeHandle
 
             group.enter()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
+            stdout_p.readFH.readabilityHandler = { (fh : FileHandle) -> Void in
                 let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if (data.count == 0) {
-                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                    stdout_p.readFH.readabilityHandler = nil
                     group.leave()
                 } else {
                     let contents = data.withUnsafeBytes { Array<UInt8>($0) }
                     self.outputRedirection.outputClosures?.stdoutClosure(contents)
-                    stdoutLock.withLock {
-                        stdout += contents
-                    }
+                    stdoutLock.withLock { stdout += contents }
                 }
             }
 
             group.enter()
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
+            stderr_p.readFH.readabilityHandler = { (fh : FileHandle) -> Void in
                 let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if (data.count == 0) {
-                    stderrPipe.fileHandleForReading.readabilityHandler = nil
+                    stderr_p.readFH.readabilityHandler = nil
                     group.leave()
                 } else {
                     let contents = data.withUnsafeBytes { Array<UInt8>($0) }
                     self.outputRedirection.outputClosures?.stderrClosure(contents)
-                    stderrLock.withLock {
-                        stderr += contents
-                    }
+                    stderrLock.withLock { stderr += contents }
                 }
             }
-
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
         }
 
         // first set state then start reading threads
@@ -622,7 +673,33 @@ public final class Process {
             sync.leave()
         }
 
-        try process.run()
+        // Serialize CreateProcess across all concurrent Process instances
+        // and only flag our WRITE handles inheritable for the duration. This
+        // ensures only this specific child inherits our pipe write ends —
+        // not all of its sibling children — which is required for
+        // readabilityHandler EOF to fire when this child exits, rather than
+        // when the slowest sibling exits.
+        try processRunLock.withLock {
+            if let h = stdoutWriteHandle {
+                SetHandleInformation(h, DWORD(HANDLE_FLAG_INHERIT), DWORD(HANDLE_FLAG_INHERIT))
+            }
+            if let h = stderrWriteHandle {
+                SetHandleInformation(h, DWORD(HANDLE_FLAG_INHERIT), DWORD(HANDLE_FLAG_INHERIT))
+            }
+            defer {
+                if let h = stdoutWriteHandle {
+                    SetHandleInformation(h, DWORD(HANDLE_FLAG_INHERIT), 0)
+                }
+                if let h = stderrWriteHandle {
+                    SetHandleInformation(h, DWORD(HANDLE_FLAG_INHERIT), 0)
+                }
+            }
+            try process.run()
+        }
+        // Close our parent-side copy of the WRITE ends so the child becomes
+        // the sole writer; the read-side EOF will fire when the child exits.
+        try? stdoutWriteFH?.close()
+        try? stderrWriteFH?.close()
         return stdinPipe.fileHandleForWriting
     #elseif (!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
