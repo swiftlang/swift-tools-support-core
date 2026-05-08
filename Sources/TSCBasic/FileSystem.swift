@@ -628,16 +628,46 @@ private struct LocalFileSystem: FileSystem {
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+        // stat the path so we can route to the right reader and produce accurate
+        // errors for directories. If stat itself fails (e.g. a path component is
+        // not a directory, or the path doesn't exist), propagate that error via
+        // the normal NSError mapping so callers get .noEntry / .notDirectory etc.
+        let fileType: FileAttributeType?
         do {
-            let dataContent = try Data(contentsOf: URL(fileURLWithPath: path.pathString))
-            return dataContent.withUnsafeBytes { bytes in
-                ByteString(Array(bytes.bindMemory(to: UInt8.self)))
-            }
+            let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
+            fileType = attrs[.type] as? FileAttributeType
         } catch let error as NSError {
             throw FileSystemError.from(nsError: error, path: path)
         } catch {
-            // Handle any other error types (e.g., Swift errors)
             throw FileSystemError(.unknownOSError, path)
+        }
+
+        if fileType == .typeDirectory {
+            throw FileSystemError(.isDirectory, path)
+        } else if fileType == .typeRegular {
+            // Data(contentsOf:) is used for regular files because it handles
+            // extended-length (\\?\) paths on Windows.
+            do {
+                let dataContent = try Data(contentsOf: URL(fileURLWithPath: path.pathString))
+                return dataContent.withUnsafeBytes { bytes in
+                    ByteString(Array(bytes.bindMemory(to: UInt8.self)))
+                }
+            } catch let error as NSError {
+                throw FileSystemError.from(nsError: error, path: path)
+            } catch {
+                throw FileSystemError(.unknownOSError, path)
+            }
+        } else {
+            // Non-regular files (pipes, character devices, FIFOs) are rejected by
+            // Data(contentsOf:), so fall back to FileHandle which accepts them.
+            guard let handle = FileHandle(forReadingAtPath: path.pathString) else {
+                throw FileSystemError(.noEntry, path)
+            }
+            defer { try? handle.close() }
+            let dataContent = handle.readDataToEndOfFile()
+            return dataContent.withUnsafeBytes { bytes in
+                ByteString(Array(bytes.bindMemory(to: UInt8.self)))
+            }
         }
     }
 
