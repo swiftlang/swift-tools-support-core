@@ -92,7 +92,7 @@ public struct FileSystemError: Error, Sendable {
 
 extension FileSystemError: CustomNSError {
     public var errorUserInfo: [String : Any] {
-        return [NSLocalizedDescriptionKey: self.localizedMessage]
+        return [NSLocalizedDescriptionKey: self.localizedMessage ?? "Could not find '\(String(describing: self.path))'"]
     }
 }
 
