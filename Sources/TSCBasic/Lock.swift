@@ -95,11 +95,11 @@ public final class FileLock {
             let h: HANDLE = lockFile.pathString.withCString(encodedAs: UTF16.self, {
                 CreateFileW(
                     $0,
-                    UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
-                    UInt32(FILE_SHARE_READ) | UInt32(FILE_SHARE_WRITE),
+                    GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
                     nil,
-                    DWORD(OPEN_ALWAYS),
-                    DWORD(FILE_ATTRIBUTE_NORMAL),
+                    OPEN_ALWAYS,
+                    FILE_ATTRIBUTE_NORMAL,
                     nil
                 )
             })
@@ -112,7 +112,7 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        var dwFlags = Int32(0)
+        var dwFlags: DWORD = 0
         switch type {
         case .exclusive: dwFlags |= LOCKFILE_EXCLUSIVE_LOCK
         case .shared: break
@@ -120,7 +120,7 @@ public final class FileLock {
         if !blocking {
             dwFlags |= LOCKFILE_FAIL_IMMEDIATELY
         }
-        if !LockFileEx(handle, DWORD(dwFlags), 0,
+        if !LockFileEx(handle, dwFlags, 0,
                        UInt32.max, UInt32.max, &overlapped) {
             throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
         }

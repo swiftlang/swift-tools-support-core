@@ -118,8 +118,7 @@ public func exec(path: String, args: [String]) throws -> Never {
         }
 
         var eliLimits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-        eliLimits.BasicLimitInformation.LimitFlags =
-        DWORD(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) | DWORD(JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK)
+        eliLimits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
         if !SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &eliLimits,
                                     DWORD(MemoryLayout<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>.size)) {
             throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
@@ -135,7 +134,7 @@ public func exec(path: String, args: [String]) throws -> Never {
             if !CreateProcessW(nil,
                                UnsafeMutablePointer<WCHAR>(mutating: pwszCommandLine),
                                nil, nil, false,
-                               DWORD(CREATE_SUSPENDED) | DWORD(CREATE_NEW_PROCESS_GROUP),
+                               CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP,
                                nil, nil, &siInfo, &piInfo) {
                 throw SystemError.exec(Int32(GetLastError()), path: path, args: args)
             }

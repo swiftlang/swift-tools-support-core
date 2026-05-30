@@ -191,14 +191,13 @@ public final class RDCWatcher {
 
         self.watches = paths.map {
             $0.pathString.withCString(encodedAs: UTF16.self) {
-                let dwDesiredAccess: DWORD = DWORD(FILE_LIST_DIRECTORY)
-                let dwShareMode: DWORD = DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
-                let dwCreationDisposition: DWORD = DWORD(OPEN_EXISTING)
-                let dwFlags: DWORD = DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED)
-
                 let handle: HANDLE =
-                        CreateFileW($0, dwDesiredAccess, dwShareMode, nil,
-                                    dwCreationDisposition, dwFlags, nil)
+                    CreateFileW($0, FILE_LIST_DIRECTORY,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                nil,
+                                OPEN_EXSTING,
+                                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
+                                nil)
                 assert(!(handle == INVALID_HANDLE_VALUE))
 
                 let dwSize: DWORD = GetFinalPathNameByHandleW(handle, nil, 0, 0)
@@ -220,11 +219,11 @@ public final class RDCWatcher {
                 guard let watch = watch else { return }
 
                 while true {
-                    let dwNotifyFilter: DWORD = DWORD(FILE_NOTIFY_CHANGE_FILE_NAME)
-                                              | DWORD(FILE_NOTIFY_CHANGE_DIR_NAME)
-                                              | DWORD(FILE_NOTIFY_CHANGE_SIZE)
-                                              | DWORD(FILE_NOTIFY_CHANGE_LAST_WRITE)
-                                              | DWORD(FILE_NOTIFY_CHANGE_CREATION)
+                    let dwNotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME
+                                       | FILE_NOTIFY_CHANGE_DIR_NAME
+                                       | FILE_NOTIFY_CHANGE_SIZE
+                                       | FILE_NOTIFY_CHANGE_LAST_WRITE
+                                       | FILE_NOTIFY_CHANGE_CREATION
                     var dwBytesReturned: DWORD = 0
                     if !ReadDirectoryChangesW(watch.hDirectory, &watch.buffer,
                                               DWORD(watch.buffer.count * MemoryLayout<DWORD>.stride),
@@ -237,7 +236,7 @@ public final class RDCWatcher {
                     switch WaitForMultipleObjects(2, &handles.0, false, INFINITE) {
                         case WAIT_OBJECT_0 + 1:
                             break
-                        case DWORD(WAIT_TIMEOUT):  // Spurious Wakeup?
+                        case WAIT_TIMEOUT:  // Spurious Wakeup?
                             continue
                         case WAIT_FAILED:   // Failure
                             fallthrough
