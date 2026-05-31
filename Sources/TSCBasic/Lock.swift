@@ -112,13 +112,13 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        var dwFlags = Int32(0)
+        var dwFlags: DWORD = 0
         switch type {
-        case .exclusive: dwFlags |= LOCKFILE_EXCLUSIVE_LOCK
+        case .exclusive: dwFlags |= DWORD(LOCKFILE_EXCLUSIVE_LOCK)
         case .shared: break
         }
         if !blocking {
-            dwFlags |= LOCKFILE_FAIL_IMMEDIATELY
+            dwFlags |= DWORD(LOCKFILE_FAIL_IMMEDIATELY)
         }
         if !LockFileEx(handle, DWORD(dwFlags), 0,
                        UInt32.max, UInt32.max, &overlapped) {
