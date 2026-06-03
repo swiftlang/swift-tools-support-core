@@ -99,7 +99,7 @@ public final class TerminalController {
         guard hOut != INVALID_HANDLE_VALUE else { return nil }
         guard GetConsoleMode(hOut, &dwMode) else { return nil }
 
-        dwMode |= DWORD(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+        dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING
         guard SetConsoleMode(hOut, dwMode) else { return nil }
 #endif
         self.stream = stream
