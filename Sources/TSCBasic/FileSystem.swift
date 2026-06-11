@@ -92,7 +92,7 @@ public struct FileSystemError: Error, Sendable {
 
 extension FileSystemError: CustomNSError {
     public var errorUserInfo: [String : Any] {
-        return [NSLocalizedDescriptionKey: self.localizedMessage]
+        return [NSLocalizedDescriptionKey: localizedMessage ?? "\(self)"]
     }
 }
 
