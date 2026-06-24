@@ -88,7 +88,7 @@ public final class InterruptHandler {
         // Create pipe.
         let rv = TSCLibc.pipe(&Self.signalWatchingPipe)
         guard rv == 0 else {
-            throw SystemError.pipe(rv)
+            throw SystemError.pipe(errno)
         }
       #endif
 
