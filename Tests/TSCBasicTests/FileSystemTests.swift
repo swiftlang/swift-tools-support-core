@@ -349,11 +349,7 @@ class FileSystemTests: XCTestCase {
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
             // Check read/write of a directory.
-            #if os(Windows)
-            var expectedError = FileSystemError(.invalidAccess, filePath.parentDirectory)
-            #else
             var expectedError = FileSystemError(.isDirectory, filePath.parentDirectory)
-            #endif
             XCTAssertThrows(expectedError) {
                 _ = try fs.readFileContents(filePath.parentDirectory)
             }
@@ -376,11 +372,7 @@ class FileSystemTests: XCTestCase {
             #else
             let root = AbsolutePath("/")
             #endif
-            #if os(Windows)
-            expectedError = FileSystemError(.invalidAccess, root)
-            #else
             expectedError = FileSystemError(.isDirectory, root)
-            #endif
             XCTAssertThrows(expectedError) {
                 _ = try fs.readFileContents(root)
             }
@@ -1030,6 +1022,39 @@ class FileSystemTests: XCTestCase {
         try XCTAssertEqual(fs.readFileContents(fileA), "100")
         try XCTAssertEqual(fs.readFileContents(fileB), "100")
     }
+
+#if !os(Windows)
+    func testLocalReadNonRegularFileDevNull() throws {
+        let fs = TSCBasic.localFileSystem
+        let devNull = try AbsolutePath(validating: "/dev/null")
+        let contents = try fs.readFileContents(devNull)
+        XCTAssertEqual(contents, ByteString([]))
+    }
+
+    func testLocalReadFIFO() throws {
+        let fs = TSCBasic.localFileSystem
+        try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { tmpDir in
+            let fifoPath = tmpDir.appending(component: "test.fifo")
+            guard mkfifo(fifoPath.pathString, 0o644) == 0 else {
+                XCTFail("mkfifo failed: \(String(cString: strerror(errno)))")
+                return
+            }
+
+            let writeContent = "hello from fifo"
+            // Open and write in a background thread; the open blocks until the
+            // read end is also opened, so the thread must start before the read.
+            let writer = Thread {
+                guard let handle = FileHandle(forWritingAtPath: fifoPath.pathString) else { return }
+                handle.write(writeContent.data(using: .utf8)!)
+                try? handle.close()
+            }
+            writer.start()
+
+            let contents = try fs.readFileContents(fifoPath)
+            XCTAssertEqual(contents, ByteString(writeContent))
+        }
+    }
+#endif
 }
 
 /// Helper method to test file tree removal method on the given file system.
