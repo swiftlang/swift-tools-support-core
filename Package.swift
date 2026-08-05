@@ -114,7 +114,7 @@ let package = Package(
         .testTarget(
             name: "TSCUtilityTests",
             dependencies: ["TSCUtility", "TSCTestSupport"],
-            exclude: ["pkgconfigInputs", "Inputs"]),
+            exclude: ["Inputs"]),
     ]
 )
 

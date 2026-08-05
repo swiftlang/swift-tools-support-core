@@ -10,13 +10,10 @@ add_library(TSCBasic
   Await.swift
   ByteString.swift
   CStringArray.swift
-  CacheableSequence.swift
   Closable.swift
-  CodableResult.swift
   CollectionAlgorithms.swift
   CollectionExtensions.swift
   Condition.swift
-  DeltaAlgorithm.swift
   DiagnosticsEngine.swift
   DictionaryExtensions.swift
   DictionaryLiteralExtensions.swift
@@ -28,10 +25,7 @@ add_library(TSCBasic
   JSON.swift
   JSONMapper.swift
   KeyedPair.swift
-  LazyCache.swift
   Lock.swift
-  OSLog.swift
-  ObjectIdentifierProtocol.swift
   OrderedDictionary.swift
   OrderedSet.swift
   WritableByteStream.swift
@@ -48,7 +42,6 @@ add_library(TSCBasic
   TemporaryFile.swift
   TerminalController.swift
   Thread.swift
-  Tuple.swift
   misc.swift)
 
 target_compile_options(TSCBasic PUBLIC

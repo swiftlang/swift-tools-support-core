@@ -7,34 +7,22 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(TSCUtility
-  Archiver.swift
-  ArgumentParser.swift
-  ArgumentParserShellCompletion.swift
   Bits.swift
   Bitstream.swift
   BitstreamReader.swift
-  BitstreamWriter.swift
-  BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
   FSWatch.swift
-  FloatingPointExtensions.swift
   Git.swift
   IndexStore.swift
-  InterruptHandler.swift
   JSONMessageStreamingParser.swift
   misc.swift
-  Netrc.swift
-  OSLog.swift
-  PkgConfig.swift
   Platform.swift
-  PolymorphicCodable.swift
   ProgressAnimation.swift
   SerializedDiagnostics.swift
   SimplePersistence.swift
   StringExtensions.swift
   StringMangling.swift
-  Triple.swift
   URL.swift
   Verbosity.swift
   Version.swift
