@@ -28,7 +28,18 @@ public struct Version: Sendable {
     /// The build metadata.
     public let buildMetadataIdentifiers: [String]
 
-    /// Creates a version object.
+    /// Creates a version with the provided components.
+    ///
+    /// - Parameters:
+    ///   - major: The major version number.
+    ///   - minor: The minor version number.
+    ///   - patch: The patch version number.
+    ///   - prereleaseIdentifiers: The pre-release identifier.
+    ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///
+    /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
+    /// - Precondition: `prereleaseIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetaDataIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,
@@ -37,6 +48,18 @@ public struct Version: Sendable {
         buildMetadataIdentifiers: [String] = []
     ) {
         precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
+        precondition(
+            prereleaseIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Pre-release identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
+        precondition(
+            buildMetadataIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Build metadata identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
         self.major = major
         self.minor = minor
         self.patch = patch
