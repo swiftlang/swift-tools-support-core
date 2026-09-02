@@ -26,7 +26,6 @@ add_library(TSCUtility
   URL.swift
   Verbosity.swift
   Version.swift
-  Versioning.swift
   dlopen.swift
   misc.swift
 )
