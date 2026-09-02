@@ -42,6 +42,7 @@ add_library(TSCBasic
   TemporaryFile.swift
   TerminalController.swift
   Thread.swift
+  "WinSDK+Overlay.swift"
   misc.swift)
 
 target_compile_options(TSCBasic PUBLIC

@@ -27,9 +27,9 @@ add_library(TSCUtility
   Verbosity.swift
   Version.swift
   Versioning.swift
+  WinSDK+Overlay.swift
   dlopen.swift
-  misc.swift
-)
+  misc.swift)
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)
 target_link_libraries(TSCUtility PRIVATE
