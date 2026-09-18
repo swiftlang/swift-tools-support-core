@@ -10,7 +10,7 @@
 
 import TSCBasic
 
-/// Represents an object which can be converted into a diagnostic data.
+/// Represents an object which can be converted into diagnostic data.
 // FIXME: Kill this
 public protocol DiagnosticDataConvertible {
 
@@ -215,7 +215,7 @@ public enum PackageLocation {
         }
     }
 
-    /// Represents location a remote package with no checkout on disk.
+    /// Represents location of a remote package with no checkout on disk.
     public struct Remote: DiagnosticLocation {
 
         /// The URL of the package.
@@ -235,7 +235,7 @@ public enum PackageLocation {
     }
 }
 
-/// An Swift error enum that can be used as a stub to early exit from a method.
+/// A Swift error enum that can be used as a stub to early exit from a method.
 ///
 /// It is not expected for this enum to contain any payload or information about the
 /// error. The actual errors and warnings are supposed to be added using the Diagnostics
