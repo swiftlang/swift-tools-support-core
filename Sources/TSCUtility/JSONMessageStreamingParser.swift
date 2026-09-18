@@ -23,12 +23,12 @@ public protocol JSONMessageStreamingParserDelegate: AnyObject {
     /// Called when parsing raw text instead of message size.
     func jsonMessageStreamingParser(_ parser: JSONMessageStreamingParser<Self>, didParseRawText text: String)
 
-    /// Called on an un-expected parsing error. No more events will be received after that.
+    /// Called on an unexpected parsing error. No more events will be received after that.
     func jsonMessageStreamingParser(_ parser: JSONMessageStreamingParser<Self>, didFailWith error: Error)
 }
 
-/// Streaming parser for JSON messages seperated by integers to represent size of message. Used by the Swift compiler
-/// and XCBuild to share progess information: https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst.
+/// Streaming parser for JSON messages separated by integers to represent size of message. Used by the Swift compiler
+/// and XCBuild to share progress information: https://github.com/apple/swift/blob/master/docs/DriverParseableOutput.rst.
 public final class JSONMessageStreamingParser<Delegate: JSONMessageStreamingParserDelegate> {
 
     /// The object representing the JSON message being parsed.
