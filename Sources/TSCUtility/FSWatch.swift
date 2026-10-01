@@ -192,9 +192,9 @@ public final class RDCWatcher {
         self.watches = paths.map {
             $0.pathString.withCString(encodedAs: UTF16.self) {
                 let dwDesiredAccess: DWORD = DWORD(FILE_LIST_DIRECTORY)
-                let dwShareMode: DWORD = DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+                let dwShareMode: DWORD = DWORD(FILE_SHARE_READ) | DWORD(FILE_SHARE_WRITE) | DWORD(FILE_SHARE_DELETE)
                 let dwCreationDisposition: DWORD = DWORD(OPEN_EXISTING)
-                let dwFlags: DWORD = DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED)
+                let dwFlags: DWORD = DWORD(FILE_FLAG_BACKUP_SEMANTICS) | DWORD(FILE_FLAG_OVERLAPPED)
 
                 let handle: HANDLE =
                         CreateFileW($0, dwDesiredAccess, dwShareMode, nil,
