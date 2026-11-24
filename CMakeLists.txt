@@ -1,9 +1,5 @@
 
-if(POLICY CMP0091)
-  cmake_policy(SET CMP0091 NEW)
-endif()
-
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.29)
 
 project(SwiftTSC LANGUAGES C Swift)
 
