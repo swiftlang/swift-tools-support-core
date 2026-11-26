@@ -93,15 +93,9 @@ public final class FileLock {
       #if os(Windows)
         if handle == nil {
             let h: HANDLE = lockFile.pathString.withCString(encodedAs: UTF16.self, {
-                CreateFileW(
-                    $0,
-                    UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
-                    UInt32(FILE_SHARE_READ) | UInt32(FILE_SHARE_WRITE),
-                    nil,
-                    DWORD(OPEN_ALWAYS),
-                    DWORD(FILE_ATTRIBUTE_NORMAL),
-                    nil
-                )
+                CreateFileW($0, GENERIC_READ | GENERIC_WRITE,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, nil,
+                            OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nil)
             })
             if h == INVALID_HANDLE_VALUE {
                 throw FileSystemError(errno: Int32(GetLastError()), lockFile)
@@ -114,14 +108,13 @@ public final class FileLock {
         overlapped.hEvent = nil
         var dwFlags: DWORD = 0
         switch type {
-        case .exclusive: dwFlags |= DWORD(LOCKFILE_EXCLUSIVE_LOCK)
+        case .exclusive: dwFlags |= LOCKFILE_EXCLUSIVE_LOCK
         case .shared: break
         }
         if !blocking {
-            dwFlags |= DWORD(LOCKFILE_FAIL_IMMEDIATELY)
+            dwFlags |= LOCKFILE_FAIL_IMMEDIATELY
         }
-        if !LockFileEx(handle, DWORD(dwFlags), 0,
-                       UInt32.max, UInt32.max, &overlapped) {
+        if !LockFileEx(handle, dwFlags, 0, UInt32.max, UInt32.max, &overlapped) {
             throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
         }
       #else
